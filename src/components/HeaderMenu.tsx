@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { Settings, Music, MonitorPlay, Sun, Moon, Palette, Cast, X, Clock, ListMusic, ZoomIn, Plus, Minus, Sparkles, User, LogIn, LogOut, SlidersHorizontal, Download, EyeOff, Eye, ChevronDown, Lock, Droplet } from "lucide-react";
+import { Settings, Music, MonitorPlay, Sun, Moon, Palette, Cast, X, Clock, ListMusic, ZoomIn, Plus, Minus, Sparkles, User, LogIn, LogOut, SlidersHorizontal, Download, EyeOff, Eye, ChevronDown, Lock } from "lucide-react";
 
 import AppHeartbeatStatus from "@/components/AppHeartbeatStatus";
 import LockScreenSetupGuide from "@/components/LockScreenSetupGuide";
-import { readAmbientEnabled, setAmbientEnabled, AMBIENT_EVENT } from "@/hooks/useAmbientTheme";
 
 type HomeMode = "hub" | "music" | "video";
 
