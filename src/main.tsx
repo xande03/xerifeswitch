@@ -27,6 +27,9 @@ document.documentElement.style.colorScheme = initialLight ? "light" : "dark";
 const savedColor = safeStorageGet("demus-color") || "red";
 document.documentElement.classList.add(`theme-${savedColor}`);
 
+// Ambient background feature removed — purge any legacy preference so it can't resurface.
+try { window.localStorage.removeItem("demus-ambient-bg-enabled"); } catch {}
+
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <App />
