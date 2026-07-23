@@ -2209,7 +2209,7 @@ const Index = () => {
                       </h2>
                     </div>
                     <div className="flex gap-4 sm:gap-6 overflow-x-auto px-3 sm:px-4 pb-4 snap-x snap-mandatory scrollbar-hide">
-                      {forYouSongs.map((song) => (
+                      {recommendedForYou.map((song) => (
                         <div key={song.id} className="flex-shrink-0 w-[140px] sm:w-[180px] md:w-[220px] lg:w-[260px] group snap-start">
                           <button onClick={() => handleSelect(song)} className="w-full text-left">
                             <div className="w-full aspect-square rounded-[32px] overflow-hidden mb-3 relative shadow-2xl-glow">
