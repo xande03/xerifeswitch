@@ -1467,6 +1467,18 @@ const Index = () => {
     ? personalizedDestaques.slice(0, 15)
     : (suggestionsFallback.length > 0 ? suggestionsFallback.slice(0, 15) : songs.slice(0, 6));
 
+  // "Recomendados para você" = feed de DESCOBERTA — múltiplos gêneros/estilos,
+  // independente do histórico. Também exclui o Top 10 e o que já toca em Destaques
+  // para evitar repetição visual na mesma tela.
+  const destaquesKeys = new Set(
+    forYouSongs.map(s => s.youtubeId || s.id).filter(Boolean) as string[]
+  );
+  const excludeForDiscover = new Set<string>([...topChartsKeys, ...destaquesKeys]);
+  const { songs: discoverSongs } = useDiscoverRecommendations(excludeForDiscover);
+  const recommendedForYou = discoverSongs.length > 0
+    ? discoverSongs.slice(0, 20)
+    : forYouSongs;
+
   const greetingHour = new Date().getHours();
   const greeting = greetingHour < 12 ? "Bom dia" : greetingHour < 18 ? "Boa tarde" : "Boa noite";
 
