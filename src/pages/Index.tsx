@@ -20,6 +20,7 @@ import { useMediaSession } from "@/hooks/useMediaSession";
 import { useTheme } from "@/hooks/useTheme";
 import { fetchRelatedQueue, popNextFromQueue, clearSmartQueue, shuffleSmartQueue, hasSmartQueue } from "@/lib/smartQueue";
 import { fetchRelatedVideoQueue, popNextVideoFromQueue } from "@/lib/smartVideoQueue";
+import { fetchArtistAlbumQueue, fetchHistoryBasedQueue } from "@/lib/artistAlbumQueue";
 
 import QueueDrawer from "@/components/QueueDrawer";
 import Logo from "@/components/Logo";
