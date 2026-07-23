@@ -72,6 +72,17 @@ const Logo = ({ className, size = 40, showText = false, style, tooltipLabel = "X
       )}
     </div>
   );
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex">{content}</span>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{tooltipLabel}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 };
 
 export default Logo;
