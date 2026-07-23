@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { Settings, Music, MonitorPlay, Sun, Moon, Palette, Cast, X, Clock, ListMusic, ZoomIn, Plus, Minus, Sparkles, User, LogIn, LogOut, SlidersHorizontal, Download, EyeOff, Eye, ChevronDown, Lock, Droplet } from "lucide-react";
+import { Settings, Music, MonitorPlay, Sun, Moon, Palette, Cast, X, Clock, ListMusic, ZoomIn, Plus, Minus, Sparkles, User, LogIn, LogOut, SlidersHorizontal, Download, EyeOff, Eye, ChevronDown, Lock } from "lucide-react";
 
 import AppHeartbeatStatus from "@/components/AppHeartbeatStatus";
 import LockScreenSetupGuide from "@/components/LockScreenSetupGuide";
-import { readAmbientEnabled, setAmbientEnabled, AMBIENT_EVENT } from "@/hooks/useAmbientTheme";
 
 type HomeMode = "hub" | "music" | "video";
 
@@ -68,13 +67,8 @@ const HeaderMenu = ({
   const [showServerStatus, setShowServerStatus] = useState(false);
   const [showLockGuide, setShowLockGuide] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(() => localStorage.getItem('demus-reduced-motion') === 'true');
-  const [ambientBg, setAmbientBgState] = useState(() => readAmbientEnabled());
 
-  useEffect(() => {
-    const onEv = (e: Event) => setAmbientBgState(!!(e as CustomEvent).detail);
-    window.addEventListener(AMBIENT_EVENT, onEv as EventListener);
-    return () => window.removeEventListener(AMBIENT_EVENT, onEv as EventListener);
-  }, []);
+
 
   const menuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
@@ -161,19 +155,8 @@ const HeaderMenu = ({
               </div>
             </button>
 
-            <button
-              onClick={() => setAmbientEnabled(!ambientBg)}
-              className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-secondary transition-colors"
-              title="Usa a cor da capa do álbum como fundo do player"
-            >
-              <div className="flex items-center gap-3">
-                <Droplet size={16} className={ambientBg ? "text-primary" : "text-muted-foreground"} />
-                <span>Fundo Ambiente</span>
-              </div>
-              <div className={`w-8 h-4 rounded-full transition-colors relative ${ambientBg ? 'bg-primary' : 'bg-secondary'}`}>
-                <div className={`absolute top-1 w-2 h-2 rounded-full bg-white transition-all ${ambientBg ? 'right-1' : 'left-1'}`} />
-              </div>
-            </button>
+
+
 
             <FullscreenAutoHidePref />
           </div>
