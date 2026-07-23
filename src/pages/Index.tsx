@@ -1496,6 +1496,7 @@ const Index = () => {
           active={activeTab}
           onChange={handleNavChange}
           homeMode={homeMode}
+          podcastMode={podcastMode}
           isDark={isDark}
           onToggleTheme={toggleTheme}
           colorTheme={colorTheme}
