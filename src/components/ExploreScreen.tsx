@@ -14,6 +14,7 @@ import VideoCategorySelector, { VIDEO_CATEGORIES, type VideoCategory } from "./V
 import { useAutoRefreshChannel } from "@/hooks/useAutoRefreshChannel";
 import NewContentBadge from "./NewContentBadge";
 import { useToast } from "@/hooks/use-toast";
+import { extractYouTubeVideoId, fetchVideoByUrl } from "@/lib/youtubeUrl";
 
 interface ExploreScreenProps {
   onPlayVideo: (video: VideoResult) => void;
