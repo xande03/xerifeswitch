@@ -20,6 +20,7 @@ import { useMediaSession } from "@/hooks/useMediaSession";
 import { useTheme } from "@/hooks/useTheme";
 import { fetchRelatedQueue, popNextFromQueue, clearSmartQueue, shuffleSmartQueue, hasSmartQueue } from "@/lib/smartQueue";
 import { fetchRelatedVideoQueue, popNextVideoFromQueue } from "@/lib/smartVideoQueue";
+import { fetchArtistAlbumQueue, fetchHistoryBasedQueue } from "@/lib/artistAlbumQueue";
 
 import QueueDrawer from "@/components/QueueDrawer";
 import Logo from "@/components/Logo";
@@ -1045,6 +1046,38 @@ const Index = () => {
         handleSelect(next);
         return;
       }
+    } else if (playerMode === "video" && homeMode === "music") {
+      // Faixa musical exibida em modo vídeo: comportamento especial pedido pelo usuário.
+      //  - Shuffle OFF → segue a ordem do álbum/artista.
+      //  - Shuffle ON  → próxima referente ao histórico de escuta.
+      if (isShuffled) {
+        const historyQueue = await fetchHistoryBasedQueue(currentSong);
+        if (historyQueue.length > 0) {
+          handleSelect(historyQueue[0]);
+          return;
+        }
+      } else {
+        const albumList = await fetchArtistAlbumQueue(currentSong);
+        if (albumList.length > 0) {
+          const idx = albumList.findIndex((s) => s.youtubeId === currentSong.youtubeId);
+          const nextTrack = idx >= 0 && idx < albumList.length - 1
+            ? albumList[idx + 1]
+            : albumList.find((s) => s.youtubeId !== currentSong.youtubeId);
+          if (nextTrack) {
+            setAlbumQueue(albumList);
+            handleSelect(nextTrack);
+            return;
+          }
+        }
+      }
+      // Fallback para a smart queue padrão de música se nada acima resolveu.
+      const next = popNextFromQueue();
+      if (next) { handleSelect(next); return; }
+      const queue = await fetchRelatedQueue(currentSong);
+      if (queue.length > 0) {
+        const nextSong = popNextFromQueue();
+        if (nextSong) { handleSelect(nextSong); return; }
+      }
     } else if (homeMode === "music") {
       // Try smart queue first
       const next = popNextFromQueue();
@@ -1066,7 +1099,7 @@ const Index = () => {
     const sorted = sortByVotes(songs);
     const idx = sorted.findIndex((s) => s.id === currentSong.id);
     handleSelect(sorted[(idx + 1) % sorted.length]);
-  }, [currentSong, songs, handleSelect, homeMode, albumQueue]);
+  }, [currentSong, songs, handleSelect, homeMode, albumQueue, playerMode, isShuffled]);
 
   const handlePrev = useCallback(() => {
     // Double-click (within 500ms) => go to previous track.
