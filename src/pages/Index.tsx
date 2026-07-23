@@ -125,6 +125,11 @@ const Index = () => {
         setActiveTab("libraryhub");
         return;
       }
+      if (tab === "history") {
+        setActiveTab("home");
+        window.dispatchEvent(new CustomEvent("xerife:podcast-nav", { detail: { target: "history" } }));
+        return;
+      }
     }
     if (tab === "home" && activeTab === "home") {
       setChannelView(null);
