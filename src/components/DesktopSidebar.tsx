@@ -68,6 +68,14 @@ const videoTabs: { id: Tab; icon: typeof Home; label: string }[] = [
   { id: "playlists", icon: ListMusic, label: "Playlists" },
 ];
 
+const podcastTabs: { id: Tab; icon: typeof Home; label: string }[] = [
+  { id: "home", icon: Home, label: "Início" },
+  { id: "search", icon: Compass, label: "Explorar" },
+  { id: "library", icon: Heart, label: "Favoritos" },
+  { id: "libraryhub", icon: Library, label: "Biblioteca" },
+  { id: "history", icon: Clock, label: "Histórico" },
+];
+
 
 /**
  * Pílula individual de módulo com estados visuais consistentes
