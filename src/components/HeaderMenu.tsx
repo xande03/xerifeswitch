@@ -161,19 +161,8 @@ const HeaderMenu = ({
               </div>
             </button>
 
-            <button
-              onClick={() => setAmbientEnabled(!ambientBg)}
-              className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-secondary transition-colors"
-              title="Usa a cor da capa do álbum como fundo do player"
-            >
-              <div className="flex items-center gap-3">
-                <Droplet size={16} className={ambientBg ? "text-primary" : "text-muted-foreground"} />
-                <span>Fundo Ambiente</span>
-              </div>
-              <div className={`w-8 h-4 rounded-full transition-colors relative ${ambientBg ? 'bg-primary' : 'bg-secondary'}`}>
-                <div className={`absolute top-1 w-2 h-2 rounded-full bg-white transition-all ${ambientBg ? 'right-1' : 'left-1'}`} />
-              </div>
-            </button>
+
+
 
             <FullscreenAutoHidePref />
           </div>
