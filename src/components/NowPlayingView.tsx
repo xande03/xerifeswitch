@@ -343,12 +343,32 @@ const NowPlayingView = ({
   useEffect(() => { setSyncDisabled(false); }, [song.id]);
   const isEffectivelySynced = !syncDisabled && !!lyricsResult && (lyricsResult.synced || !!virtualSyncTimes);
 
+  // Smoothed time: interpola entre updates do player (que chegam ~a cada 250ms)
+  // usando requestAnimationFrame para reforçar a sincronia da letra.
+  const [smoothTime, setSmoothTime] = useState(currentTime);
+  const smoothBaseRef = useRef({ base: currentTime, at: performance.now() });
+  useEffect(() => {
+    smoothBaseRef.current = { base: currentTime, at: performance.now() };
+    setSmoothTime(currentTime);
+  }, [currentTime, song.id]);
+  useEffect(() => {
+    if (!isPlaying || mode !== "lyrics") return;
+    let raf = 0;
+    const tick = () => {
+      const { base, at } = smoothBaseRef.current;
+      setSmoothTime(base + (performance.now() - at) / 1000);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [isPlaying, mode, song.id]);
+
   // Find active line index (binary search) — usa timestamps reais ou virtuais.
   const activeLineIndex = useMemo(() => {
     if (!lyricsResult) return -1;
     const lines = lyricsResult.lines;
     if (lines.length === 0) return -1;
-    const t = currentTime + 0.15 + lyricsOffset;
+    const t = smoothTime + 0.15 + lyricsOffset;
     const times = lyricsResult.synced
       ? lines.map((l) => l.time)
       : virtualSyncTimes;
@@ -360,7 +380,7 @@ const NowPlayingView = ({
       else hi = mid - 1;
     }
     return idx;
-  }, [lyricsResult, currentTime, lyricsOffset, virtualSyncTimes]);
+  }, [lyricsResult, smoothTime, lyricsOffset, virtualSyncTimes]);
 
 
 
