@@ -68,13 +68,8 @@ const HeaderMenu = ({
   const [showServerStatus, setShowServerStatus] = useState(false);
   const [showLockGuide, setShowLockGuide] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(() => localStorage.getItem('demus-reduced-motion') === 'true');
-  const [ambientBg, setAmbientBgState] = useState(() => readAmbientEnabled());
 
-  useEffect(() => {
-    const onEv = (e: Event) => setAmbientBgState(!!(e as CustomEvent).detail);
-    window.addEventListener(AMBIENT_EVENT, onEv as EventListener);
-    return () => window.removeEventListener(AMBIENT_EVENT, onEv as EventListener);
-  }, []);
+
 
   const menuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
