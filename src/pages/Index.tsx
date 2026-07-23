@@ -1829,17 +1829,9 @@ const Index = () => {
           }}
         >
           <div className="flex items-center gap-2.5 lg:hidden shrink-0">
-            <span
-              className="font-display font-black italic tracking-tight uppercase whitespace-nowrap text-lg sm:text-xl"
-              style={{
-                color: 'hsl(200 95% 68%)',
-                textShadow: '0 0 14px hsl(200 95% 68% / 0.4)',
-                letterSpacing: '0.05em',
-              }}
-            >
-              XERIFE
-            </span>
+            <Logo size={36} />
           </div>
+
 
 
           <div className="hidden lg:flex items-center gap-3">
