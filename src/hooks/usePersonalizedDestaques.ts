@@ -148,16 +148,20 @@ export function usePersonalizedDestaques(excludeIds: Set<string>): {
 
     if (fetchingRef.current) return;
     fetchingRef.current = true;
+
+    let cancelled = false;
     setIsLoading(true);
 
     (async () => {
       try {
         const results = await Promise.all(
-          seeds.map(q => searchYouTubeMusic(q, "songs").catch(() => [] as Song[]))
+          seeds.map(q =>
+            searchYouTubeMusic(q, "songs").catch(() => [] as Song[])
+          )
         );
+        if (cancelled) return;
         const merged: Song[] = [];
         const seen = new Set<string>();
-        // Round-robin interleave so each seed gets fair representation.
         const maxLen = Math.max(...results.map(r => r.length), 0);
         for (let i = 0; i < maxLen; i++) {
           for (const list of results) {
@@ -171,17 +175,26 @@ export function usePersonalizedDestaques(excludeIds: Set<string>): {
           }
           if (merged.length >= 40) break;
         }
+        if (cancelled) return;
         if (merged.length > 0) {
           writeCache({ songs: merged, ts: Date.now(), seedSig: sig });
           lastSigRef.current = sig;
           setSongs(merged);
         }
+      } catch {
+        // swallow — never propagate as unhandled rejection
       } finally {
         fetchingRef.current = false;
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     })();
+
+    return () => {
+      cancelled = true;
+      fetchingRef.current = false;
+    };
   }, [tick]);
+
 
   const filtered = songs.filter(s => {
     const k = s.youtubeId || s.id;
