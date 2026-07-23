@@ -180,6 +180,37 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
 
   const doSearch = async (q: string) => {
     if (q.length < 2) return;
+
+    // Se o usuário colou uma URL do YouTube, resolve o vídeo direto e toca.
+    const videoId = extractYouTubeVideoId(q);
+    if (videoId) {
+      setLoading(true);
+      setShowSuggestions(false);
+      try {
+        const video = await fetchVideoByUrl(q);
+        if (video) {
+          setResults([video]);
+          setContinuation(undefined);
+          onPlayVideo(video);
+          toast({
+            title: "Vídeo encontrado!",
+            description: video.title,
+          });
+          return;
+        }
+      } catch (error) {
+        console.error("Erro ao resolver URL do YouTube:", error);
+        toast({
+          title: "Não foi possível abrir a URL",
+          description: "Verifique o link e tente novamente.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     setLoading(true);
     setShowSuggestions(false);
     
