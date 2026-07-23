@@ -322,6 +322,11 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setShowSuggestions(false);
+    // URLs do YouTube ignoram categoria e vão direto para o resolver.
+    if (extractYouTubeVideoId(query)) {
+      doSearch(query);
+      return;
+    }
     const cat = VIDEO_CATEGORIES.find(c => c.id === activeCategory);
     const combined = cat?.query && query.length >= 2 ? `${query} ${cat.query}` : query;
     doSearch(combined || query);
