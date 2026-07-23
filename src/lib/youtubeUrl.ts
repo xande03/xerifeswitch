@@ -13,30 +13,71 @@ import { hdThumbnail } from "@/lib/utils";
  */
 export function extractYouTubeVideoId(input: string): string | null {
   if (!input) return null;
-  const trimmed = input.trim();
+  let trimmed = input.trim();
+  // Remove wrapping quotes/brackets that users sometimes paste
+  trimmed = trimmed.replace(/^[<"'\[(]+|[>"'\])]+$/g, "").trim();
+  if (!trimmed) return null;
   // Raw ID
   if (/^[A-Za-z0-9_-]{11}$/.test(trimmed)) return trimmed;
   // Must contain youtu to be considered a URL
   if (!/youtu\.?be/i.test(trimmed)) return null;
-  try {
-    const url = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
-    const host = url.hostname.replace(/^www\./, "");
-    if (host === "youtu.be") {
-      const id = url.pathname.slice(1).split("/")[0];
-      return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
-    }
-    if (host.endsWith("youtube.com")) {
-      const v = url.searchParams.get("v");
-      if (v && /^[A-Za-z0-9_-]{11}$/.test(v)) return v;
-      const parts = url.pathname.split("/").filter(Boolean);
-      const idx = parts.findIndex((p) => ["shorts", "embed", "v", "live"].includes(p));
-      if (idx >= 0 && parts[idx + 1] && /^[A-Za-z0-9_-]{11}$/.test(parts[idx + 1])) {
-        return parts[idx + 1];
+
+  const ID_RE = /^[A-Za-z0-9_-]{11}$/;
+
+  const tryParse = (raw: string): string | null => {
+    try {
+      const url = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
+      const host = url.hostname.replace(/^www\./, "").replace(/^m\./, "");
+
+      // Handle attribution_link?u=/watch?v=ID
+      if (url.pathname === "/attribution_link") {
+        const u = url.searchParams.get("u");
+        if (u) {
+          try {
+            return extractYouTubeVideoId(`https://www.youtube.com${decodeURIComponent(u)}`);
+          } catch { /* ignore */ }
+        }
       }
+
+      if (host === "youtu.be") {
+        const id = url.pathname.slice(1).split("/")[0];
+        if (ID_RE.test(id)) return id;
+      }
+
+      if (host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com")) {
+        // ?v=, ?vi=
+        const v = url.searchParams.get("v") || url.searchParams.get("vi");
+        if (v && ID_RE.test(v)) return v;
+
+        // Path-based: /shorts/ID, /embed/ID, /v/ID, /live/ID, /e/ID, /clip/ID
+        const parts = url.pathname.split("/").filter(Boolean);
+        const idx = parts.findIndex((p) =>
+          ["shorts", "embed", "v", "vi", "live", "e", "clip"].includes(p.toLowerCase())
+        );
+        if (idx >= 0 && parts[idx + 1] && ID_RE.test(parts[idx + 1])) {
+          return parts[idx + 1];
+        }
+
+        // Hash-based fallbacks: #/watch?v=ID or #v=ID or #!v=ID
+        const hash = url.hash.replace(/^#!?\/?/, "");
+        if (hash) {
+          const hashV = new URLSearchParams(hash.includes("?") ? hash.split("?")[1] : hash).get("v");
+          if (hashV && ID_RE.test(hashV)) return hashV;
+        }
+      }
+    } catch {
+      /* ignore */
     }
-  } catch {
     return null;
-  }
+  };
+
+  const direct = tryParse(trimmed);
+  if (direct) return direct;
+
+  // Last resort: regex sweep for an 11-char ID inside the string
+  const match = trimmed.match(/(?:v=|vi=|\/(?:shorts|embed|v|vi|live|e|clip)\/|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  if (match && ID_RE.test(match[1])) return match[1];
+
   return null;
 }
 
