@@ -14,6 +14,7 @@ import { useYouTubePlayer } from "@/hooks/useYouTubePlayer";
 import { useNativeCapabilities } from "@/hooks/useNativeCapabilities";
 import { useTrendingMusic } from "@/hooks/useTrendingMusic";
 import { usePersonalizedDestaques } from "@/hooks/usePersonalizedDestaques";
+import { useDiscoverRecommendations } from "@/hooks/useDiscoverRecommendations";
 import { useMediaSession } from "@/hooks/useMediaSession";
 
 import { useTheme } from "@/hooks/useTheme";
