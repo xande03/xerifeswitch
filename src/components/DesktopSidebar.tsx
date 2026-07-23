@@ -164,6 +164,7 @@ const DesktopSidebar = ({
   active,
   onChange,
   homeMode = "music",
+  podcastMode = false,
   isDark = false,
   onToggleTheme,
   colorTheme = "default",
