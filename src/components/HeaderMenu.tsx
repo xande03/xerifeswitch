@@ -180,15 +180,6 @@ const HeaderMenu = ({
 
 
 
-          {/* AI Chat (mobile tools menu) */}
-          <button
-            onClick={() => { onOpenChat?.(); setOpen(false); }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-primary font-bold hover:bg-primary/10 transition-colors border-b border-border"
-          >
-            <Sparkles size={16} className="animate-pulse" />
-            <span>Xerife AI</span>
-          </button>
-
 
           {/* Theme toggle */}
           <button
