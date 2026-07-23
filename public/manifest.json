@@ -1,0 +1,83 @@
+{
+  "short_name": "Xerife Switch",
+  "name": "Xerife Switch - Music & Video Streaming",
+  "icons": [
+    { "src": "/icons/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" },
+    { "src": "/icons/icon-192x192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "/icons/icon-512x512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "/icons/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "maskable" }
+  ],
+  "start_url": "/?source=pwa",
+  "id": "/",
+  "background_color": "#121212",
+  "display": "standalone",
+  "display_override": ["standalone"],
+  "scope": "/",
+  "theme_color": "#121212",
+  "description": "Xerife Switch - Streaming de música e vídeo com catálogo ilimitado",
+  "orientation": "any",
+  "categories": ["music", "entertainment", "video"],
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "handle_links": "preferred",
+  "screenshots": [
+    {
+      "src": "/screenshots/screenshot-app.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Tela inicial do Xerife Switch com destaques e músicas em tendência"
+    },
+    {
+      "src": "/screenshots/screenshot-mobile.jpg",
+      "sizes": "1080x1920",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Player de música com playlists e controles de reprodução"
+    },
+    {
+      "src": "/screenshots/screenshot-desktop.jpg",
+      "sizes": "1920x1080",
+      "type": "image/jpeg",
+      "form_factor": "wide",
+      "label": "Xerife Switch no desktop com sidebar e playlists em destaque"
+    }
+  ],
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+music",
+      "url": "/?music=%s"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Buscar Música",
+      "short_name": "Buscar",
+      "description": "Pesquisar músicas e artistas",
+      "url": "/?tab=search",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Minha Biblioteca",
+      "short_name": "Biblioteca",
+      "description": "Acessar músicas salvas",
+      "url": "/?tab=library",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ],
+  "related_applications": [],
+  "scope_extensions": []
+}

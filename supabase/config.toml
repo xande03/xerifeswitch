@@ -1,0 +1,28 @@
+project_id = "hvslfbcsokurljstmtip"
+
+[functions.youtube-search]
+verify_jwt = false
+
+[functions.fetch-lyrics]
+verify_jwt = false
+
+[functions.youtube-general-search]
+verify_jwt = false
+
+[functions.youtube-video-info]
+verify_jwt = false
+
+[functions.youtube-trending]
+verify_jwt = false
+
+[functions.youtube-artist-info]
+verify_jwt = false
+
+[functions.youtube-album-tracks]
+verify_jwt = false
+
+[functions.youtube-download]
+verify_jwt = false
+
+[functions.fetch-chords]
+verify_jwt = false
