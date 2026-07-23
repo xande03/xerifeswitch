@@ -265,6 +265,15 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
 
   const handleInput = (val: string) => {
     setQuery(val);
+    // Cola de URL do YouTube: resolve imediatamente sem sugestões.
+    if (extractYouTubeVideoId(val)) {
+      if (suggestTimeoutRef.current) clearTimeout(suggestTimeoutRef.current);
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      setSuggestions([]);
+      setShowSuggestions(false);
+      doSearch(val);
+      return;
+    }
     if (val.length >= 2) {
       setShowSuggestions(true);
       if (suggestTimeoutRef.current) clearTimeout(suggestTimeoutRef.current);
