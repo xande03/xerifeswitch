@@ -207,7 +207,7 @@ const DesktopSidebar = ({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [toolsOpen]);
 
-  const isPodcast = active === "podcast";
+  const isPodcast = podcastMode || active === "podcast";
   const pillHub = homeMode === "hub" && !isPodcast;
   const pillMusic = homeMode === "music" && !isPodcast;
   const pillVideo = homeMode === "video" && !isPodcast;
