@@ -51,7 +51,7 @@ import { DownloadModal } from "@/components/DownloadModal";
 import { ShareModal } from "@/components/ShareModal";
 import { PlaylistModal } from "@/components/PlaylistModal";
 import { PlaylistDetail } from "@/components/PlaylistDetail";
-import AIChat from "@/components/AIChat";
+
 import PodcastScreen from "@/components/PodcastScreen";
 import LibraryHubScreen from "@/components/LibraryHubScreen";
 
@@ -242,7 +242,7 @@ const Index = () => {
       window.removeEventListener("orientationchange", apply);
     };
   });
-  const [isAIChatOpen, setIsAIChatOpen] = useState(false);
+  
   const [reducedMotionActive, setReducedMotionActive] = useState(() => localStorage.getItem('demus-reduced-motion') === 'true');
   useReducedMotionTest(reducedMotionActive);
 
@@ -1508,7 +1508,6 @@ const Index = () => {
           onOpenHistory={() => setActiveTab("history")}
           onOpenPlaylists={() => setActiveTab("playlists")}
           onOpenDownloads={() => setActiveTab("offline")}
-          onOpenChat={() => setIsAIChatOpen(true)}
           onZoomChange={setAppZoom}
           onLogin={localLogin}
           onLogout={localLogout}
@@ -1872,7 +1871,7 @@ const Index = () => {
                 onOpenHistory={() => setActiveTab("history")}
                 onOpenPlaylists={() => setActiveTab("playlists")}
                 onOpenDownloads={() => setActiveTab("offline")}
-                onOpenChat={() => setIsAIChatOpen(true)}
+                
                 onZoomChange={setAppZoom}
                 onLogin={localLogin}
                 onLogout={localLogout}
@@ -2923,11 +2922,6 @@ const Index = () => {
         />
         </div>{/* end main column */}
 
-        <AIChat 
-          isOpen={isAIChatOpen} 
-          onClose={() => setIsAIChatOpen(false)} 
-          onPlaySong={handleSelect} 
-        />
       </div>
       </>
     </MotionConfig>

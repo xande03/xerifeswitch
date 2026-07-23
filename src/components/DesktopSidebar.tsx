@@ -324,26 +324,6 @@ const DesktopSidebar = ({
           </Tooltip>
         ))}
 
-        {/* Divider */}
-        <div className="h-px bg-sidebar-border/50 mx-3 my-2" />
-        
-        {/* AI Chat Button in Sidebar */}
-        <button
-          onClick={onOpenChat}
-          className="w-full flex flex-col lg:flex-row items-center gap-2 lg:gap-3.5 px-2 lg:px-4 py-3.5 lg:py-3 rounded-2xl lg:rounded-xl text-[10px] lg:text-[13px] font-semibold transition-all duration-200 group relative text-sidebar-foreground/60 hover:text-primary hover:bg-primary/10"
-        >
-          <div className="flex items-center justify-center w-9 h-9 lg:w-8 lg:h-8 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-all duration-200 group-hover:scale-105">
-            <Sparkles
-              size={20}
-              strokeWidth={1.8}
-              className="text-primary animate-pulse transition-all duration-200"
-            />
-          </div>
-          <span className="lg:block transition-all font-medium" data-sidebar-fullonly>Xerife AI</span>
-          <div className="hidden lg:block ml-auto" data-sidebar-fullonly>
-            <div className="bg-gradient-to-r from-primary/30 to-primary/10 text-primary text-[8px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider border border-primary/20">AI</div>
-          </div>
-        </button>
       </nav>
 
       {/* Bottom section — Profile + Settings/Tools button */}
