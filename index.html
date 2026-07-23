@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <!-- PWA / Native App Meta -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Xerife Switch" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Xerife Switch" />
+    <meta name="msapplication-TileColor" content="#121212" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    
+    <!-- Prevent phone number/email detection -->
+    <meta name="format-detection" content="telephone=no, date=no, email=no, address=no" />
+    
+    <!-- Theme -->
+    <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#121212" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="dark light" />
+    
+    <!-- Screen orientation -->
+    <meta name="screen-orientation" content="any" />
+    
+    <!-- Disable iOS features that break PWA experience -->
+    <meta name="apple-touch-fullscreen" content="yes" />
+    
+    <!-- Icons (iOS requires PNG for apple-touch-icon — SVG is ignored) -->
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512x512.png" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512x512.png" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+
+    
+    <!-- Splash screen for iOS (prevents white flash) -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    
+    <title>Xerife Switch</title>
+    <meta name="description" content="Xerife Switch - Streaming de música e vídeo com catálogo ilimitado">
+    <meta name="author" content="Xerife Switch" />
+    
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="canonical" href="https://xerifehub.lovable.app/" />
+
+    <!-- OG / Social -->
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/icons/icon.svg">
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/icons/icon.svg">
+    
+    
+    
+    
+    
+    <style>
+      /* Lock app shell: no rubber-band, no swipe-back, but keep horizontal carousels. */
+      html, body {
+        overscroll-behavior: none;
+        overscroll-behavior-x: none;
+        -webkit-overflow-scrolling: touch;
+        overflow-x: hidden;
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        height: 100vh;
+        height: 100dvh;
+        /* manipulation = allow pan + pinch, block double-tap zoom.
+           pan-y alone breaks horizontal scroll snap carousels on iOS. */
+        touch-action: manipulation;
+      }
+      #root {
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+      }
+      /* Prevent text selection globally */
+      * {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      /* Allow selection only in inputs */
+      input, textarea, [contenteditable="true"] {
+        -webkit-user-select: text;
+        user-select: text;
+      }
+      /* Safe area variables for notched devices */
+      :root {
+        --sat: env(safe-area-inset-top);
+        --sar: env(safe-area-inset-right);
+        --sab: env(safe-area-inset-bottom);
+        --sal: env(safe-area-inset-left);
+      }
+    </style>
+
+    <!--
+      Background-playback hardening (Brave-style "visibility trick").
+      Many media sites use the Page Visibility API to auto-pause when the tab
+      is hidden. We override the document-level signals on OUR origin so our
+      own player code (and any same-origin embeds) never sees `hidden`.
+      Cross-origin iframes (e.g. youtube.com) are NOT affected by this —
+      that side is handled by useYouTubePlayer + MediaSession + native
+      AVAudioSession (iOS) / Foreground Service plugin (Android).
+    -->
+    <script>
+      (function () {
+        try {
+          var alwaysVisible = {
+            get: function () { return 'visible'; },
+            configurable: true,
+          };
+          var alwaysNotHidden = {
+            get: function () { return false; },
+            configurable: true,
+          };
+          Object.defineProperty(Document.prototype, 'visibilityState', alwaysVisible);
+          Object.defineProperty(Document.prototype, 'hidden', alwaysNotHidden);
+          Object.defineProperty(Document.prototype, 'webkitVisibilityState', alwaysVisible);
+          Object.defineProperty(Document.prototype, 'webkitHidden', alwaysNotHidden);
+          // Swallow visibilitychange events so 3rd-party libraries don't auto-pause.
+          // Our app listens to `pagehide` / `pageshow` and MediaSession instead.
+          document.addEventListener('visibilitychange', function (e) {
+            if (document.visibilityState === 'visible') return;
+            e.stopImmediatePropagation();
+          }, true);
+        } catch (err) {
+          console.warn('[bg-playback] visibility shim failed:', err);
+        }
+      })();
+    </script>
+
+    <!--
+      Restore the active module (hub/music/video/podcast) BEFORE React hydration
+      so the correct accent color (blue/green/red/purple) paints from the very
+      first frame after reload — no green→blue flash for the "Início" session.
+      Reads `?module=podcast` first, then localStorage. Falls back to "hub".
+    -->
+    <script>
+      (function () {
+        try {
+          var mod = "hub";
+          var url = new URL(window.location.href);
+          if (url.searchParams.get("module") === "podcast" ||
+              localStorage.getItem("demus-podcast-mode") === "1") {
+            mod = "podcast";
+          } else {
+            var hm = localStorage.getItem("demus-home-mode");
+            if (hm === "music" || hm === "video" || hm === "hub") mod = hm;
+          }
+          document.documentElement.setAttribute("data-module", mod);
+        } catch (e) {}
+      })();
+    
+    
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  <!-- Reinforce Cast/AirPlay -->
+  <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  <meta property="og:title" content="Xerife Switch">
+  <meta name="twitter:title" content="Xerife Switch">
+  <meta property="og:description" content="Xerife Switch - Streaming de música e vídeo com catálogo ilimitado">
+  <meta name="twitter:description" content="Xerife Switch - Streaming de música e vídeo com catálogo ilimitado">
+</head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

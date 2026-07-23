@@ -1,0 +1,642 @@
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500;700&display=swap');
+
+#lovable-badge {
+  display: none !important;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Xerife Videos — desktop player + right-rail sidebar sizing */
+    --xerife-video-rail: 360px;
+    --xerife-video-h: min(300px, calc(100vw * 0.5625));
+    /* YouTube Music Dark Theme (default) */
+    --background: 0 0% 7%;
+    --foreground: 0 0% 100%;
+
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 142 70% 30%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 18%;
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
+
+    --accent: 0 0% 20%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 142 70% 30%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 9%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 142 70% 30%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 15%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 142 70% 30%;
+    /* Multi-streaming module accent (defaults to music = green) */
+    --module-accent: 142 65% 40%;
+    --module-accent-foreground: 0 0% 100%;
+  }
+
+  /* Per-module accent overrides — applied via [data-module] on <html> */
+  :root[data-module="hub"] {
+    --module-accent: 217 91% 60%;
+    --module-accent-foreground: 0 0% 100%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 217 91% 60%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-ring: 217 91% 60%;
+  }
+  :root[data-module="music"] {
+    --module-accent: 142 65% 40%;
+    --module-accent-foreground: 0 0% 100%;
+    --primary: 142 65% 40%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 142 65% 40%;
+    --sidebar-primary: 142 65% 40%;
+    --sidebar-ring: 142 65% 40%;
+  }
+
+  :root[data-module="video"] {
+    --module-accent: 0 78% 54%;
+    --module-accent-foreground: 0 0% 100%;
+    --primary: 0 78% 54%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 0 78% 54%;
+    --sidebar-primary: 0 78% 54%;
+    --sidebar-ring: 0 78% 54%;
+  }
+  :root[data-module="podcast"] {
+    --module-accent: 265 75% 62%;
+    --module-accent-foreground: 0 0% 100%;
+    --primary: 265 75% 62%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 265 75% 62%;
+    --sidebar-primary: 265 75% 62%;
+    --sidebar-ring: 265 75% 62%;
+  }
+
+  .light {
+    --background: 0 0% 99%;
+    --foreground: 0 0% 8%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 8%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 8%;
+
+    --primary: 142 60% 28%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 94%;
+    --secondary-foreground: 0 0% 15%;
+
+    --muted: 0 0% 92%;
+    --muted-foreground: 0 0% 32%;
+
+    --accent: 0 0% 95%;
+    --accent-foreground: 0 0% 9%;
+
+    --destructive: 0 84% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 142 60% 28%;
+
+    --sidebar-background: 0 0% 97%;
+    --sidebar-foreground: 0 0% 18%;
+    --sidebar-primary: 142 60% 28%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 92%;
+    --sidebar-accent-foreground: 0 0% 15%;
+    --sidebar-border: 0 0% 88%;
+    --sidebar-ring: 142 60% 28%;
+  }
+
+  /* Per-module accent overrides for LIGHT theme — darker tones ensure WCAG AA
+     contrast when used as text/icon color over light tinted backgrounds. */
+  .light[data-module="hub"],
+  .light :root[data-module="hub"] {
+    --module-accent: 217 80% 42%;
+    --module-accent-foreground: 0 0% 100%;
+    --primary: 217 80% 42%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 217 80% 42%;
+    --sidebar-primary: 217 80% 42%;
+    --sidebar-ring: 217 80% 42%;
+  }
+  .light[data-module="music"],
+  .light :root[data-module="music"] {
+    --module-accent: 142 60% 30%;
+    --module-accent-foreground: 0 0% 100%;
+    --primary: 142 60% 30%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 142 60% 30%;
+    --sidebar-primary: 142 60% 30%;
+    --sidebar-ring: 142 60% 30%;
+  }
+  .light[data-module="video"],
+  .light :root[data-module="video"] {
+    --module-accent: 0 72% 42%;
+    --module-accent-foreground: 0 0% 100%;
+    --primary: 0 72% 42%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 0 72% 42%;
+    --sidebar-primary: 0 72% 42%;
+    --sidebar-ring: 0 72% 42%;
+  }
+  .light[data-module="podcast"],
+  .light :root[data-module="podcast"] {
+    --module-accent: 265 55% 45%;
+    --module-accent-foreground: 0 0% 100%;
+    --primary: 265 55% 45%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 265 55% 45%;
+    --sidebar-primary: 265 55% 45%;
+    --sidebar-ring: 265 55% 45%;
+  }
+
+
+  /* Color themes — override primary/ring */
+  .theme-red { --primary: 0 100% 50%; --ring: 0 100% 50%; }
+  .theme-blue { --primary: 217 91% 60%; --ring: 217 91% 60%; }
+  .theme-purple { --primary: 271 76% 53%; --ring: 271 76% 53%; }
+  .theme-green { --primary: 142 71% 45%; --ring: 142 71% 45%; }
+  .theme-orange { --primary: 25 95% 53%; --ring: 25 95% 53%; }
+  .theme-pink { --primary: 330 81% 60%; --ring: 330 81% 60%; }
+
+  /* Exclusive & Genre Themes */
+  [data-theme='artist-exclusive'] { --primary: 45 93% 47%; --ring: 45 93% 47%; }
+  [data-theme='genre-rock'] { --primary: 0 72% 51%; --ring: 0 72% 51%; }
+  [data-theme='genre-jazz'] { --primary: 217 91% 60%; --ring: 217 91% 60%; }
+  
+  /* Ambient Theme with Light/Dark contrast adjustments */
+  [data-theme='ambient'] { 
+    --primary: var(--ambient-primary);
+    transition: --primary 1.5s ease-in-out;
+  }
+
+  /* Support for reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    [data-theme='ambient'], 
+    [data-theme='ambient'] * {
+      transition: none !important;
+      animation: none !important;
+    }
+    .animate-in, .animate-out, .animate-slide-up, .animate-spin, .animate-pulse, .transition-all {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+
+  .force-reduced-motion,
+  .force-reduced-motion * {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-delay: 0ms !important;
+    animation-delay: 0ms !important;
+  }
+
+  
+  .light [data-theme='ambient'] {
+    /* Slightly darken colors in light mode for better contrast */
+    filter: saturate(1.2) brightness(0.8);
+  }
+}
+
+
+
+
+@layer base {
+  * {
+    @apply border-border;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html, body {
+    /* Block rubber-band/side-swipe-back without breaking horizontal carousels.
+       touch-action must allow pan-x so children with overflow-x scroll on iOS. */
+    overscroll-behavior: none;
+    overscroll-behavior-x: none;
+    -webkit-overflow-scrolling: touch;
+    touch-action: manipulation;
+    overflow-x: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    /* dvh fallback for older iOS Safari */
+    height: 100vh;
+    height: 100dvh;
+  }
+  #root {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Roboto', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Edge-to-edge: do NOT pad body with safe-area insets, otherwise
+       fixed bars and full-width content show side gutters on iOS. */
+  }
+  /* Prevent iOS text size inflation */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  /* Prevent iOS long-press popup on images */
+  img {
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+}
+
+@layer utilities {
+  .text-glow {
+    text-shadow: 0 0 12px hsl(var(--primary) / 0.4);
+  }
+  .shadow-glow-red {
+    box-shadow: 0 4px 20px hsl(var(--primary) / 0.25);
+  }
+  .shadow-glow {
+    box-shadow: 0 0 25px hsl(var(--primary) / 0.4);
+  }
+  .gradient-mesh {
+    background: radial-gradient(ellipse at 30% 20%, hsl(var(--primary) / 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, hsl(0 0% 20% / 0.3) 0%, transparent 50%);
+  }
+  .glass {
+    @apply bg-card/80 backdrop-blur-xl border border-border/30;
+  }
+  .chip {
+    @apply px-3 py-1.5 rounded-lg text-xs font-medium transition-colors;
+  }
+  .chip-active {
+    @apply bg-foreground text-background;
+  }
+  .chip-inactive {
+    @apply bg-secondary text-secondary-foreground hover:bg-accent;
+  }
+  .animate-pulse-slow {
+    animation: pulse-slow 3s ease-in-out infinite;
+  }
+}
+
+@keyframes visualizer-bar {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(0.98); }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 0px;
+}
+
+/* Hide scrollbar for carousels */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Safe area for fullscreen views */
+.safe-area-inset {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Safe-area utility classes for iPhone notch / Dynamic Island / home indicator */
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.pl-safe { padding-left: env(safe-area-inset-left); }
+.pr-safe { padding-right: env(safe-area-inset-right); }
+.mt-safe { margin-top: env(safe-area-inset-top); }
+.h-safe-top { height: env(safe-area-inset-top); }
+
+/* Paint the notch / status-bar area with the app background so there's no white bar */
+html, body {
+  background-color: hsl(var(--background));
+}
+@supports (padding: max(0px)) {
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+}
+
+/* Slide up animation */
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Splash screen animations */
+@keyframes splash-logo {
+  0% { opacity: 0; transform: scale(0.8) translateY(20px); }
+  40% { opacity: 1; transform: scale(1.02) translateY(0); }
+  60% { transform: scale(1); }
+  100% { transform: scale(1); }
+}
+.animate-splash-logo {
+  animation: splash-logo 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes splash-progress {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+.animate-splash-progress {
+  animation: splash-progress 1.6s ease-in-out forwards;
+}
+
+/* Fullscreen container fills entire screen when in fullscreen mode.
+   The inner #yt-player uses aspect-ratio 16/9 and is centered — so the video
+   is letterboxed (never cropped) regardless of portrait/landscape orientation. */
+#yt-fullscreen-container:fullscreen,
+#yt-fullscreen-container:-webkit-full-screen,
+.pseudo-fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  max-height: none !important;
+  background: black !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 9999 !important;
+}
+.pseudo-fullscreen { z-index: 10000 !important; }
+
+#yt-fullscreen-container:fullscreen #yt-player,
+#yt-fullscreen-container:-webkit-full-screen #yt-player,
+.pseudo-fullscreen #yt-player {
+  position: relative !important;
+  inset: auto !important;
+  width: 100vw !important;
+  height: calc(100vw * 9 / 16) !important;
+  max-width: calc(100vh * 16 / 9) !important;
+  max-height: 100vh !important;
+  border-radius: 0 !important;
+  z-index: 0 !important;
+  background: black !important;
+}
+@supports (height: 100dvh) {
+  #yt-fullscreen-container:fullscreen #yt-player,
+  #yt-fullscreen-container:-webkit-full-screen #yt-player,
+  .pseudo-fullscreen #yt-player {
+    height: calc(100vw * 9 / 16) !important;
+    max-height: 100dvh !important;
+    max-width: calc(100dvh * 16 / 9) !important;
+  }
+}
+#yt-fullscreen-container:fullscreen #yt-player iframe,
+#yt-fullscreen-container:-webkit-full-screen #yt-player iframe,
+.pseudo-fullscreen #yt-player iframe,
+.pseudo-fullscreen iframe {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 0 !important;
+  z-index: 0 !important;
+}
+
+/* iOS: ensure horizontal scroll/snap carousels respond to swipes
+   even though html/body restrict overscroll. */
+.scrollbar-hide,
+[class*="overflow-x-auto"],
+[class*="overflow-x-scroll"] {
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+/* ===========================================================
+   iOS landscape — iPhone com notch/Dynamic Island em paisagem
+   - safe-area-inset-left/right ficam grandes (44px+)
+   - reduzir paddings/altura do BottomNav e MiniPlayer
+   - garantir que títulos não encostem na ilha
+   =========================================================== */
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Header / títulos com respiro lateral da safe-area */
+  header, [data-debug="header"] {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+
+  /* BottomNav mais compacto, rente às bordas seguras */
+  .bottom-nav .text-\[10px\] { font-size: 9px; }
+  .bottom-nav button { padding-top: 2px; padding-bottom: 2px; min-width: 56px; }
+  .bottom-nav > div {
+    padding-top: 2px !important;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 2px) !important;
+  }
+
+  /* MiniPlayer respeita safe-area lateral em landscape */
+  [data-debug="miniplayer"] {
+    margin-left: max(12px, env(safe-area-inset-left)) !important;
+    margin-right: max(12px, env(safe-area-inset-right)) !important;
+  }
+
+  /* Conteúdo principal em landscape: padding lateral seguro */
+  #root > div > main,
+  #root > div > div > main {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* ===========================================================
+   iOS — telas pequenas: tipografia/botões legíveis e alinhados
+   =========================================================== */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 380px) {
+    h1 { font-size: 1.15rem; line-height: 1.25; }
+    h2 { font-size: 1rem; line-height: 1.25; }
+    .bottom-nav .text-\[10px\] { font-size: 9.5px; }
+  }
+  /* Botões com toque mínimo confortável no iOS */
+  button, [role="button"] {
+    min-height: 32px;
+  }
+}
+
+
+/* ===========================================================
+   Xerife Videos — fallback: oculta qualquer barra/overlay de
+   progresso customizado quando o player nativo está ativo.
+   Garante que apenas os controles nativos do <video>/iframe
+   apareçam no contexto de vídeo.
+   =========================================================== */
+#now-playing-shell.xerife-video-context [data-seekbar],
+#now-playing-shell.xerife-video-context .seek-bar,
+#now-playing-shell.xerife-video-context .player-transport,
+#now-playing-shell.xerife-video-context .player-progress-overlay,
+#now-playing-shell[data-context="video"] [data-seekbar],
+#now-playing-shell[data-context="video"] .seek-bar,
+#now-playing-shell[data-context="video"] .player-transport,
+#now-playing-shell[data-context="video"] .player-progress-overlay {
+  display: none !important;
+}
+
+/* ===========================================================
+   Xerife Music/Podcast — modo Vídeo:
+   Isola a área do player para que NENHUMA sombra, ring, outline
+   ou overlay de componentes adjacentes invada o retângulo do vídeo.
+   Preserva visualização/visibilidade do vídeo intacta.
+   =========================================================== */
+#now-playing-shell[data-video-mode="true"] #music-video-anchor,
+#yt-fullscreen-container {
+  isolation: isolate;
+  box-shadow: none !important;
+  outline: none !important;
+}
+/* Impede que irmãos próximos ao anchor projetem sombra sobre ele. */
+#now-playing-shell[data-video-mode="true"] #music-video-anchor::before,
+#now-playing-shell[data-video-mode="true"] #music-video-anchor::after {
+  content: none !important;
+}
+/* Overlay do player sempre acima; sem sombra externa no mobile. */
+@media (max-width: 767px) {
+  #yt-fullscreen-container {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+  #yt-fullscreen-container > * {
+    box-shadow: none !important;
+  }
+}
+
+/* ===========================================================
+   Xerife Videos — tablet+desktop layout width tracking
+   Left player width = viewport - 16px (left offset) - rail - 16px (gap) = vw - rail - 32px.
+   Height derived from that width via 16:9, capped so it never eats the vertical viewport.
+   =========================================================== */
+@media (min-width: 768px) {
+  :root {
+    --xerife-video-rail: max(280px, 30vw);
+    --xerife-video-h: min(420px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
+  }
+}
+@media (min-width: 1024px) {
+  :root {
+    --xerife-video-rail: 30vw;
+    --xerife-video-h: min(560px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
+  }
+}
+@media (min-width: 1280px) {
+  :root {
+    --xerife-video-rail: 30vw;
+    --xerife-video-h: min(640px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
+  }
+}
+@media (min-width: 1536px) {
+  :root {
+    --xerife-video-rail: 30vw;
+    --xerife-video-h: min(720px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
+  }
+}
+@media (min-width: 1024px) {
+  :root {
+    --xerife-video-rail: 360px;
+    --xerife-video-h: min(520px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
+  }
+}
+@media (min-width: 1280px) {
+  :root {
+    --xerife-video-rail: 402px;
+    --xerife-video-h: min(600px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
+  }
+}
+@media (min-width: 1536px) {
+  :root {
+    --xerife-video-rail: 426px;
+    --xerife-video-h: min(680px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
+  }
+}
+
+/* Marquee title (single-line auto scroll when overflow) */
+.marquee-title {
+  overflow: hidden;
+  white-space: nowrap;
+  width: 100%;
+  mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+}
+.marquee-title--static {
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+.marquee-title__inner {
+  display: inline-block;
+  white-space: nowrap;
+  padding-left: 100%;
+  animation: marquee-scroll linear infinite;
+}
+.marquee-title--static .marquee-title__inner {
+  padding-left: 0;
+  animation: none;
+}
+
+@keyframes marquee-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+/* Desktop sidebar manual collapse override — mini rail with tooltips */
+aside[data-sidebar-collapsed="true"] {
+  width: 4.25rem !important;
+}
+aside[data-sidebar-collapsed="true"] [data-sidebar-fullonly] {
+  display: none !important;
+}
+aside[data-sidebar-collapsed="true"] [data-sidebar-iconcenter] {
+  justify-content: center !important;
+}
+/* Prevent overflow of nav items when collapsed */
+aside[data-sidebar-collapsed="true"] nav button {
+  padding-left: 0.25rem !important;
+  padding-right: 0.25rem !important;
+}
