@@ -111,8 +111,9 @@ const Index = () => {
         return;
       }
       if (tab === "search") {
+        setChannelView(null); setArtistView(null);
         setActiveTab("home");
-        window.dispatchEvent(new CustomEvent("xerife:podcast-nav", { detail: { target: "explore", focusSearch: true } }));
+        window.dispatchEvent(new CustomEvent("xerife:podcast-nav", { detail: { target: "explore" } }));
         return;
       }
       if (tab === "library") {
