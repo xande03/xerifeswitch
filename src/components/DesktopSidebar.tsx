@@ -29,6 +29,7 @@ interface DesktopSidebarProps {
   active: Tab;
   onChange: (tab: Tab) => void;
   homeMode?: HomeMode;
+  podcastMode?: boolean;
   // Tools menu props (desktop)
   isDark?: boolean;
   onToggleTheme?: () => void;
