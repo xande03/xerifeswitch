@@ -1,20 +1,25 @@
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface LogoProps {
   className?: string;
   size?: number | string;
   showText?: boolean;
   style?: React.CSSProperties;
+  tooltipLabel?: string;
+  ariaLabel?: string;
 }
 
-const Logo = ({ className, size = 40, showText = false, style }: LogoProps) => {
-  return (
+const Logo = ({ className, size = 40, showText = false, style, tooltipLabel = "Xerife — Music, Video e Podcast", ariaLabel = "Logo do Xerife" }: LogoProps) => {
+  const content = (
     <div className={cn("flex items-center gap-3", className)} style={style}>
-      <div 
+      <div
         style={{ width: size, height: size }}
         className="relative flex-shrink-0"
+        role="img"
+        aria-label={ariaLabel}
       >
-        <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+        <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" className="w-full h-full drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
           <defs>
             <linearGradient id="logoStarGradient" x1="256" y1="100" x2="256" y2="412" gradientUnits="userSpaceOnUse">
               <stop stopColor="#22c55e"/>
