@@ -111,8 +111,9 @@ const Index = () => {
         return;
       }
       if (tab === "search") {
+        setChannelView(null); setArtistView(null);
         setActiveTab("home");
-        window.dispatchEvent(new CustomEvent("xerife:podcast-nav", { detail: { target: "explore", focusSearch: true } }));
+        window.dispatchEvent(new CustomEvent("xerife:podcast-nav", { detail: { target: "explore" } }));
         return;
       }
       if (tab === "library") {
@@ -122,6 +123,11 @@ const Index = () => {
       }
       if (tab === "libraryhub") {
         setActiveTab("libraryhub");
+        return;
+      }
+      if (tab === "history") {
+        setActiveTab("home");
+        window.dispatchEvent(new CustomEvent("xerife:podcast-nav", { detail: { target: "history" } }));
         return;
       }
     }
@@ -1496,6 +1502,7 @@ const Index = () => {
           active={activeTab}
           onChange={handleNavChange}
           homeMode={homeMode}
+          podcastMode={podcastMode}
           isDark={isDark}
           onToggleTheme={toggleTheme}
           colorTheme={colorTheme}

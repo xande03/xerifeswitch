@@ -29,6 +29,7 @@ interface DesktopSidebarProps {
   active: Tab;
   onChange: (tab: Tab) => void;
   homeMode?: HomeMode;
+  podcastMode?: boolean;
   // Tools menu props (desktop)
   isDark?: boolean;
   onToggleTheme?: () => void;
@@ -65,6 +66,14 @@ const videoTabs: { id: Tab; icon: typeof Home; label: string }[] = [
   { id: "libraryhub", icon: Library, label: "Biblioteca" },
   { id: "history", icon: Clock, label: "Histórico" },
   { id: "playlists", icon: ListMusic, label: "Playlists" },
+];
+
+const podcastTabs: { id: Tab; icon: typeof Home; label: string }[] = [
+  { id: "home", icon: Home, label: "Início" },
+  { id: "search", icon: Compass, label: "Explorar" },
+  { id: "library", icon: Heart, label: "Favoritos" },
+  { id: "libraryhub", icon: Library, label: "Biblioteca" },
+  { id: "history", icon: Clock, label: "Histórico" },
 ];
 
 
@@ -155,6 +164,7 @@ const DesktopSidebar = ({
   active,
   onChange,
   homeMode = "music",
+  podcastMode = false,
   isDark = false,
   onToggleTheme,
   colorTheme = "default",
@@ -173,7 +183,7 @@ const DesktopSidebar = ({
   currentZoom = 1,
   onUpdateName,
 }: DesktopSidebarProps) => {
-  const mainTabs = homeMode === "video" ? videoTabs : musicTabs;
+  const mainTabs = podcastMode ? podcastTabs : (homeMode === "video" ? videoTabs : musicTabs);
   const [toolsOpen, setToolsOpen] = useState(false);
   
   const [showServerStatus, setShowServerStatus] = useState(false);
@@ -197,7 +207,7 @@ const DesktopSidebar = ({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [toolsOpen]);
 
-  const isPodcast = active === "podcast";
+  const isPodcast = podcastMode || active === "podcast";
   const pillHub = homeMode === "hub" && !isPodcast;
   const pillMusic = homeMode === "music" && !isPodcast;
   const pillVideo = homeMode === "video" && !isPodcast;
