@@ -29,20 +29,15 @@ export const AMBIENT_ENABLED_KEY = "demus-ambient-bg-enabled";
 export const AMBIENT_EVENT = "demus:ambient-enabled-changed";
 
 export function readAmbientEnabled(): boolean {
-  try {
-    const raw = localStorage.getItem(AMBIENT_ENABLED_KEY);
-    return raw === null ? true : raw === "true";
-  } catch { return true; }
+  return false;
 }
-export function setAmbientEnabled(enabled: boolean) {
-  try { localStorage.setItem(AMBIENT_ENABLED_KEY, String(enabled)); } catch {}
-  window.dispatchEvent(new CustomEvent(AMBIENT_EVENT, { detail: enabled }));
+export function setAmbientEnabled(_enabled: boolean) {
+  // Ambient background feature removed.
 }
 
 function useAmbientEnabled(): boolean {
-  const [enabled, setEnabled] = useState<boolean>(() =>
-    typeof window === "undefined" ? true : readAmbientEnabled()
-  );
+  const [enabled, setEnabled] = useState<boolean>(false);
+
   useEffect(() => {
     const onEv = (e: Event) => setEnabled(!!(e as CustomEvent).detail);
     const onStorage = (e: StorageEvent) => {
