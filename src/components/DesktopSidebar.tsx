@@ -183,7 +183,7 @@ const DesktopSidebar = ({
   currentZoom = 1,
   onUpdateName,
 }: DesktopSidebarProps) => {
-  const mainTabs = homeMode === "video" ? videoTabs : musicTabs;
+  const mainTabs = podcastMode ? podcastTabs : (homeMode === "video" ? videoTabs : musicTabs);
   const [toolsOpen, setToolsOpen] = useState(false);
   
   const [showServerStatus, setShowServerStatus] = useState(false);
