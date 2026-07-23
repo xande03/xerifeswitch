@@ -475,7 +475,7 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
               value={query}
               onChange={(e) => handleInput(e.target.value)}
               onFocus={() => query.length >= 2 && setShowSuggestions(true)}
-              placeholder="Pesquisar vídeos, canais..."
+              placeholder="Pesquisar vídeos, canais ou colar URL do YouTube..."
               className="w-full pl-10 pr-9 py-2.5 rounded-full bg-secondary text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
             {query && (
