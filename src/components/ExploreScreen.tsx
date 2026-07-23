@@ -14,6 +14,7 @@ import VideoCategorySelector, { VIDEO_CATEGORIES, type VideoCategory } from "./V
 import { useAutoRefreshChannel } from "@/hooks/useAutoRefreshChannel";
 import NewContentBadge from "./NewContentBadge";
 import { useToast } from "@/hooks/use-toast";
+import { extractYouTubeVideoId, fetchVideoByUrl } from "@/lib/youtubeUrl";
 
 interface ExploreScreenProps {
   onPlayVideo: (video: VideoResult) => void;
@@ -179,6 +180,37 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
 
   const doSearch = async (q: string) => {
     if (q.length < 2) return;
+
+    // Se o usuário colou uma URL do YouTube, resolve o vídeo direto e toca.
+    const videoId = extractYouTubeVideoId(q);
+    if (videoId) {
+      setLoading(true);
+      setShowSuggestions(false);
+      try {
+        const video = await fetchVideoByUrl(q);
+        if (video) {
+          setResults([video]);
+          setContinuation(undefined);
+          onPlayVideo(video);
+          toast({
+            title: "Vídeo encontrado!",
+            description: video.title,
+          });
+          return;
+        }
+      } catch (error) {
+        console.error("Erro ao resolver URL do YouTube:", error);
+        toast({
+          title: "Não foi possível abrir a URL",
+          description: "Verifique o link e tente novamente.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     setLoading(true);
     setShowSuggestions(false);
     
@@ -233,6 +265,15 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
 
   const handleInput = (val: string) => {
     setQuery(val);
+    // Cola de URL do YouTube: resolve imediatamente sem sugestões.
+    if (extractYouTubeVideoId(val)) {
+      if (suggestTimeoutRef.current) clearTimeout(suggestTimeoutRef.current);
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      setSuggestions([]);
+      setShowSuggestions(false);
+      doSearch(val);
+      return;
+    }
     if (val.length >= 2) {
       setShowSuggestions(true);
       if (suggestTimeoutRef.current) clearTimeout(suggestTimeoutRef.current);
@@ -281,6 +322,11 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setShowSuggestions(false);
+    // URLs do YouTube ignoram categoria e vão direto para o resolver.
+    if (extractYouTubeVideoId(query)) {
+      doSearch(query);
+      return;
+    }
     const cat = VIDEO_CATEGORIES.find(c => c.id === activeCategory);
     const combined = cat?.query && query.length >= 2 ? `${query} ${cat.query}` : query;
     doSearch(combined || query);
@@ -429,7 +475,7 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
               value={query}
               onChange={(e) => handleInput(e.target.value)}
               onFocus={() => query.length >= 2 && setShowSuggestions(true)}
-              placeholder="Pesquisar vídeos, canais..."
+              placeholder="Pesquisar vídeos, canais ou colar URL do YouTube..."
               className="w-full pl-10 pr-9 py-2.5 rounded-full bg-secondary text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
             {query && (
