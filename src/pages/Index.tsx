@@ -14,6 +14,7 @@ import { useYouTubePlayer } from "@/hooks/useYouTubePlayer";
 import { useNativeCapabilities } from "@/hooks/useNativeCapabilities";
 import { useTrendingMusic } from "@/hooks/useTrendingMusic";
 import { usePersonalizedDestaques } from "@/hooks/usePersonalizedDestaques";
+import { useDiscoverRecommendations } from "@/hooks/useDiscoverRecommendations";
 import { useMediaSession } from "@/hooks/useMediaSession";
 
 import { useTheme } from "@/hooks/useTheme";
@@ -1466,6 +1467,18 @@ const Index = () => {
     ? personalizedDestaques.slice(0, 15)
     : (suggestionsFallback.length > 0 ? suggestionsFallback.slice(0, 15) : songs.slice(0, 6));
 
+  // "Recomendados para você" = feed de DESCOBERTA — múltiplos gêneros/estilos,
+  // independente do histórico. Também exclui o Top 10 e o que já toca em Destaques
+  // para evitar repetição visual na mesma tela.
+  const destaquesKeys = new Set(
+    forYouSongs.map(s => s.youtubeId || s.id).filter(Boolean) as string[]
+  );
+  const excludeForDiscover = new Set<string>([...topChartsKeys, ...destaquesKeys]);
+  const { songs: discoverSongs } = useDiscoverRecommendations(excludeForDiscover);
+  const recommendedForYou = discoverSongs.length > 0
+    ? discoverSongs.slice(0, 20)
+    : forYouSongs;
+
   const greetingHour = new Date().getHours();
   const greeting = greetingHour < 12 ? "Bom dia" : greetingHour < 18 ? "Boa tarde" : "Boa noite";
 
@@ -2196,7 +2209,7 @@ const Index = () => {
                       </h2>
                     </div>
                     <div className="flex gap-4 sm:gap-6 overflow-x-auto px-3 sm:px-4 pb-4 snap-x snap-mandatory scrollbar-hide">
-                      {forYouSongs.map((song) => (
+                      {recommendedForYou.map((song) => (
                         <div key={song.id} className="flex-shrink-0 w-[140px] sm:w-[180px] md:w-[220px] lg:w-[260px] group snap-start">
                           <button onClick={() => handleSelect(song)} className="w-full text-left">
                             <div className="w-full aspect-square rounded-[32px] overflow-hidden mb-3 relative shadow-2xl-glow">
