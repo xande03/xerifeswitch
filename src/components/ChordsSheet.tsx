@@ -110,31 +110,37 @@ const ChordsSheet = ({ open, onOpenChange, artist, title }: ChordsSheetProps) =>
         side="right"
         className="w-full sm:max-w-lg flex flex-col p-0 bg-background border-l border-border"
       >
-        <SheetHeader className="p-4 border-b border-border/60 space-y-1">
-          <div className="flex items-start gap-2">
-            <SheetTitle className="text-left text-lg font-bold truncate flex-1 min-w-0">{title}</SheetTitle>
-            {data?.key && (
-              <span
-                className="shrink-0 px-2 py-0.5 rounded-full bg-secondary text-foreground/80 text-xs font-semibold"
-                title="Tom original da música"
-              >
-                Original: {data.key}
-              </span>
-            )}
+        <SheetHeader className="p-4 border-b border-border/60 space-y-2">
+          <div>
+            <SheetTitle className="text-left text-lg font-bold truncate">{title}</SheetTitle>
+            <p className="text-sm text-muted-foreground truncate">{artist}</p>
           </div>
-          <p className="text-sm text-muted-foreground truncate">{artist}</p>
-          {data?.key && transposedKey && (
-            <p className="text-xs text-primary font-semibold pt-1">
-              Tom atual: {transposedKey}
-              {semitones !== 0 && (
-                <span className="ml-1 text-muted-foreground font-normal">
-                  ({semitones > 0 ? `+${semitones}` : semitones} semitom{Math.abs(semitones) > 1 ? "s" : ""})
-                </span>
-              )}
-            </p>
+
+          {/* Cabeçalho de tonalidade: sempre visível quando temos o tom original */}
+          {data?.key && (
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary text-foreground text-xs font-semibold">
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Tom original</span>
+                <span className="text-sm font-bold">{data.key}</span>
+              </div>
+              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                semitones === 0
+                  ? "bg-muted text-muted-foreground"
+                  : "bg-primary/15 text-primary"
+              }`}>
+                <span className="text-[10px] uppercase tracking-wide opacity-80">Tom atual</span>
+                <span className="text-sm font-bold">{transposedKey ?? data.key}</span>
+                {semitones !== 0 && (
+                  <span className="text-[10px] font-normal opacity-80">
+                    ({semitones > 0 ? `+${semitones}` : semitones} semitom{Math.abs(semitones) > 1 ? "s" : ""})
+                  </span>
+                )}
+              </div>
+            </div>
           )}
+
           {data && (
-            <div className="flex flex-wrap gap-2 pt-2 text-xs">
+            <div className="flex flex-wrap gap-2 pt-1 text-xs">
               {data.capo != null && data.capo > 0 && (
                 <span className="px-2 py-0.5 rounded-full bg-secondary text-foreground/80 font-medium">
                   Capotraste: {data.capo}ª casa
