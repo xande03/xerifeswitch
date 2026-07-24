@@ -165,10 +165,6 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
   const [historyTick, setHistoryTick] = useState(0);
   const history = useMemo(() => {
     try {
-      // Broadened: include explicit `type: "video"` AND legacy YouTube entries
-      // (songId prefixed with `yt-` and no album) which older builds saved
-      // without a `type` field. Guarantees "Continuar assistindo" and the
-      // personalized queries actually reflect what the user watched.
       return getHistory().filter(h => {
         if (!h?.youtubeId) return false;
         if (h.type === "video") return true;
@@ -179,6 +175,26 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
       return [];
     }
   }, [historyTick]);
+
+  // Recent Explore searches (last 24h) — feed recommendations from every
+  // query the user ran, not just the latest one.
+  const recentSearches = useMemo(() => {
+    try {
+      const entries = getVideoSearchLog(24 * 60 * 60 * 1000);
+      // Rank by frequency + recency: freq * (1 / ageHours+1)
+      const now = Date.now();
+      const score = new Map<string, number>();
+      for (const e of entries) {
+        const q = e.q.trim();
+        if (q.length < 2) continue;
+        const ageH = Math.max(0, (now - e.ts) / 3600000);
+        const s = (score.get(q) || 0) + 1 / (1 + ageH * 0.25);
+        score.set(q, s);
+      }
+      return [...score.entries()].sort((a, b) => b[1] - a[1]).map(([q]) => q).slice(0, 6);
+    } catch { return []; }
+  }, [historyTick]);
+
 
   const recentVideos = useMemo(() => history.slice(0, 10), [history]);
 
