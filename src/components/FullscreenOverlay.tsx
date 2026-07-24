@@ -258,32 +258,38 @@ const FullscreenOverlay = ({
     // Sync timer state with environment changes
     const onPipEnter = () => resetTimer();
     const onPipLeave = () => resetTimer();
+    const clearTransform = () => {
+      const el = document.getElementById("yt-player");
+      if (!el) return;
+      el.style.transition = "none";
+      el.style.transform = "none";
+      el.style.transformOrigin = "";
+      el.style.willChange = "";
+      // Force reflow so the browser re-applies CSS sizing (vw/vh/dvh).
+      void el.offsetHeight;
+      el.style.transition = "";
+    };
+    const scheduledRef = { current: false } as { current: boolean };
     const onOrientation = () => {
       resetTimer();
-      // On rotation, always reset zoom + inline transform so the CSS letterbox
-      // (aspect-ratio 16:9, centered) recalculates cleanly for the new viewport.
-      // Any residual transform from a prior pinch could otherwise offset/crop
-      // the player after rotating between portrait and landscape.
-      const clearTransform = () => {
-        const el = document.getElementById("yt-player");
-        if (!el) return;
-        el.style.transition = "none";
-        el.style.transform = "none";
-        el.style.transformOrigin = "";
-        el.style.willChange = "";
-        // Force reflow so the browser re-applies CSS sizing (vw/vh/dvh).
-        void el.offsetHeight;
-        el.style.transition = "";
-      };
+      // On rotation/resize, reset zoom + inline transform so the CSS letterbox
+      // (aspect-ratio 16:9, centered via min()+margin:auto) recalculates cleanly
+      // for the new viewport. Any residual transform from a prior pinch could
+      // otherwise offset/crop the player after rotating portrait↔landscape.
       setZoom({ scale: 1, x: 0, y: 0 });
       clearTransform();
+      if (scheduledRef.current) return;
+      scheduledRef.current = true;
       // iOS/Safari reports new viewport dimensions asynchronously after rotation;
-      // re-clear across a few frames to catch late layout passes.
+      // re-clear across several frames to catch late layout passes (URL bar
+      // collapse, dynamic-island reflow, keyboard dismissal, etc.).
       requestAnimationFrame(clearTransform);
-      setTimeout(clearTransform, 120);
+      setTimeout(clearTransform, 60);
+      setTimeout(clearTransform, 180);
       setTimeout(clearTransform, 400);
+      setTimeout(() => { clearTransform(); scheduledRef.current = false; }, 700);
     };
-    const onVisibility = () => { if (!document.hidden) resetTimer(); };
+    const onVisibility = () => { if (!document.hidden) { resetTimer(); onOrientation(); } };
     const onAutoHidePref = (e: Event) => {
       const next = Number((e as CustomEvent).detail);
       if (Number.isFinite(next) && AUTOHIDE_OPTS.includes(next as any)) {
@@ -291,11 +297,17 @@ const FullscreenOverlay = ({
         resetTimer();
       }
     };
+    const orientationMql = typeof window !== "undefined" && window.matchMedia
+      ? window.matchMedia("(orientation: landscape)")
+      : null;
     document.addEventListener("enterpictureinpicture", onPipEnter, true);
     document.addEventListener("leavepictureinpicture", onPipLeave, true);
     document.addEventListener("webkitpresentationmodechanged", onPipEnter, true);
     window.addEventListener("orientationchange", onOrientation);
     window.addEventListener("resize", onOrientation);
+    try { (screen as any)?.orientation?.addEventListener?.("change", onOrientation); } catch {}
+    try { (window as any).visualViewport?.addEventListener?.("resize", onOrientation); } catch {}
+    try { orientationMql?.addEventListener?.("change", onOrientation); } catch {}
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("demus:fs-autohide-changed", onAutoHidePref as EventListener);
 
@@ -321,6 +333,9 @@ const FullscreenOverlay = ({
       document.removeEventListener("webkitpresentationmodechanged", onPipEnter, true);
       window.removeEventListener("orientationchange", onOrientation);
       window.removeEventListener("resize", onOrientation);
+      try { (screen as any)?.orientation?.removeEventListener?.("change", onOrientation); } catch {}
+      try { (window as any).visualViewport?.removeEventListener?.("resize", onOrientation); } catch {}
+      try { orientationMql?.removeEventListener?.("change", onOrientation); } catch {}
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("demus:fs-autohide-changed", onAutoHidePref as EventListener);
       try {
@@ -361,11 +376,17 @@ const FullscreenOverlay = ({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
-      {/* Top bar */}
+      {/* Top bar — respeita safe-area (notch / Dynamic Island) sem afetar o vídeo,
+          que continua ocupando 100vw/100vh via letterbox central. */}
       <div
         className={`flex items-center justify-between px-5 pt-5 pb-10 bg-gradient-to-b from-black/70 to-transparent transition-opacity duration-300 ${
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
+        style={{
+          paddingTop: "max(1.25rem, env(safe-area-inset-top))",
+          paddingLeft: "max(1.25rem, env(safe-area-inset-left))",
+          paddingRight: "max(1.25rem, env(safe-area-inset-right))",
+        }}
       >
         <div className="w-11" /> {/* spacer for the always-visible button */}
         <div className="flex-1 text-center px-4 min-w-0">
@@ -423,11 +444,17 @@ const FullscreenOverlay = ({
         </div>
       </div>
 
-      {/* Bottom controls — transport + slider colado ao rodapé */}
+      {/* Bottom controls — transport + slider colado ao rodapé, respeitando
+          safe-area-inset-bottom (home indicator) e lateral (notch em landscape). */}
       <div
         className={`px-4 pb-2 pt-6 bg-gradient-to-t from-black/70 to-transparent transition-opacity duration-300 ${
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
+        style={{
+          paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))",
+          paddingLeft: "max(1rem, env(safe-area-inset-left))",
+          paddingRight: "max(1rem, env(safe-area-inset-right))",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-center gap-6 mb-3">
