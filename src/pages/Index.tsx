@@ -1828,8 +1828,14 @@ const Index = () => {
             paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
           }}
         >
-          <div className="flex items-center lg:hidden shrink-0">
+          <div className="flex items-center gap-2 lg:hidden shrink-0">
             <Logo size={32} />
+            <span
+              aria-hidden="true"
+              className="inline-flex items-center justify-center h-7 px-2 rounded-md font-display font-black italic text-[13px] tracking-tight bg-gradient-to-b from-primary to-primary/60 bg-clip-text text-transparent border border-primary/30 shadow-[0_0_12px_rgba(34,197,94,0.25)]"
+            >
+              SW
+            </span>
           </div>
 
 
@@ -1856,18 +1862,23 @@ const Index = () => {
           </div>
 
 
-          {/* Center: Dynamic-island module switcher (Início / Música / Vídeo / Podcast) */}
-          <DynamicIslandModules
-            activeModule={
-              podcastMode
-                ? "podcast"
-                : (homeMode === "video" ? "video" : homeMode === "music" ? "music" : "hub")
-            }
-            onSelect={(id) => {
-              if (id === "podcast") { setPodcastMode(true); setActiveTab("podcast"); }
-              else { setPodcastMode(false); setHomeMode(id); setActiveTab("home"); }
-            }}
-          />
+          {/* Center: Dynamic-island module switcher (Início / Música / Vídeo / Podcast) — absolutely centered */}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+            <div className="pointer-events-auto">
+              <DynamicIslandModules
+                activeModule={
+                  podcastMode
+                    ? "podcast"
+                    : (homeMode === "video" ? "video" : homeMode === "music" ? "music" : "hub")
+                }
+                onSelect={(id) => {
+                  if (id === "podcast") { setPodcastMode(true); setActiveTab("podcast"); }
+                  else { setPodcastMode(false); setHomeMode(id); setActiveTab("home"); }
+                }}
+              />
+            </div>
+          </div>
+
 
           <div className="flex items-center gap-2 ml-auto">
 
