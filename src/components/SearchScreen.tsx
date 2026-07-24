@@ -112,24 +112,35 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
     doSearch(query);
   };
 
-  // Derive unique artists and albums from results
-  let uniqueArtists = [...new Set(results.map((s) => s.artist).filter(a => a && a !== "Desconhecido"))];
-  let uniqueAlbums = [...new Set(results.map((s) => `${s.album}|||${s.artist}|||${s.cover}`).filter(a => !a.startsWith("|||") && a.split("|||")[0] && a.split("|||")[0].toLowerCase() !== a.split("|||")[1]?.toLowerCase()))];
+  // Título das faixas — usado para excluir "artistas" que na verdade são nomes de músicas
+  const titleSet = new Set(results.map((s) => s.title.toLowerCase().trim()));
+  const norm = (s: string) => s.toLowerCase().trim();
 
-  // Fallback: quando o parser não separa artista/álbum (ex: "Aline Barros"),
-  // injeta cards sintéticos usando a query para permitir navegar ao perfil/álbum.
-  if (results.length > 0 && query.trim().length >= 2) {
-    if (uniqueArtists.length === 0) {
-      uniqueArtists = [query.trim()];
-    } else if (!uniqueArtists.some(a => a.toLowerCase().includes(query.trim().toLowerCase()))) {
-      uniqueArtists = [query.trim(), ...uniqueArtists];
-    }
-    // Também sugere um "álbum" sintético baseado nas 3 primeiras músicas
-    if (uniqueAlbums.length === 0) {
-      const first = results[0];
-      uniqueAlbums = [`${query.trim()} — Discografia|||${first.artist}|||${first.cover}`];
-    }
-  }
+  // Artistas: apenas nomes que aparecem como artista em pelo menos uma faixa,
+  // não são "Desconhecido" e não coincidem com o título de nenhuma música do resultado
+  // (evita que o próprio nome da música apareça como artista).
+  const uniqueArtists = [
+    ...new Set(
+      results
+        .map((s) => s.artist)
+        .filter((a) => a && a !== "Desconhecido" && !titleSet.has(norm(a)))
+    ),
+  ];
+
+  // Álbuns: exige nome de álbum diferente do título da faixa e diferente do nome do artista
+  // (assim clipes/singles sem álbum real não poluem a seção).
+  const uniqueAlbums = [
+    ...new Set(
+      results
+        .filter((s) => {
+          const album = norm(s.album);
+          const title = norm(s.title);
+          const artist = norm(s.artist);
+          return album && album !== title && album !== artist;
+        })
+        .map((s) => `${s.album}|||${s.artist}|||${s.cover}`)
+    ),
+  ];
 
   const artistAvatars = useArtistAvatars(uniqueArtists.slice(0, 10));
 
