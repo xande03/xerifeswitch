@@ -961,42 +961,8 @@ const NowPlayingView = ({
                 {/* Collapse overlay removido no modo Letras — usar somente a barra superior */}
               </div>
 
-              {/* Mode Selector — hidden only in the rail (Xerife Vídeos) layout */}
-              {!isRailVideoMode && (
-                <div
-                  role="tablist"
-                  aria-label="Modo de reprodução"
-                  className="flex items-center gap-1 bg-secondary/40 backdrop-blur-xl rounded-full p-1 border border-white/5 w-fit mx-auto"
-                >
-                  {([
-                    { id: "audio" as PlayerMode, icon: Headphones, label: "Áudio" },
-                    ...(context !== "video" && hasVideoClip
-                      ? [{ id: "video" as PlayerMode, icon: Video, label: "Vídeo" }]
-                      : []),
-                  ]).map(({ id, icon: Icon, label }) => {
-                    // Se estivermos em "lyrics", nenhuma aba do seletor está
-                    // ativa — o botão "Letra" da action bar reflete esse estado.
-                    const isActive = mode === id;
-                    return (
-                      <button
-                        key={id}
-                        role="tab"
-                        aria-selected={isActive}
-                        aria-label={`Modo ${label}`}
-                        title={`Modo ${label}`}
-                        onClick={() => handleModeChange(id)}
-                        className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-all justify-center min-w-[72px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-                          isActive ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                        }`}
-                      >
-                        <Icon size={12} aria-hidden />
-                        <span>{label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-              )}
+              {/* Mode selector pill removed — Vídeo toggle now lives in the action bar
+                  next to Letra; Áudio is the default state when Vídeo/Letra are off. */}
             </div>
 
             {/* Right Column: Controls + Related — on desktop rail video mode this becomes a sticky right rail (YouTube-style) */}
@@ -1055,9 +1021,7 @@ const NowPlayingView = ({
                       <Heart size={20} fill={isLiked ? "currentColor" : "none"} strokeWidth={isLiked ? 0 : 2.5} />
                     </button>
                     {[
-                      // Substitui o antigo botão "modo vídeo" por atalho para a LETRA
-                      // (o modo Vídeo continua acessível pela pílula Áudio/Vídeo acima).
-                      // Toggle: em modo Letras, clicar volta para Áudio.
+                      // Letra (atalho): alterna entre Letra e Áudio.
                       context === "music" && hasLyrics
                         ? {
                             icon: Mic2,
@@ -1067,6 +1031,16 @@ const NowPlayingView = ({
                             pressed: mode === 'lyrics',
                           }
                         : { icon: isFullscreen ? Minimize2 : Maximize2, label: isFullscreen ? 'Sair Tela Cheia' : 'Tela Cheia', onClick: isFullscreen ? onExitFullscreen : onFullscreen, active: false },
+                      // Vídeo (toggle): ativa/desativa o modo vídeo; quando off, volta para a capa (áudio).
+                      context !== "video" && hasVideoClip
+                        ? {
+                            icon: Video,
+                            label: mode === 'video' ? 'Fechar vídeo' : 'Vídeo',
+                            onClick: () => handleModeChange(mode === 'video' ? 'audio' : 'video'),
+                            active: mode === 'video',
+                            pressed: mode === 'video',
+                          }
+                        : null,
                       { icon: Plus, label: 'Playlist', onClick: onAddToPlaylist ? () => onAddToPlaylist(song) : undefined },
                       { icon: Download, label: 'Download', onClick: onDownload },
                       { icon: Share2, label: 'Compartilhar', onClick: onShare },
@@ -1077,7 +1051,7 @@ const NowPlayingView = ({
                         active: chordsOpen,
                       },
                       
-                    ].map((btn: any, i) => btn.onClick && (
+                    ].filter(Boolean).map((btn: any, i) => btn.onClick && (
                       <button
                         key={i}
                         onClick={btn.onClick}
