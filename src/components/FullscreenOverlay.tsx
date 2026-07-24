@@ -376,11 +376,17 @@ const FullscreenOverlay = ({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
-      {/* Top bar */}
+      {/* Top bar — respeita safe-area (notch / Dynamic Island) sem afetar o vídeo,
+          que continua ocupando 100vw/100vh via letterbox central. */}
       <div
         className={`flex items-center justify-between px-5 pt-5 pb-10 bg-gradient-to-b from-black/70 to-transparent transition-opacity duration-300 ${
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
+        style={{
+          paddingTop: "max(1.25rem, env(safe-area-inset-top))",
+          paddingLeft: "max(1.25rem, env(safe-area-inset-left))",
+          paddingRight: "max(1.25rem, env(safe-area-inset-right))",
+        }}
       >
         <div className="w-11" /> {/* spacer for the always-visible button */}
         <div className="flex-1 text-center px-4 min-w-0">
