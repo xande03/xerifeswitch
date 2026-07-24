@@ -1051,7 +1051,7 @@ const NowPlayingView = ({
                         active: chordsOpen,
                       },
                       
-                    ].map((btn: any, i) => btn.onClick && (
+                    ].filter(Boolean).map((btn: any, i) => btn.onClick && (
                       <button
                         key={i}
                         onClick={btn.onClick}
