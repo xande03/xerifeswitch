@@ -47,8 +47,10 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [history, setHistory] = useState<SearchHistoryEntry[]>(() => getSearchHistory());
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const suggestTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  // Token que identifica a última busca disparada. Requests antigos são descartados
+  // ao comparar com o valor atual — evita "race conditions" ao digitar rapidamente.
+  const searchTokenRef = useRef(0);
 
   useEffect(() => {
     const refresh = () => setHistory(getSearchHistory());
@@ -56,23 +58,42 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
     return () => window.removeEventListener("demus:search-history-updated", refresh);
   }, []);
 
-  const doSearch = async (q: string, f: MusicFilter = filter) => {
-    if (q.length < 2) return;
+  // Debounce + cancelamento de busca: dispara ao mudar query/filter,
+  // aguarda 400ms de inatividade e ignora respostas de requests obsoletos.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      // Cancela qualquer request pendente e limpa a lista imediatamente
+      searchTokenRef.current++;
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+
+    const token = ++searchTokenRef.current;
     setLoading(true);
-    setShowSuggestions(false);
-    // Registra a busca para alimentar as recomendações personalizadas em "Destaques".
-    try {
-      const { recordSearchQuery } = await import("@/lib/localStorage");
-      recordSearchQuery(q);
-    } catch {}
-    // Força busca por FAIXAS DE MÚSICA (não vídeos) no módulo Xerife Music.
-    // "all" no contexto de música = songs para não retornar clipes/vídeos.
-    const apiFilter = f === "all" ? "songs" : f;
-    const res = await searchYouTubeMusic(q, apiFilter);
-    const tagged = res.map(s => ({ ...s, type: 'music' as const }));
-    setResults(tagged);
-    setLoading(false);
-  };
+    const timer = setTimeout(async () => {
+      try {
+        const { recordSearchQuery } = await import("@/lib/localStorage");
+        recordSearchQuery(q);
+      } catch {}
+      const apiFilter = filter === "all" ? "songs" : filter;
+      try {
+        const res = await searchYouTubeMusic(q, apiFilter);
+        if (token !== searchTokenRef.current) return; // request obsoleto
+        setResults(res.map((s) => ({ ...s, type: "music" as const })));
+      } catch {
+        if (token !== searchTokenRef.current) return;
+        setResults([]);
+      } finally {
+        if (token === searchTokenRef.current) setLoading(false);
+      }
+    }, 400);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [query, filter]);
 
   const handleInput = (val: string) => {
     setQuery(val);
@@ -85,7 +106,6 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
     } else {
       setSuggestions([]);
       setShowSuggestions(false);
-      if (val.length === 0) setResults([]);
     }
   };
 
@@ -93,23 +113,19 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
     setQuery(term);
     setSuggestions([]);
     setShowSuggestions(false);
-    doSearch(term);
   };
 
   const handleGenreClick = (genre: string) => {
     setQuery(genre);
-    doSearch(genre);
   };
 
   const handleFilterChange = (f: MusicFilter) => {
     setFilter(f);
-    if (query.length >= 2) doSearch(query, f);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setShowSuggestions(false);
-    doSearch(query);
   };
 
   // Título das faixas — usado para excluir "artistas" que na verdade são nomes de músicas
