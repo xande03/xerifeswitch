@@ -413,10 +413,17 @@ html, body {
 .pseudo-fullscreen #yt-player {
   position: relative !important;
   inset: auto !important;
-  width: 100vw !important;
-  height: calc(100vw * 9 / 16) !important;
-  max-width: calc(100vh * 16 / 9) !important;
+  /* Letterbox 16:9 dentro do viewport inteiro sem depender de dupla-clamp
+     independente em width/height (que gerava assimetria em landscape mobile
+     com safe-areas/notch). min() garante uma única dimensão dominante e
+     margin:auto + flex centraliza perfeitamente em ambos os eixos. */
+  width: min(100vw, calc(100vh * 16 / 9)) !important;
+  height: min(100vh, calc(100vw * 9 / 16)) !important;
+  aspect-ratio: 16 / 9 !important;
+  max-width: 100vw !important;
   max-height: 100vh !important;
+  margin: auto !important;
+  padding: 0 !important;
   border-radius: 0 !important;
   z-index: 0 !important;
   background: black !important;
@@ -425,9 +432,9 @@ html, body {
   #yt-fullscreen-container:fullscreen #yt-player,
   #yt-fullscreen-container:-webkit-full-screen #yt-player,
   .pseudo-fullscreen #yt-player {
-    height: calc(100vw * 9 / 16) !important;
+    width: min(100vw, calc(100dvh * 16 / 9)) !important;
+    height: min(100dvh, calc(100vw * 9 / 16)) !important;
     max-height: 100dvh !important;
-    max-width: calc(100dvh * 16 / 9) !important;
   }
 }
 #yt-fullscreen-container:fullscreen #yt-player iframe,
