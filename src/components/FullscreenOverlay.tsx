@@ -333,6 +333,9 @@ const FullscreenOverlay = ({
       document.removeEventListener("webkitpresentationmodechanged", onPipEnter, true);
       window.removeEventListener("orientationchange", onOrientation);
       window.removeEventListener("resize", onOrientation);
+      try { (screen as any)?.orientation?.removeEventListener?.("change", onOrientation); } catch {}
+      try { (window as any).visualViewport?.removeEventListener?.("resize", onOrientation); } catch {}
+      try { orientationMql?.removeEventListener?.("change", onOrientation); } catch {}
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("demus:fs-autohide-changed", onAutoHidePref as EventListener);
       try {
