@@ -49,6 +49,39 @@ export function clearSearchHistory(): void {
   } catch {}
 }
 
+// --- Video Explore search log (full 24h history, uncapped by count) ---
+const VIDEO_SEARCH_LOG_KEY = "demus_video_search_log";
+const VIDEO_SEARCH_LOG_MAX = 200;
+export interface VideoSearchEntry { q: string; ts: number; }
+export function recordVideoSearchQuery(q: string): void {
+  const query = (q || "").trim();
+  if (query.length < 2) return;
+  try {
+    const raw = localStorage.getItem(VIDEO_SEARCH_LOG_KEY);
+    const list: VideoSearchEntry[] = raw ? JSON.parse(raw) : [];
+    // Dedupe by query within the last 30 minutes so rapid re-searches don't spam
+    const now = Date.now();
+    const recentDup = list.find(e => e.q.toLowerCase() === query.toLowerCase() && now - e.ts < 30 * 60 * 1000);
+    if (!recentDup) list.unshift({ q: query, ts: now });
+    // Prune older than 7 days AND cap length
+    const cutoff = now - 7 * 24 * 60 * 60 * 1000;
+    const pruned = list.filter(e => e.ts >= cutoff).slice(0, VIDEO_SEARCH_LOG_MAX);
+    localStorage.setItem(VIDEO_SEARCH_LOG_KEY, JSON.stringify(pruned));
+    window.dispatchEvent(new CustomEvent("demus:video-search-log-updated"));
+  } catch {}
+}
+export function getVideoSearchLog(sinceMs?: number): VideoSearchEntry[] {
+  try {
+    const raw = localStorage.getItem(VIDEO_SEARCH_LOG_KEY);
+    const list: VideoSearchEntry[] = raw ? JSON.parse(raw) : [];
+    if (typeof sinceMs === "number") {
+      const cutoff = Date.now() - sinceMs;
+      return list.filter(e => e.ts >= cutoff);
+    }
+    return list;
+  } catch { return []; }
+}
+
 export function saveMediaType(t: MediaType): void {
   try { localStorage.setItem(MEDIA_TYPE_KEY, t); } catch {}
 }

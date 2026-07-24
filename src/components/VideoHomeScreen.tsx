@@ -5,7 +5,7 @@ import { Clock, Sparkles, Play, TrendingUp, RefreshCw, Film, BookmarkPlus, Bookm
 import { VIDEO_CATEGORIES, type VideoCategory } from "./VideoCategorySelector";
 import { searchYouTubeGeneral, searchYouTubeGeneralPage, loadMoreYouTubeGeneral, type VideoResult } from "@/lib/youtubeGeneralSearch";
 import { getSearchSuggestions } from "@/lib/youtubeSearch";
-import { getHistory, type HistoryEntry } from "@/lib/localStorage";
+import { getHistory, getVideoSearchLog, type HistoryEntry } from "@/lib/localStorage";
 import { createFunctionUrl, createFunctionHeadersWithIp } from "@/lib/backendConfig";
 import { supabase } from "@/integrations/supabase/client";
 import { hdThumbnail } from "@/lib/utils";
@@ -165,10 +165,6 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
   const [historyTick, setHistoryTick] = useState(0);
   const history = useMemo(() => {
     try {
-      // Broadened: include explicit `type: "video"` AND legacy YouTube entries
-      // (songId prefixed with `yt-` and no album) which older builds saved
-      // without a `type` field. Guarantees "Continuar assistindo" and the
-      // personalized queries actually reflect what the user watched.
       return getHistory().filter(h => {
         if (!h?.youtubeId) return false;
         if (h.type === "video") return true;
@@ -180,61 +176,100 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
     }
   }, [historyTick]);
 
+  // Recent Explore searches (last 24h) — feed recommendations from every
+  // query the user ran, not just the latest one.
+  const recentSearches = useMemo(() => {
+    try {
+      const entries = getVideoSearchLog(24 * 60 * 60 * 1000);
+      // Rank by frequency + recency: freq * (1 / ageHours+1)
+      const now = Date.now();
+      const score = new Map<string, number>();
+      for (const e of entries) {
+        const q = e.q.trim();
+        if (q.length < 2) continue;
+        const ageH = Math.max(0, (now - e.ts) / 3600000);
+        const s = (score.get(q) || 0) + 1 / (1 + ageH * 0.25);
+        score.set(q, s);
+      }
+      return [...score.entries()].sort((a, b) => b[1] - a[1]).map(([q]) => q).slice(0, 6);
+    } catch { return []; }
+  }, [historyTick]);
+
+
   const recentVideos = useMemo(() => history.slice(0, 10), [history]);
 
   // Generate recommendation queries based on history — bias toward the user's
   // most-watched channels and the strongest keywords from recent titles, so
   // the "Recomendados para você" grid is genuinely personalized.
   const recQueries = useMemo(() => {
-    if (history.length === 0) return ["vídeos recomendados Brasil"];
-
-    // Rank channels by watch frequency instead of just recency.
-    const channelCount = new Map<string, number>();
-    for (const h of history.slice(0, 25)) {
-      const c = (h.artist || "").trim();
-      if (!c) continue;
-      channelCount.set(c, (channelCount.get(c) || 0) + 1);
-    }
-    const channels = [...channelCount.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([c]) => c);
-
-    const STOP = new Set(["oficial","official","video","vídeo","clip","clipe","music","lyrics","letra","feat","part","com","the","com.","para","uma","dos","das","que","por","sobre","novo","nova"]);
-    const titleWords = history.slice(0, 12)
-      .flatMap(h => (h.title || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length > 4 && !STOP.has(w)))
-      .reduce((acc, w) => { acc.set(w, (acc.get(w) || 0) + 1); return acc; }, new Map<string, number>());
-    const topKeywords = [...titleWords.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([w]) => w);
-
     const queries: string[] = [];
-    // Channel-only queries (top 3)
-    channels.forEach(c => queries.push(c));
-    // Keyword-only combos
-    if (topKeywords.length >= 2) queries.push(topKeywords.slice(0, 2).join(" "));
-    if (topKeywords.length >= 3) queries.push(topKeywords.slice(1, 3).join(" "));
-    // Channel + keyword crosses (expands variety beyond just creators)
-    if (channels[0] && topKeywords[0]) queries.push(`${channels[0]} ${topKeywords[0]}`);
-    if (channels[1] && topKeywords[0]) queries.push(`${channels[1]} ${topKeywords[0]}`);
-    if (channels[0] && topKeywords[1]) queries.push(`${channels[0]} ${topKeywords[1]}`);
-    // Generic top keyword — pulls in similar content across the platform
-    if (topKeywords[0]) queries.push(topKeywords[0]);
-    if (queries.length === 0) queries.push("vídeos recomendados Brasil");
-    return queries.slice(0, 8);
-  }, [history]);
+
+    // Prioritize recent Explore searches from the last 24h (top 4). These
+    // reflect what the user is *actively* looking for right now.
+    const topSearches = recentSearches.slice(0, 4);
+    queries.push(...topSearches);
+
+    if (history.length > 0) {
+      // Rank channels by watch frequency instead of just recency.
+      const channelCount = new Map<string, number>();
+      for (const h of history.slice(0, 25)) {
+        const c = (h.artist || "").trim();
+        if (!c) continue;
+        channelCount.set(c, (channelCount.get(c) || 0) + 1);
+      }
+      const channels = [...channelCount.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([c]) => c);
+
+      const STOP = new Set(["oficial","official","video","vídeo","clip","clipe","music","lyrics","letra","feat","part","com","the","com.","para","uma","dos","das","que","por","sobre","novo","nova"]);
+      const titleWords = history.slice(0, 12)
+        .flatMap(h => (h.title || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length > 4 && !STOP.has(w)))
+        .reduce((acc, w) => { acc.set(w, (acc.get(w) || 0) + 1); return acc; }, new Map<string, number>());
+      const topKeywords = [...titleWords.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([w]) => w);
+
+      channels.forEach(c => queries.push(c));
+      if (topKeywords.length >= 2) queries.push(topKeywords.slice(0, 2).join(" "));
+      if (topKeywords.length >= 3) queries.push(topKeywords.slice(1, 3).join(" "));
+      if (channels[0] && topKeywords[0]) queries.push(`${channels[0]} ${topKeywords[0]}`);
+      if (channels[1] && topKeywords[0]) queries.push(`${channels[1]} ${topKeywords[0]}`);
+      if (channels[0] && topKeywords[1]) queries.push(`${channels[0]} ${topKeywords[1]}`);
+      if (topKeywords[0]) queries.push(topKeywords[0]);
+
+      // Cross recent search × top channel — mixes intent with taste.
+      if (topSearches[0] && channels[0]) queries.push(`${topSearches[0]} ${channels[0]}`);
+    }
+
+    // Dedupe (case-insensitive) preserving order
+    const seen = new Set<string>();
+    const deduped = queries.filter(q => {
+      const k = q.toLowerCase().trim();
+      if (!k || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+
+    if (deduped.length === 0) deduped.push("vídeos recomendados Brasil");
+    return deduped.slice(0, 10);
+  }, [history, recentSearches]);
+
 
   // History change listener
   useEffect(() => {
     const bump = () => setHistoryTick(t => t + 1);
-    const onStorage = (e: StorageEvent) => { 
-      if (!e.key || e.key === "demus_history") bump(); 
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key || e.key === "demus_history" || e.key === "demus_video_search_log") bump();
     };
     window.addEventListener("demus:history-updated", bump);
+    window.addEventListener("demus:video-search-log-updated", bump);
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener("demus:history-updated", bump);
+      window.removeEventListener("demus:video-search-log-updated", bump);
       window.removeEventListener("storage", onStorage);
     };
   }, []);
+
   // NOW we can use auto-refresh hooks since recQueries is defined
   const {
     newContentCount: recsNewContentCount,
