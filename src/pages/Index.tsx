@@ -1821,15 +1821,15 @@ const Index = () => {
 
         {/* Header */}
         <header
-          className="relative flex items-center justify-between px-3 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-6 flex-shrink-0 bg-background"
+          className="relative flex items-center gap-2 sm:gap-3 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-6 flex-shrink-0 bg-background"
           style={{
             paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)',
             paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
             paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
           }}
         >
-          <div className="flex items-center gap-2.5 lg:hidden shrink-0">
-            <Logo size={36} />
+          <div className="flex items-center lg:hidden shrink-0">
+            <Logo size={32} />
           </div>
 
 
