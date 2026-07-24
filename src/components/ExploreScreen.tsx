@@ -15,6 +15,7 @@ import { useAutoRefreshChannel } from "@/hooks/useAutoRefreshChannel";
 import NewContentBadge from "./NewContentBadge";
 import { useToast } from "@/hooks/use-toast";
 import { extractYouTubeVideoId, fetchVideoByUrl } from "@/lib/youtubeUrl";
+import { recordVideoSearchQuery } from "@/lib/localStorage";
 
 interface ExploreScreenProps {
   onPlayVideo: (video: VideoResult) => void;
