@@ -202,41 +202,57 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
   // most-watched channels and the strongest keywords from recent titles, so
   // the "Recomendados para você" grid is genuinely personalized.
   const recQueries = useMemo(() => {
-    if (history.length === 0) return ["vídeos recomendados Brasil"];
-
-    // Rank channels by watch frequency instead of just recency.
-    const channelCount = new Map<string, number>();
-    for (const h of history.slice(0, 25)) {
-      const c = (h.artist || "").trim();
-      if (!c) continue;
-      channelCount.set(c, (channelCount.get(c) || 0) + 1);
-    }
-    const channels = [...channelCount.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([c]) => c);
-
-    const STOP = new Set(["oficial","official","video","vídeo","clip","clipe","music","lyrics","letra","feat","part","com","the","com.","para","uma","dos","das","que","por","sobre","novo","nova"]);
-    const titleWords = history.slice(0, 12)
-      .flatMap(h => (h.title || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length > 4 && !STOP.has(w)))
-      .reduce((acc, w) => { acc.set(w, (acc.get(w) || 0) + 1); return acc; }, new Map<string, number>());
-    const topKeywords = [...titleWords.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([w]) => w);
-
     const queries: string[] = [];
-    // Channel-only queries (top 3)
-    channels.forEach(c => queries.push(c));
-    // Keyword-only combos
-    if (topKeywords.length >= 2) queries.push(topKeywords.slice(0, 2).join(" "));
-    if (topKeywords.length >= 3) queries.push(topKeywords.slice(1, 3).join(" "));
-    // Channel + keyword crosses (expands variety beyond just creators)
-    if (channels[0] && topKeywords[0]) queries.push(`${channels[0]} ${topKeywords[0]}`);
-    if (channels[1] && topKeywords[0]) queries.push(`${channels[1]} ${topKeywords[0]}`);
-    if (channels[0] && topKeywords[1]) queries.push(`${channels[0]} ${topKeywords[1]}`);
-    // Generic top keyword — pulls in similar content across the platform
-    if (topKeywords[0]) queries.push(topKeywords[0]);
-    if (queries.length === 0) queries.push("vídeos recomendados Brasil");
-    return queries.slice(0, 8);
-  }, [history]);
+
+    // Prioritize recent Explore searches from the last 24h (top 4). These
+    // reflect what the user is *actively* looking for right now.
+    const topSearches = recentSearches.slice(0, 4);
+    queries.push(...topSearches);
+
+    if (history.length > 0) {
+      // Rank channels by watch frequency instead of just recency.
+      const channelCount = new Map<string, number>();
+      for (const h of history.slice(0, 25)) {
+        const c = (h.artist || "").trim();
+        if (!c) continue;
+        channelCount.set(c, (channelCount.get(c) || 0) + 1);
+      }
+      const channels = [...channelCount.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([c]) => c);
+
+      const STOP = new Set(["oficial","official","video","vídeo","clip","clipe","music","lyrics","letra","feat","part","com","the","com.","para","uma","dos","das","que","por","sobre","novo","nova"]);
+      const titleWords = history.slice(0, 12)
+        .flatMap(h => (h.title || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length > 4 && !STOP.has(w)))
+        .reduce((acc, w) => { acc.set(w, (acc.get(w) || 0) + 1); return acc; }, new Map<string, number>());
+      const topKeywords = [...titleWords.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([w]) => w);
+
+      channels.forEach(c => queries.push(c));
+      if (topKeywords.length >= 2) queries.push(topKeywords.slice(0, 2).join(" "));
+      if (topKeywords.length >= 3) queries.push(topKeywords.slice(1, 3).join(" "));
+      if (channels[0] && topKeywords[0]) queries.push(`${channels[0]} ${topKeywords[0]}`);
+      if (channels[1] && topKeywords[0]) queries.push(`${channels[1]} ${topKeywords[0]}`);
+      if (channels[0] && topKeywords[1]) queries.push(`${channels[0]} ${topKeywords[1]}`);
+      if (topKeywords[0]) queries.push(topKeywords[0]);
+
+      // Cross recent search × top channel — mixes intent with taste.
+      if (topSearches[0] && channels[0]) queries.push(`${topSearches[0]} ${channels[0]}`);
+    }
+
+    // Dedupe (case-insensitive) preserving order
+    const seen = new Set<string>();
+    const deduped = queries.filter(q => {
+      const k = q.toLowerCase().trim();
+      if (!k || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+
+    if (deduped.length === 0) deduped.push("vídeos recomendados Brasil");
+    return deduped.slice(0, 10);
+  }, [history, recentSearches]);
+
 
   // History change listener
   useEffect(() => {
