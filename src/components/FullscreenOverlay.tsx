@@ -444,11 +444,17 @@ const FullscreenOverlay = ({
         </div>
       </div>
 
-      {/* Bottom controls — transport + slider colado ao rodapé */}
+      {/* Bottom controls — transport + slider colado ao rodapé, respeitando
+          safe-area-inset-bottom (home indicator) e lateral (notch em landscape). */}
       <div
         className={`px-4 pb-2 pt-6 bg-gradient-to-t from-black/70 to-transparent transition-opacity duration-300 ${
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
+        style={{
+          paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))",
+          paddingLeft: "max(1rem, env(safe-area-inset-left))",
+          paddingRight: "max(1rem, env(safe-area-inset-right))",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-center gap-6 mb-3">
