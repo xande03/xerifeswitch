@@ -257,16 +257,19 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
   // History change listener
   useEffect(() => {
     const bump = () => setHistoryTick(t => t + 1);
-    const onStorage = (e: StorageEvent) => { 
-      if (!e.key || e.key === "demus_history") bump(); 
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key || e.key === "demus_history" || e.key === "demus_video_search_log") bump();
     };
     window.addEventListener("demus:history-updated", bump);
+    window.addEventListener("demus:video-search-log-updated", bump);
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener("demus:history-updated", bump);
+      window.removeEventListener("demus:video-search-log-updated", bump);
       window.removeEventListener("storage", onStorage);
     };
   }, []);
+
   // NOW we can use auto-refresh hooks since recQueries is defined
   const {
     newContentCount: recsNewContentCount,
