@@ -214,6 +214,8 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
 
     setLoading(true);
     setShowSuggestions(false);
+    recordVideoSearchQuery(q);
+
     
     try {
       // Use paginação para busca completa
