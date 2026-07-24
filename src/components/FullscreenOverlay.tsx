@@ -107,6 +107,16 @@ const FullscreenOverlay = ({
   const applyTransform = useCallback((s: number, x: number, y: number) => {
     const el = document.getElementById("yt-player");
     if (!el) return;
+    // Em scale neutro (sem pinch), remove totalmente o transform para não
+    // introduzir uma camada GPU que possa causar desvio subpixel/desalinhamento
+    // no centro do letterbox — especialmente em mobile landscape.
+    if (Math.abs(s - 1) < 0.001 && Math.abs(x) < 0.5 && Math.abs(y) < 0.5) {
+      el.style.transform = "";
+      el.style.transformOrigin = "";
+      el.style.willChange = "";
+      el.style.transition = gestureActiveRef.current ? "none" : "";
+      return;
+    }
     el.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${s})`;
     el.style.transformOrigin = "center center";
     el.style.transition = gestureActiveRef.current ? "none" : "transform 180ms ease-out";
