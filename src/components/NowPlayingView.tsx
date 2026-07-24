@@ -1021,9 +1021,7 @@ const NowPlayingView = ({
                       <Heart size={20} fill={isLiked ? "currentColor" : "none"} strokeWidth={isLiked ? 0 : 2.5} />
                     </button>
                     {[
-                      // Substitui o antigo botão "modo vídeo" por atalho para a LETRA
-                      // (o modo Vídeo continua acessível pela pílula Áudio/Vídeo acima).
-                      // Toggle: em modo Letras, clicar volta para Áudio.
+                      // Letra (atalho): alterna entre Letra e Áudio.
                       context === "music" && hasLyrics
                         ? {
                             icon: Mic2,
@@ -1033,6 +1031,16 @@ const NowPlayingView = ({
                             pressed: mode === 'lyrics',
                           }
                         : { icon: isFullscreen ? Minimize2 : Maximize2, label: isFullscreen ? 'Sair Tela Cheia' : 'Tela Cheia', onClick: isFullscreen ? onExitFullscreen : onFullscreen, active: false },
+                      // Vídeo (toggle): ativa/desativa o modo vídeo; quando off, volta para a capa (áudio).
+                      context !== "video" && hasVideoClip
+                        ? {
+                            icon: Video,
+                            label: mode === 'video' ? 'Fechar vídeo' : 'Vídeo',
+                            onClick: () => handleModeChange(mode === 'video' ? 'audio' : 'video'),
+                            active: mode === 'video',
+                            pressed: mode === 'video',
+                          }
+                        : null,
                       { icon: Plus, label: 'Playlist', onClick: onAddToPlaylist ? () => onAddToPlaylist(song) : undefined },
                       { icon: Download, label: 'Download', onClick: onDownload },
                       { icon: Share2, label: 'Compartilhar', onClick: onShare },
