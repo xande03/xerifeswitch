@@ -5,7 +5,7 @@ import { Clock, Sparkles, Play, TrendingUp, RefreshCw, Film, BookmarkPlus, Bookm
 import { VIDEO_CATEGORIES, type VideoCategory } from "./VideoCategorySelector";
 import { searchYouTubeGeneral, searchYouTubeGeneralPage, loadMoreYouTubeGeneral, type VideoResult } from "@/lib/youtubeGeneralSearch";
 import { getSearchSuggestions } from "@/lib/youtubeSearch";
-import { getHistory, type HistoryEntry } from "@/lib/localStorage";
+import { getHistory, getVideoSearchLog, type HistoryEntry } from "@/lib/localStorage";
 import { createFunctionUrl, createFunctionHeadersWithIp } from "@/lib/backendConfig";
 import { supabase } from "@/integrations/supabase/client";
 import { hdThumbnail } from "@/lib/utils";
