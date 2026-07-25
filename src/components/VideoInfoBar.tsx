@@ -153,16 +153,27 @@ const VideoInfoBar = ({
       setSaved(false);
       toast.success("Removido de Assistir mais tarde");
     } else {
-      addToWatchLater({
+      const item = {
         videoId,
         title: song.title,
         channel: song.artist,
         thumbnail: song.cover,
         lengthSeconds: song.duration,
         duration: "",
-      } as any);
+      } as any;
+      addToWatchLater(item);
       setSaved(true);
-      toast.success("Adicionado a Assistir mais tarde");
+      toast.success("Adicionado a Assistir mais tarde", {
+        duration: 6000,
+        action: {
+          label: "Desfazer",
+          onClick: () => {
+            removeFromWatchLater(videoId);
+            setSaved(false);
+            toast.message("Ação desfeita");
+          },
+        },
+      });
     }
   };
 
