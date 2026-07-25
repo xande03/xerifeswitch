@@ -21,6 +21,19 @@ const CHORD_LINE_REGEX = /^(?:\s*(?:[A-G](?:#|b)?(?:m|maj|sus|dim|aug|add)?\d{0,
 
 /** Níveis de altura (em vh) da área de cifra: minimizado, padrão, expandido. */
 const HEIGHT_LEVELS = [22, 55, 85];
+const HEIGHT_LEVEL_LABELS = ["Minimizado", "Padrão", "Expandido"];
+const HEIGHT_STORAGE_KEY = "xerife:chords-panel-height";
+
+function loadStoredHeight(): number {
+  try {
+    const raw = localStorage.getItem(HEIGHT_STORAGE_KEY);
+    const n = raw ? Number(raw) : NaN;
+    if (Number.isFinite(n)) {
+      return HEIGHT_LEVELS.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a));
+    }
+  } catch { /* ignore */ }
+  return HEIGHT_LEVELS[1];
+}
 
 function isChordLine(line: string): boolean {
   const trimmed = line.trim();
