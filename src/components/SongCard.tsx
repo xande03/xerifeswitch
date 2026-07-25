@@ -20,13 +20,22 @@ interface SongCardProps {
   onVote?: (song: Song) => void;
   onDownload?: (song: Song) => void;
   onAddToPlaylist?: (song: Song) => void;
+  /** Quando definido, o clique na cifra delega ao pai (painel lateral/inline) em vez de abrir o Sheet. */
+  onOpenChords?: (song: Song) => void;
   showVotes?: boolean;
   hasVoted?: boolean;
+  chordsActive?: boolean;
 }
 
-const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylist, showVotes = false, hasVoted = false }: SongCardProps) => {
+const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylist, onOpenChords, showVotes = false, hasVoted = false, chordsActive = false }: SongCardProps) => {
   const [chordsOpen, setChordsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+
+  const openChords = () => {
+    if (onOpenChords) onOpenChords(song);
+    else setChordsOpen(true);
+  };
+
 
   return (
   <>
