@@ -318,45 +318,11 @@ const DesktopSidebar = ({
 
       </nav>
 
-      {/* Bottom section — Profile + Settings/Tools button */}
-      <div className="px-3 pb-6 lg:pb-4 space-y-2 lg:space-y-1 relative" ref={toolsRef}>
-        <div className="h-px bg-sidebar-border mx-2 mb-2 opacity-50" />
-        <div className={`flex flex-col gap-2 ${collapsed ? "items-center" : "items-stretch"}`} data-sidebar-iconcenter>
-          {/* Ferramentas — reuses the exact same module as mobile (HeaderMenu) */}
-          <div className={`flex ${collapsed ? "justify-center w-11" : "justify-center lg:justify-start w-full"}`}>
-            <HeaderMenu
-              homeMode={homeMode}
-              onHomeModeChange={(m) => onHomeModeChange?.(m)}
-              isDark={!!isDark}
-              onToggleTheme={() => onToggleTheme?.()}
-              colorTheme={colorTheme}
-              onColorChange={(c) => onColorChange?.(c)}
-              onCast={onCast}
-              onOpenHistory={onOpenHistory}
-              onOpenPlaylists={onOpenPlaylists}
-              onOpenDownloads={onOpenDownloads}
-              onZoomChange={onZoomChange}
-              onOpenChat={onOpenChat}
-              onLogin={onLogin}
-              onLogout={onLogout}
-              user={user}
-              isLoadingUser={isLoadingUser}
-              currentZoom={currentZoom}
-              placement="sidebar"
-            />
-          </div>
-          {/* Profile button */}
-          <div className={`flex ${collapsed ? "justify-center w-11" : "justify-center lg:justify-start w-full"}`}>
-            <ProfileButton
-              user={user ?? null}
-              onLogin={() => onLogin?.()}
-              onLogout={() => onLogout?.()}
-              onOpenHistory={onOpenHistory}
-              onUpdateName={onUpdateName}
-            />
-          </div>
-        </div>
+      {/* Bottom section — Player embutido na sidebar */}
+      <div className="mt-auto border-t border-sidebar-border/60 overflow-y-auto" ref={toolsRef}>
+        {playerSlot}
       </div>
+
 
     </aside>
 
