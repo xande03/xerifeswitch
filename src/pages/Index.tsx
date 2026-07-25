@@ -47,6 +47,8 @@ import DesktopSidebar from "@/components/DesktopSidebar";
 import SearchSkeleton from "@/components/SearchSkeleton";
 import SearchScreen from "@/components/SearchScreen";
 import DesktopPlayer from "@/components/DesktopPlayer";
+import SidebarPlayer from "@/components/SidebarPlayer";
+
 import SplashScreen from "@/components/SplashScreen";
 import FullscreenOverlay from "@/components/FullscreenOverlay";
 import HeaderMenu from "@/components/HeaderMenu";
