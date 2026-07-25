@@ -1078,28 +1078,8 @@ const NowPlayingView = ({
                             pressed: mode === 'video',
                           }
                         : null,
-                      { icon: Plus, label: 'Playlist', onClick: onAddToPlaylist ? () => onAddToPlaylist(song) : undefined },
-                      { icon: Download, label: 'Download', onClick: onDownload },
-                      { icon: Share2, label: 'Compartilhar', onClick: onShare },
-                      {
-                        icon: Music2,
-                        label: 'Cifra',
-                        onClick: () => setChordsOpen(true),
-                        active: chordsOpen,
-                      },
-                      // Fundo dinâmico (opcional): gera fundo a partir das cores da capa.
-                      context === "music"
-                        ? {
-                            icon: Palette,
-                            label: dynamicBgEnabled ? 'Desativar fundo dinâmico' : 'Fundo dinâmico',
-                            onClick: () => setDynamicBgEnabled(!dynamicBgEnabled),
-                            active: dynamicBgEnabled,
-                            pressed: dynamicBgEnabled,
-                          }
-                        : null,
-
-                      
                     ].filter(Boolean).map((btn: any, i) => btn.onClick && (
+
                       <button
                         key={i}
                         onClick={btn.onClick}
