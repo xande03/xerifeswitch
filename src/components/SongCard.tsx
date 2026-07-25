@@ -1,8 +1,17 @@
-import { Download, DownloadCloud, Play, ThumbsUp, Check, MoreVertical, Plus, Music2 } from "lucide-react";
+import { useState } from "react";
+import { Download, DownloadCloud, ThumbsUp, Check, MoreVertical, Plus, Music2, Share2, ListPlus } from "lucide-react";
 import BlurImage from "@/components/BlurImage";
-import { Song, formatDuration } from "@/data/mockSongs";
+import { Song } from "@/data/mockSongs";
 import { motion } from "framer-motion";
 import { hdThumbnail } from "@/lib/utils";
+import ChordsSheet from "@/components/ChordsSheet";
+import { ShareModal } from "@/components/ShareModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface SongCardProps {
   song: Song;
@@ -15,30 +24,12 @@ interface SongCardProps {
   hasVoted?: boolean;
 }
 
-/** Slug a string to cifraclub.com.br URL format */
-function toCifraSlug(s: string): string {
-  if (!s) return "";
-  return s.toLowerCase()
-    .replace(/\(.*?\)/g, '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-');
-}
+const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylist, showVotes = false, hasVoted = false }: SongCardProps) => {
+  const [chordsOpen, setChordsOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
-function openCifraClub(song: Song) {
-  const mainArtist = song.artist.split(/[,&\/]|feat\.|ft\./i)[0].trim();
-  const artistSlug = toCifraSlug(mainArtist);
-  const titleSlug = toCifraSlug(song.title);
-  if (artistSlug && titleSlug) {
-    window.open(`https://www.cifraclub.com.br/${artistSlug}/${titleSlug}/`, '_blank', 'noopener');
-  } else {
-    window.open(`https://www.cifraclub.com.br/?q=${encodeURIComponent(song.artist + ' ' + song.title)}`, '_blank', 'noopener');
-  }
-}
-
-const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylist, showVotes = false, hasVoted = false }: SongCardProps) => (
+  return (
+  <>
   <motion.div
     layout
     transition={{ type: "spring", stiffness: 400, damping: 35 }}
@@ -86,11 +77,12 @@ const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylis
           <span>{song.votes}</span>
         </button>
       )}
-      {/* Buscar Cifra button — next to download */}
+      {/* Cifra — sempre visível */}
       <button
-        onClick={() => openCifraClub(song)}
-        title="Buscar Cifra"
-        className="p-1.5 rounded-full text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+        onClick={() => setChordsOpen(true)}
+        title="Ver cifra"
+        aria-label={`Ver cifra de ${song.title}`}
+        className="p-1.5 rounded-full text-muted-foreground hover:text-primary transition-colors"
       >
         <Music2 size={16} />
       </button>
@@ -114,11 +106,41 @@ const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylis
           <Plus size={16} />
         </button>
       )}
-      <button className="p-1 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-        <MoreVertical size={16} />
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            aria-label={`Mais opções para ${song.title}`}
+            className="p-1 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <MoreVertical size={16} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52 z-50 bg-popover">
+          <DropdownMenuItem onClick={() => setShareOpen(true)} className="gap-2">
+            <Share2 size={15} /> Compartilhar
+          </DropdownMenuItem>
+          {onAddToPlaylist && (
+            <DropdownMenuItem onClick={() => onAddToPlaylist(song)} className="gap-2">
+              <ListPlus size={15} /> Adicionar à playlist
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onClick={() => setChordsOpen(true)} className="gap-2">
+            <Music2 size={15} /> Ver cifra
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   </motion.div>
-);
+
+  <ChordsSheet
+    open={chordsOpen}
+    onOpenChange={setChordsOpen}
+    artist={song.artist}
+    title={song.title}
+  />
+  <ShareModal open={shareOpen} onOpenChange={setShareOpen} song={song} isVideo={false} />
+  </>
+  );
+};
 
 export default SongCard;
