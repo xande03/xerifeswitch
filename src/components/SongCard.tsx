@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, DownloadCloud, ThumbsUp, Check, MoreVertical, Plus, Music2, Share2, ListPlus } from "lucide-react";
+import { Download, DownloadCloud, ThumbsUp, Check, MoreVertical, Music2, Share2, ListPlus } from "lucide-react";
 import BlurImage from "@/components/BlurImage";
 import { Song } from "@/data/mockSongs";
 import { motion } from "framer-motion";
