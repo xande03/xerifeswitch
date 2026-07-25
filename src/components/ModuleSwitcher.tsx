@@ -79,8 +79,9 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
 
       <PopoverContent
         align="end"
-        sideOffset={10}
-        className="w-56 p-2 rounded-2xl border border-border/70 bg-popover/95 backdrop-blur-xl shadow-2xl ring-1 ring-foreground/5"
+        sideOffset={12}
+        collisionPadding={12}
+        className="w-[min(18rem,calc(100vw-24px))] sm:w-64 p-2.5 sm:p-2 rounded-2xl border border-border/70 bg-popover/95 backdrop-blur-xl shadow-2xl ring-1 ring-foreground/5 origin-top-right data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-2 data-[state=closed]:slide-out-to-top-2"
         style={{
           boxShadow:
             "0 10px 40px -12px hsl(var(--foreground) / 0.25), 0 0 0 1px hsl(var(--border) / 0.6), inset 0 1px 0 hsl(var(--foreground) / 0.04)",
@@ -89,8 +90,8 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
         <div className="px-2 pt-1 pb-2 text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
           Alternar sessão
         </div>
-        <div className="flex flex-col gap-1">
-          {(Object.keys(MODULE_LABEL) as SwitchableModule[]).map((id) => {
+        <div className="flex flex-col gap-1.5 sm:gap-1">
+          {(Object.keys(MODULE_LABEL) as SwitchableModule[]).map((id, idx) => {
             const Icon = MODULE_ICON[id];
             const tones = getModuleTones(MODULE_COLOR[id], isLight);
             const isActive = id === active;
@@ -99,14 +100,16 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
                 key={id}
                 onClick={() => handle(id)}
                 aria-pressed={isActive}
-                className="group flex items-center gap-3 px-2.5 py-2 rounded-xl text-left transition-colors hover:bg-muted/60 focus:outline-none focus-visible:ring-2"
+                className="group flex items-center gap-3 px-2.5 py-2.5 sm:py-2 rounded-xl text-left transition-all duration-200 ease-out hover:bg-muted/60 hover:translate-x-0.5 active:scale-[0.98] focus:outline-none focus-visible:ring-2 animate-fade-in"
                 style={{
                   boxShadow: isActive ? `inset 0 0 0 1px ${tones.ring}` : "none",
                   backgroundColor: isActive ? tones.bg : "transparent",
+                  animationDelay: `${idx * 40}ms`,
+                  animationFillMode: "backwards",
                 }}
               >
                 <span
-                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg"
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-transform duration-200 group-hover:scale-105"
                   style={{ color: tones.fg, backgroundColor: tones.bg }}
                 >
                   <Icon size={16} strokeWidth={2.2} />
