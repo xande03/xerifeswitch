@@ -24,30 +24,12 @@ interface SongCardProps {
   hasVoted?: boolean;
 }
 
-/** Slug a string to cifraclub.com.br URL format */
-function toCifraSlug(s: string): string {
-  if (!s) return "";
-  return s.toLowerCase()
-    .replace(/\(.*?\)/g, '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-');
-}
+const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylist, showVotes = false, hasVoted = false }: SongCardProps) => {
+  const [chordsOpen, setChordsOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
-function openCifraClub(song: Song) {
-  const mainArtist = song.artist.split(/[,&\/]|feat\.|ft\./i)[0].trim();
-  const artistSlug = toCifraSlug(mainArtist);
-  const titleSlug = toCifraSlug(song.title);
-  if (artistSlug && titleSlug) {
-    window.open(`https://www.cifraclub.com.br/${artistSlug}/${titleSlug}/`, '_blank', 'noopener');
-  } else {
-    window.open(`https://www.cifraclub.com.br/?q=${encodeURIComponent(song.artist + ' ' + song.title)}`, '_blank', 'noopener');
-  }
-}
-
-const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylist, showVotes = false, hasVoted = false }: SongCardProps) => (
+  return (
+  <>
   <motion.div
     layout
     transition={{ type: "spring", stiffness: 400, damping: 35 }}
