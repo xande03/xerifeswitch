@@ -660,7 +660,7 @@ const NowPlayingView = ({
     onAddToPlaylist ? { icon: Plus, label: "Adicionar à playlist", onClick: () => onAddToPlaylist(song) } : null,
     onDownload ? { icon: Download, label: "Baixar música", onClick: onDownload } : null,
     { icon: Music2, label: "Ver cifra", onClick: () => setChordsOpen(true), active: chordsOpen },
-    onShare ? { icon: Share2, label: "Compartilhar", onClick: onShare } : null,
+    
     context === "music"
       ? {
           icon: Palette,
@@ -1127,6 +1127,9 @@ const NowPlayingView = ({
                             pressed: mode === 'video',
                           }
                         : null,
+                      // Compartilhar (atalho direto na pílula)
+                      onShare ? { icon: Share2, label: 'Compartilhar', onClick: onShare, active: false } : null,
+
                     ].filter(Boolean).map((btn: any, i) => btn.onClick && (
 
                       <button
