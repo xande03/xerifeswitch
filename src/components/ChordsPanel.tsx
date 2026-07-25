@@ -44,42 +44,73 @@ const ChordsPanel = ({
   const [fontSize, setFontSize] = useState(14);
   const [autoScroll, setAutoScroll] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState(1);
-  const [heightVh, setHeightVh] = useState(HEIGHT_LEVELS[1]);
+  const [heightVh, setHeightVh] = useState(() => loadStoredHeight());
   const [dragging, setDragging] = useState(false);
-  const dragRef = useRef<{ startY: number; startVh: number } | null>(null);
+  const dragRef = useRef<{ startY: number; startVh: number; lastY: number; lastT: number; velocity: number } | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  const snapTo = (vh: number) => {
-    const nearest = HEIGHT_LEVELS.reduce((a, b) => (Math.abs(b - vh) < Math.abs(a - vh) ? b : a));
-    setHeightVh(nearest);
+  // Persiste a preferência de altura entre sessões de busca.
+  useEffect(() => {
+    if (dragging) return;
+    try { localStorage.setItem(HEIGHT_STORAGE_KEY, String(heightVh)); } catch { /* ignore */ }
+  }, [heightVh, dragging]);
+
+  /** Encaixa no nível mais próximo, favorecendo o sentido do gesto (velocidade). */
+  const snapTo = (vh: number, velocity = 0) => {
+    let nearestIdx = 0;
+    HEIGHT_LEVELS.forEach((lvl, i) => {
+      if (Math.abs(lvl - vh) < Math.abs(HEIGHT_LEVELS[nearestIdx] - vh)) nearestIdx = i;
+    });
+    // velocity > 0 => puxando para cima (expandir); < 0 => para baixo (minimizar)
+    if (Math.abs(velocity) > 0.35) {
+      const dir = velocity > 0 ? 1 : -1;
+      const target = HEIGHT_LEVELS[nearestIdx];
+      if ((dir > 0 && vh > target) || (dir < 0 && vh < target)) {
+        nearestIdx = Math.min(HEIGHT_LEVELS.length - 1, Math.max(0, nearestIdx + dir));
+      }
+    }
+    setHeightVh(HEIGHT_LEVELS[nearestIdx]);
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    dragRef.current = { startY: e.clientY, startVh: heightVh };
+    dragRef.current = { startY: e.clientY, startVh: heightVh, lastY: e.clientY, lastT: performance.now(), velocity: 0 };
     setDragging(true);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
     if (!d) return;
+    const now = performance.now();
+    const dt = Math.max(1, now - d.lastT);
+    // px/ms positivo quando puxa para cima
+    d.velocity = (d.lastY - e.clientY) / dt;
+    d.lastY = e.clientY;
+    d.lastT = now;
     // Puxar para cima aumenta, puxar para baixo diminui.
     const deltaVh = ((d.startY - e.clientY) / window.innerHeight) * 100;
-    setHeightVh(Math.min(90, Math.max(16, d.startVh + deltaVh)));
+    setHeightVh(Math.min(92, Math.max(14, d.startVh + deltaVh)));
   };
 
   const handlePointerUp = () => {
-    if (!dragRef.current) return;
+    const d = dragRef.current;
+    if (!d) return;
     dragRef.current = null;
     setDragging(false);
-    snapTo(heightVh);
+    snapTo(heightVh, d.velocity);
   };
 
-  /** Toque simples na barra alterna entre expandido e padrão/minimizado. */
+  /** Duplo clique alterna entre expandido e minimizado. */
   const handleToggle = () => {
     const idx = HEIGHT_LEVELS.indexOf(heightVh);
     setHeightVh(idx === HEIGHT_LEVELS.length - 1 ? HEIGHT_LEVELS[0] : HEIGHT_LEVELS[HEIGHT_LEVELS.length - 1]);
   };
+
+  const activeLevel = HEIGHT_LEVELS.reduce(
+    (best, lvl, i) => (Math.abs(lvl - heightVh) < Math.abs(HEIGHT_LEVELS[best] - heightVh) ? i : best),
+    0,
+  );
+
 
 
   useEffect(() => {
