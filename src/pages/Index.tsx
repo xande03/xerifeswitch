@@ -24,7 +24,8 @@ import { fetchArtistAlbumQueue, fetchHistoryBasedQueue } from "@/lib/artistAlbum
 
 import QueueDrawer from "@/components/QueueDrawer";
 import Logo from "@/components/Logo";
-import DynamicIslandModules from "@/components/DynamicIslandModules";
+import ModuleSwitcher, { MODULE_LABEL, type SwitchableModule } from "@/components/ModuleSwitcher";
+
 
 import { getSearchSuggestions, searchYouTubeMusic } from "@/lib/youtubeSearch";
 import { hdThumbnail } from "@/lib/utils";
