@@ -64,34 +64,29 @@ let focusLossTime = 0;
 const TRANSIENT_FOCUS_LOSS_MS = 3000; // treat short interruptions as transient
 
 /**
- * Request a Wake Lock to prevent the device from sleeping during playback.
- * Falls back silently if the API is not available.
+ * Screen Wake Lock is intentionally DISABLED.
+ * The app must respect the device's own screen-timeout / auto-lock settings,
+ * exactly like the system standard. Audio (and background playback) keeps
+ * running through the silent-audio + MediaSession path, but the screen is
+ * free to turn off whenever the OS decides — playing or paused.
  */
 async function requestWakeLock() {
-  try {
-    if ('wakeLock' in navigator && !wakeLock) {
-      wakeLock = await navigator.wakeLock.request('screen');
-      wakeLock.addEventListener('release', () => {
-        wakeLock = null;
-        // Re-acquire wake lock when screen turns back on (visibility change)
-        if (hasAudioFocus) {
-          document.addEventListener('visibilitychange', reacquireWakeLock, { once: true });
-        }
-      });
-    }
-  } catch { /* Wake Lock denied or unavailable */ }
+  // No-op: never hold the screen awake. Also defensively release any legacy
+  // sentinel that might still be held from a previous session/HMR.
+  releaseWakeLock();
 }
 
 function reacquireWakeLock() {
-  if (document.visibilityState === 'visible' && hasAudioFocus) {
-    requestWakeLock();
-  }
+  releaseWakeLock();
 }
 
 function releaseWakeLock() {
-  wakeLock?.release().catch(() => {});
+  try {
+    wakeLock?.release().catch(() => {});
+  } catch { /* ignore */ }
   wakeLock = null;
 }
+
 
 function normalizeVolume(vol: number): number {
   if (!Number.isFinite(vol)) return DEFAULT_PLAYER_VOLUME;
