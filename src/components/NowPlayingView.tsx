@@ -90,13 +90,6 @@ const NowPlayingView = ({
     initialMode ?? (context === "video" ? "video" : "audio")
   );
   const [visualizerMode, setVisualizerMode] = useState<any>("bars");
-  const [audioOnly, setAudioOnly] = useState(false);
-  // Reset audio-only mask whenever the track changes
-  useEffect(() => { setAudioOnly(false); }, [song.youtubeId]);
-  // Notify parent so the yt-player container can render an audio-only mask
-  useEffect(() => {
-    try { window.dispatchEvent(new CustomEvent("xerife:video-audio-only", { detail: { active: audioOnly } })); } catch {}
-  }, [audioOnly]);
 
   // Xerife Music: sempre iniciar no modo "áudio" ao trocar de faixa,
   // ignorando o modo previamente selecionado (ex.: vídeo).
