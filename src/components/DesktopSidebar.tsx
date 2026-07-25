@@ -330,7 +330,7 @@ const DesktopSidebar = ({
                 {active === id && (
                   <div className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-primary rounded-r-full" />
                 )}
-                <div className={`flex items-center justify-center w-9 h-9 lg:w-8 lg:h-8 rounded-xl transition-all duration-200 ${
+                <div className={`relative flex items-center justify-center w-9 h-9 lg:w-8 lg:h-8 rounded-xl transition-all duration-200 ${
                   active === id
                     ? "bg-primary/20 text-primary scale-105"
                     : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80 group-hover:bg-sidebar-accent group-hover:scale-105"
@@ -340,6 +340,15 @@ const DesktopSidebar = ({
                     strokeWidth={active === id ? 2.5 : 1.8}
                     className="transition-all duration-200"
                   />
+                  {id === "library" && homeMode === "video" && !podcastMode && likedVideoCount > 0 && (
+                    <span
+                      key={likedVideoCount}
+                      className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center animate-scale-in shadow-sm"
+                      aria-label={`${likedVideoCount} vídeos curtidos`}
+                    >
+                      {likedVideoCount > 99 ? "99+" : likedVideoCount}
+                    </span>
+                  )}
                 </div>
                 <span className="lg:block transition-all font-medium" data-sidebar-fullonly>{label}</span>
                 {active === id && (
