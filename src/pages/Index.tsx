@@ -1320,12 +1320,15 @@ const Index = () => {
   });
 
   const handleVote = useCallback((song: Song) => {
-    // Ensure the favorite carries a stable `type` so the Library counters and
-    // "Curtidos" filter classify it under the correct module (music/video/podcast).
+    // Stamp favorites with the CURRENT session (music/video/podcast) so the
+    // Library counters and "Curtidos" filter classify them under the right
+    // module. We intentionally ignore a pre-existing `song.type` here because
+    // stale values (e.g. a track that was momentarily played in Video Mode)
+    // were leaking Music likes into the Xerife Vídeos "Gostei" tab.
     const inferredType: "music" | "video" | "podcast" =
-      (song as any).type ??
-      (podcastMode ? "podcast" : (homeMode === "video" ? "video" : "music"));
+      podcastMode ? "podcast" : (homeMode === "video" ? "video" : "music");
     const stampedSong = { ...song, type: inferredType } as Song;
+
 
     if (votedSongs.has(song.id)) {
       // Un-favorite
