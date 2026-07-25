@@ -1109,7 +1109,40 @@ const NowPlayingView = ({
                         <btn.icon size={18} aria-hidden />
                       </button>
                     ))}
+
+                    {/* Ajuste da intensidade do overlay (legibilidade do fundo dinâmico) */}
+                    {context === "music" && dynamicBgEnabled && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            title="Legibilidade do fundo"
+                            aria-label="Ajustar intensidade do overlay do fundo dinâmico"
+                            className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl transition-all active:scale-90 bg-secondary/30 hover:bg-primary/20 hover:text-primary text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                          >
+                            <SlidersHorizontal size={18} aria-hidden />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-60 space-y-3">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-medium">Legibilidade do fundo</span>
+                            <span className="tabular-nums text-muted-foreground">{overlayIntensity}%</span>
+                          </div>
+                          <Slider
+                            value={[overlayIntensity]}
+                            min={0}
+                            max={100}
+                            step={5}
+                            onValueChange={(v) => setOverlayIntensityValue(v[0])}
+                            aria-label="Intensidade do overlay"
+                          />
+                          <p className="text-[11px] leading-snug text-muted-foreground">
+                            Aumente para escurecer (ou clarear, no tema claro) o fundo e deixar o texto mais legível.
+                          </p>
+                        </PopoverContent>
+                      </Popover>
+                    )}
                   </div>
+
                 )}
 
                 {/* SeekBar & Transport — hidden only in rail (Xerife Vídeos) mode */}
