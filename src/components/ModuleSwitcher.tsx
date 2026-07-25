@@ -80,7 +80,11 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
       <PopoverContent
         align="end"
         sideOffset={10}
-        className="w-56 p-2 rounded-2xl border-border/60 bg-popover/95 backdrop-blur-xl shadow-xl"
+        className="w-56 p-2 rounded-2xl border border-border/70 bg-popover/95 backdrop-blur-xl shadow-2xl ring-1 ring-foreground/5"
+        style={{
+          boxShadow:
+            "0 10px 40px -12px hsl(var(--foreground) / 0.25), 0 0 0 1px hsl(var(--border) / 0.6), inset 0 1px 0 hsl(var(--foreground) / 0.04)",
+        }}
       >
         <div className="px-2 pt-1 pb-2 text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
           Alternar sessão
