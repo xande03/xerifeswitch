@@ -326,8 +326,10 @@ const DesktopSidebar = ({
 
       {/* Bottom section — Player embutido na sidebar */}
       <div className="mt-auto border-t border-sidebar-border/60 overflow-y-auto" ref={toolsRef}>
-        {playerSlot}
+        <div className="hidden lg:block">{collapsed ? collapsedPlayerSlot : playerSlot}</div>
+        <div className="lg:hidden">{collapsedPlayerSlot}</div>
       </div>
+
 
 
     </aside>
