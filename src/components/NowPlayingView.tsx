@@ -178,7 +178,7 @@ const NowPlayingView = ({
   const [lyricsChecked, setLyricsChecked] = useState(false);
   const [lyricsOffset, setLyricsOffsetState] = useState<number>(() => getLyricsOffset(song.id));
   const [chordsOpen, setChordsOpen] = useState(false);
-  const [toolsOpen, setToolsOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState<string | null>(null);
 
   // Prefetch de cifra em background quando a música muda: garante que ao abrir
   // o painel a cifra apareça instantaneamente (cache mem + localStorage).
@@ -834,7 +834,7 @@ const NowPlayingView = ({
                 <div className="text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground/70 truncate max-w-[60%] text-center">
                   {context === "podcast" ? "Podcast" : "Tocando agora"}
                 </div>
-                {toolsMenuNode("w-9 h-9 shadow-none bg-background/70")}
+                {toolsMenuNode("w-9 h-9 shadow-none bg-background/70", "mobile")}
               </div>
             )}
 
