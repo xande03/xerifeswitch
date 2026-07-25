@@ -411,7 +411,6 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
                         artist={song.artist}
                         title={song.title}
                         showHeading={false}
-                        resizable
                         onClose={() => setChordsSong(null)}
                       />
 
