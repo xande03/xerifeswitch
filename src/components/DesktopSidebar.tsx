@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { Home, Search, Heart, Download, Settings, Compass, MonitorPlay, Clock, ListMusic, Music, Sun, Moon, Palette, Cast, X, ZoomIn, Plus, Minus, Sparkles, User, LogOut, LogIn, SlidersHorizontal, Podcast, ChevronDown, Library, Headphones, ChevronLeft, ChevronRight } from "lucide-react";
+import { Home, Search, Heart, Download, Settings, Compass, MonitorPlay, Clock, ListMusic, Music, Sun, Moon, Palette, Cast, X, ZoomIn, Plus, Minus, Sparkles, User, LogOut, LogIn, SlidersHorizontal, Podcast, ChevronDown, Library, Headphones, ChevronLeft, ChevronRight, ThumbsUp } from "lucide-react";
+import { getFavoritesMetadata } from "@/lib/localStorage";
 
 import Logo from "@/components/Logo";
 import AppHeartbeatStatus from "@/components/AppHeartbeatStatus";
@@ -62,7 +63,7 @@ const musicTabs: { id: Tab; icon: typeof Home; label: string }[] = [
 const videoTabs: { id: Tab; icon: typeof Home; label: string }[] = [
   { id: "home", icon: Home, label: "Início" },
   { id: "search", icon: Compass, label: "Explorar" },
-  { id: "library", icon: MonitorPlay, label: "Inscrições" },
+  { id: "library", icon: ThumbsUp, label: "Gostei" },
   { id: "libraryhub", icon: Library, label: "Biblioteca" },
   { id: "history", icon: Clock, label: "Histórico" },
   { id: "playlists", icon: ListMusic, label: "Playlists" },
@@ -184,6 +185,24 @@ const DesktopSidebar = ({
   onUpdateName,
 }: DesktopSidebarProps) => {
   const mainTabs = podcastMode ? podcastTabs : (homeMode === "video" ? videoTabs : musicTabs);
+  const [likedVideoCount, setLikedVideoCount] = useState(0);
+  useEffect(() => {
+    if (homeMode !== "video" || podcastMode) return;
+    const recompute = () => {
+      try {
+        const favs = getFavoritesMetadata();
+        setLikedVideoCount(favs.filter((f: any) => (f?.type ?? "music") === "video").length);
+      } catch {}
+    };
+    recompute();
+    const h = () => recompute();
+    window.addEventListener("storage", h);
+    window.addEventListener("demus:favorites-updated", h);
+    return () => {
+      window.removeEventListener("storage", h);
+      window.removeEventListener("demus:favorites-updated", h);
+    };
+  }, [homeMode, podcastMode]);
   const [toolsOpen, setToolsOpen] = useState(false);
   
   const [showServerStatus, setShowServerStatus] = useState(false);
@@ -311,7 +330,7 @@ const DesktopSidebar = ({
                 {active === id && (
                   <div className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-primary rounded-r-full" />
                 )}
-                <div className={`flex items-center justify-center w-9 h-9 lg:w-8 lg:h-8 rounded-xl transition-all duration-200 ${
+                <div className={`relative flex items-center justify-center w-9 h-9 lg:w-8 lg:h-8 rounded-xl transition-all duration-200 ${
                   active === id
                     ? "bg-primary/20 text-primary scale-105"
                     : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80 group-hover:bg-sidebar-accent group-hover:scale-105"
@@ -321,6 +340,15 @@ const DesktopSidebar = ({
                     strokeWidth={active === id ? 2.5 : 1.8}
                     className="transition-all duration-200"
                   />
+                  {id === "library" && homeMode === "video" && !podcastMode && likedVideoCount > 0 && (
+                    <span
+                      key={likedVideoCount}
+                      className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center animate-scale-in shadow-sm"
+                      aria-label={`${likedVideoCount} vídeos curtidos`}
+                    >
+                      {likedVideoCount > 99 ? "99+" : likedVideoCount}
+                    </span>
+                  )}
                 </div>
                 <span className="lg:block transition-all font-medium" data-sidebar-fullonly>{label}</span>
                 {active === id && (
