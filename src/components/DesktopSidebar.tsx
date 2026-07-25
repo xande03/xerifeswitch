@@ -265,19 +265,20 @@ const DesktopSidebar = ({
 
 
       {/* Main nav */}
-      <nav className="flex-1 px-3 pt-3 lg:pt-4 pb-4 lg:pb-2 space-y-1.5 lg:space-y-0.5">
+      <nav className="flex-shrink-0 overflow-y-auto px-3 pt-2 pb-2 space-y-1 lg:space-y-0.5">
         {mainTabs.map(({ id, icon: Icon, label }) => (
           <Tooltip key={id} delayDuration={200}>
             <TooltipTrigger asChild>
               <button
                 onClick={() => onChange(id)}
                 aria-label={label}
-                className={`w-full flex flex-col lg:flex-row items-center gap-2 lg:gap-3.5 px-2 lg:px-4 py-3.5 lg:py-3 rounded-2xl lg:rounded-xl text-[10px] lg:text-[13px] font-semibold transition-all duration-200 group relative ${
+                className={`w-full flex flex-col lg:flex-row items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2.5 lg:py-2 rounded-2xl lg:rounded-xl text-[10px] lg:text-[12.5px] font-semibold transition-all duration-200 group relative ${
                   active === id
                     ? "bg-primary/15 text-primary shadow-sm shadow-primary/5"
                     : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                 }`}
               >
+
                 {active === id && (
                   <div className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-primary rounded-r-full" />
                 )}
