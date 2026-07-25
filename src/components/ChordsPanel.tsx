@@ -61,12 +61,32 @@ const ChordsPanel = ({
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef<{ startY: number; startVh: number; lastY: number; lastT: number; velocity: number } | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  /** Espaço realmente disponível abaixo do topo da cifra (evita corte em qualquer tela). */
+  const [maxPx, setMaxPx] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!resizable) return;
+    const measure = () => {
+      const el = bodyRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      setMaxPx(Math.max(140, window.innerHeight - top - 24));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+    };
+  }, [resizable, heightVh, data, loading]);
 
   // Persiste a preferência de altura entre sessões de busca.
   useEffect(() => {
     if (dragging) return;
     try { localStorage.setItem(HEIGHT_STORAGE_KEY, String(heightVh)); } catch { /* ignore */ }
   }, [heightVh, dragging]);
+
 
   /** Encaixa no nível mais próximo, favorecendo o sentido do gesto (velocidade). */
   const snapTo = (vh: number, velocity = 0) => {
@@ -102,6 +122,7 @@ const ChordsPanel = ({
     d.lastT = now;
     // Puxar para cima aumenta, puxar para baixo diminui.
     const deltaVh = ((d.startY - e.clientY) / window.innerHeight) * 100;
+    if (!Number.isFinite(deltaVh)) return;
     setHeightVh(Math.min(92, Math.max(14, d.startVh + deltaVh)));
   };
 
@@ -386,16 +407,21 @@ const ChordsPanel = ({
       <div
         ref={bodyRef}
         data-testid="chords-body"
+        data-height-vh={resizable ? Math.round(heightVh) : undefined}
+        data-level={resizable ? activeLevel : undefined}
         className={`flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 font-mono leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${bodyClassName} ${!dragging ? "transition-[height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none" : ""}`}
         style={
           resizable
             ? {
                 fontSize,
-                // Altura do nível escolhido, limitada ao espaço útil da viewport
-                // (cabeçalho + toolbar do próprio módulo ocupam ~13rem).
-                height: `min(${heightVh}vh, calc(100vh - 13rem))`,
+                // Altura do nível escolhido, limitada ao espaço realmente disponível
+                // abaixo do módulo (medido em runtime) — nunca corta conteúdo.
+                height: maxPx
+                  ? `min(${heightVh}vh, ${Math.round(maxPx)}px)`
+                  : `min(${heightVh}vh, calc(100vh - 13rem))`,
                 minHeight: "8rem",
               }
+
             : { fontSize }
         }
 
