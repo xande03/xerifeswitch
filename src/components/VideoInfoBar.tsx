@@ -143,7 +143,7 @@ const VideoInfoBar = ({
       ? (activeLabel ? `Auto · ${activeLabel}` : "Automática")
       : prefLabel;
 
-  // Video "Salvar" = adiciona à mesma lista de "Assistir mais tarde" (mesma lógica das playlists)
+  // Video "Assistir mais tarde" = adiciona à lista de watch later
   const videoId = song.youtubeId || song.id.replace(/^yt-/, "");
   const [saved, setSaved] = useState<boolean>(() => isInWatchLater(videoId));
   useEffect(() => { setSaved(isInWatchLater(videoId)); }, [videoId]);
@@ -151,7 +151,7 @@ const VideoInfoBar = ({
     if (saved) {
       removeFromWatchLater(videoId);
       setSaved(false);
-      toast.success("Removido de Salvos");
+      toast.success("Removido de Assistir mais tarde");
     } else {
       addToWatchLater({
         videoId,
@@ -162,7 +162,7 @@ const VideoInfoBar = ({
         duration: "",
       } as any);
       setSaved(true);
-      toast.success("Adicionado a Salvos");
+      toast.success("Adicionado a Assistir mais tarde");
     }
   };
 
