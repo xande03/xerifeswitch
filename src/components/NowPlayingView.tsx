@@ -672,15 +672,51 @@ const NowPlayingView = ({
           : {}),
       }}
     >
-      {/* Ambient matte gradient — crossfades on track change via keyed layer */}
+      {/* Fundo dinâmico — camadas com crossfade suave ao trocar de faixa */}
       {ambientActive && (
-        <div
-          key={ambientBg}
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-0 animate-fade-in"
-          style={{ backgroundImage: ambientBg }}
-        />
+        <>
+          {/* 1) Capa em baixa resolução com blur pesado (GPU) */}
+          {ambient.blurSrc && (
+            <div
+              key={`blur-${ambient.blurSrc}`}
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-0 motion-safe:animate-fade-in"
+              style={{
+                backgroundImage: `url(${ambient.blurSrc})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                filter: "blur(72px) saturate(1.25)",
+                transform: "scale(1.35) translateZ(0)",
+                willChange: "opacity, transform",
+                animationDuration: "800ms",
+              }}
+            />
+          )}
+          {/* 2) Mesh gradient derivado das cores dominantes */}
+          <div
+            key={`mesh-${ambientBg}`}
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-0 motion-safe:animate-fade-in"
+            style={{
+              backgroundImage: ambientBg,
+              opacity: 0.85,
+              transform: "translateZ(0)",
+              willChange: "opacity",
+              animationDuration: "900ms",
+            }}
+          />
+          {/* 3) Overlay para contraste/legibilidade do texto e controles */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-0"
+            style={{
+              backgroundImage:
+                "linear-gradient(180deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.10) 45%, rgba(0,0,0,0.42) 100%)",
+            }}
+          />
+        </>
       )}
+
       <div className="relative z-10 flex-1 flex flex-col min-h-0">
 
 
