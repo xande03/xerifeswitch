@@ -32,12 +32,16 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
+function emitDownloadsUpdated() {
+  try { window.dispatchEvent(new CustomEvent("demus:downloads-updated")); } catch {}
+}
+
 export async function saveSong(song: StoredSong): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_SONGS, "readwrite");
     tx.objectStore(STORE_SONGS).put(song);
-    tx.oncomplete = () => resolve();
+    tx.oncomplete = () => { emitDownloadsUpdated(); resolve(); };
     tx.onerror = () => reject(tx.error);
   });
 }
@@ -67,7 +71,7 @@ export async function deleteSong(id: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_SONGS, "readwrite");
     tx.objectStore(STORE_SONGS).delete(id);
-    tx.oncomplete = () => resolve();
+    tx.oncomplete = () => { emitDownloadsUpdated(); resolve(); };
     tx.onerror = () => reject(tx.error);
   });
 }
