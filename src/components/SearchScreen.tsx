@@ -5,6 +5,8 @@ import { getSearchSuggestions, searchYouTubeMusic } from "@/lib/youtubeSearch";
 import { useArtistAvatars } from "@/hooks/useArtistAvatars";
 import { getSearchHistory, type SearchHistoryEntry } from "@/lib/localStorage";
 import SongCard from "./SongCard";
+import ChordsPanel from "./ChordsPanel";
+
 import type { Song } from "@/data/mockSongs";
 
 
