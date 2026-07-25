@@ -744,8 +744,6 @@ const NowPlayingView = ({
                           onShare={() => onShare?.()}
                           onDownload={() => onDownload?.()}
                           onClose={onCollapse}
-                          audioOnly={audioOnly}
-                          onToggleAudioOnly={() => setAudioOnly((v) => !v)}
                           isLiked={!!isLiked}
                           onToggleLike={onLike}
                           onAddToPlaylist={onAddToPlaylist ? () => onAddToPlaylist(song) : undefined}
