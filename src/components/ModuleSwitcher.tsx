@@ -1,5 +1,5 @@
 import { memo, useCallback, useState } from "react";
-import { Music, MonitorPlay, Headphones, Repeat2 } from "lucide-react";
+import { Music, MonitorPlay, Headphones, Repeat2, Check } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -81,14 +81,41 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
         align="end"
         sideOffset={12}
         collisionPadding={12}
-        className="w-[min(18rem,calc(100vw-24px))] sm:w-64 p-2.5 sm:p-2 rounded-2xl border border-border/70 bg-popover/95 backdrop-blur-xl shadow-2xl ring-1 ring-foreground/5 origin-top-right data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-2 data-[state=closed]:slide-out-to-top-2"
+        onPointerDownOutside={() => setOpen(false)}
+        onEscapeKeyDown={() => setOpen(false)}
+        className="w-[min(18rem,calc(100vw-24px))] sm:w-64 p-2.5 sm:p-2 rounded-2xl border border-border/70 bg-popover/95 backdrop-blur-xl shadow-2xl ring-1 ring-foreground/5 origin-top-right data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-2 data-[state=closed]:slide-out-to-top-2 motion-reduce:transition-none motion-reduce:animate-none motion-reduce:data-[state=open]:animate-none motion-reduce:data-[state=closed]:animate-none"
         style={{
           boxShadow:
-            "0 10px 40px -12px hsl(var(--foreground) / 0.25), 0 0 0 1px hsl(var(--border) / 0.6), inset 0 1px 0 hsl(var(--foreground) / 0.04)",
+            "0 20px 50px -18px hsl(var(--foreground) / 0.35), 0 8px 22px -14px hsl(var(--foreground) / 0.22), 0 0 0 1px hsl(var(--border) / 0.6), inset 0 1px 0 hsl(var(--foreground) / 0.05)",
+          backgroundImage:
+            "linear-gradient(180deg, hsl(var(--foreground) / 0.03) 0%, transparent 40%)",
         }}
       >
-        <div className="px-2 pt-1 pb-2 text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
-          Alternar sessão
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-px rounded-t-2xl"
+          style={{
+            background:
+              "linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.18), transparent)",
+          }}
+        />
+        <div className="flex items-center justify-between px-2 pt-1 pb-2">
+          <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
+            Alternar sessão
+          </span>
+          <span
+            className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border"
+            style={{
+              color: activeTones.fg,
+              backgroundColor: activeTones.bg,
+              borderColor: activeTones.ring,
+            }}
+          >
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ backgroundColor: activeTones.fg }}
+            />
+            Atual
+          </span>
         </div>
         <div className="flex flex-col gap-1.5 sm:gap-1">
           {(Object.keys(MODULE_LABEL) as SwitchableModule[]).map((id, idx) => {
@@ -100,7 +127,8 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
                 key={id}
                 onClick={() => handle(id)}
                 aria-pressed={isActive}
-                className="group flex items-center gap-3 px-2.5 py-2.5 sm:py-2 rounded-xl text-left transition-all duration-200 ease-out hover:bg-muted/60 hover:translate-x-0.5 active:scale-[0.98] focus:outline-none focus-visible:ring-2 animate-fade-in"
+                aria-current={isActive ? "true" : undefined}
+                className="group relative flex items-center gap-3 px-2.5 py-2.5 sm:py-2 rounded-xl text-left transition-all duration-200 ease-out hover:bg-muted/60 hover:translate-x-0.5 active:scale-[0.98] focus:outline-none focus-visible:ring-2 animate-fade-in motion-reduce:transition-none motion-reduce:animate-none motion-reduce:hover:translate-x-0 motion-reduce:active:scale-100"
                 style={{
                   boxShadow: isActive ? `inset 0 0 0 1px ${tones.ring}` : "none",
                   backgroundColor: isActive ? tones.bg : "transparent",
@@ -108,8 +136,15 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
                   animationFillMode: "backwards",
                 }}
               >
+                {isActive && (
+                  <span
+                    aria-hidden
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full"
+                    style={{ backgroundColor: tones.fg }}
+                  />
+                )}
                 <span
-                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-transform duration-200 group-hover:scale-105"
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-transform duration-200 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
                   style={{ color: tones.fg, backgroundColor: tones.bg }}
                 >
                   <Icon size={16} strokeWidth={2.2} />
@@ -127,6 +162,15 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
                     {id === "podcast" && "Programas e episódios"}
                   </span>
                 </span>
+                {isActive && (
+                  <span
+                    aria-label="Módulo ativo"
+                    className="inline-flex items-center justify-center w-5 h-5 rounded-full"
+                    style={{ color: tones.fg, backgroundColor: tones.bg }}
+                  >
+                    <Check size={12} strokeWidth={3} />
+                  </span>
+                )}
               </button>
             );
           })}
