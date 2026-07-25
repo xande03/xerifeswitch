@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, DownloadCloud, ThumbsUp, Check, MoreVertical, Plus, Music2, Share2, ListPlus } from "lucide-react";
+import { Download, DownloadCloud, ThumbsUp, Check, MoreVertical, Music2, Share2, ListPlus } from "lucide-react";
 import BlurImage from "@/components/BlurImage";
 import { Song } from "@/data/mockSongs";
 import { motion } from "framer-motion";
@@ -86,19 +86,6 @@ const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylis
           <span>{song.votes}</span>
         </button>
       )}
-      {/* Cifra — sempre visível */}
-      <button
-        onClick={openChords}
-        title="Ver cifra"
-        aria-label={`Ver cifra de ${song.title}`}
-        aria-pressed={chordsActive}
-        className={`p-1.5 rounded-full transition-colors ${
-          chordsActive ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary"
-        }`}
-      >
-        <Music2 size={16} />
-      </button>
-
       {onDownload && (
         <button
           onClick={() => onDownload(song)}
@@ -110,15 +97,7 @@ const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylis
           {song.isDownloaded ? <Download size={16} /> : <DownloadCloud size={16} />}
         </button>
       )}
-      {onAddToPlaylist && (
-        <button
-          onClick={() => onAddToPlaylist(song)}
-          title="Adicionar à playlist"
-          className="p-1.5 rounded-full text-muted-foreground hover:text-primary transition-colors"
-        >
-          <Plus size={16} />
-        </button>
-      )}
+
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
