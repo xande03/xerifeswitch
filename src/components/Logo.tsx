@@ -8,9 +8,18 @@ interface LogoProps {
   style?: React.CSSProperties;
   tooltipLabel?: string;
   ariaLabel?: string;
+  /** Cor tema principal da logo (top do gradiente + traços). Ex: "#22c55e". */
+  colorFrom?: string;
+  /** Cor secundária do gradiente (base). Ex: "#166534". */
+  colorTo?: string;
 }
 
-const Logo = ({ className, size = 40, showText = false, style, tooltipLabel = "Xerife — Music, Video e Podcast", ariaLabel = "Logo do Xerife" }: LogoProps) => {
+const Logo = ({ className, size = 40, showText = false, style, tooltipLabel = "Xerife — Music, Video e Podcast", ariaLabel = "Logo do Xerife", colorFrom = "#22c55e", colorTo = "#166534" }: LogoProps) => {
+  // Um id único por render evita colisão entre múltiplas logos com cores diferentes.
+  const uid = `logo-${colorFrom.replace('#','')}-${colorTo.replace('#','')}`;
+  const gradId = `${uid}-star`;
+  const glowId = `${uid}-glow`;
+
   const content = (
     <div className={cn("flex items-center gap-3", className)} style={style}>
       <div
@@ -19,13 +28,13 @@ const Logo = ({ className, size = 40, showText = false, style, tooltipLabel = "X
         role="img"
         aria-label={ariaLabel}
       >
-        <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" className="w-full h-full drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+        <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" className="w-full h-full" style={{ filter: `drop-shadow(0 0 15px ${colorFrom}55)` }}>
           <defs>
-            <linearGradient id="logoStarGradient" x1="256" y1="100" x2="256" y2="412" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#22c55e"/>
-              <stop offset="1" stopColor="#166534"/>
+            <linearGradient id={gradId} x1="256" y1="100" x2="256" y2="412" gradientUnits="userSpaceOnUse">
+              <stop stopColor={colorFrom}/>
+              <stop offset="1" stopColor={colorTo}/>
             </linearGradient>
-            <filter id="logoGlow" x="0" y="0" width="512" height="512" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+            <filter id={glowId} x="0" y="0" width="512" height="512" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
               <feFlood floodOpacity="0" result="BackgroundImageFix"/>
               <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
               <feOffset dx="0" dy="0"/>
@@ -36,23 +45,23 @@ const Logo = ({ className, size = 40, showText = false, style, tooltipLabel = "X
               <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/>
             </filter>
           </defs>
-          
+
           <circle cx="256" cy="256" r="240" fill="#0A0A0A" />
-          <circle cx="256" cy="256" r="238" stroke="#22c55e" strokeWidth="4" strokeOpacity="0.3" />
-          
-          <g filter="url(#logoGlow)">
-            <path d="M256 90L295 186L395 195L318 262L342 362L256 308L170 362L194 262L117 195L217 186L256 90Z" fill="url(#logoStarGradient)" stroke="#22c55e" strokeWidth="2" />
-            
-            <circle cx="256" cy="90" r="12" fill="url(#logoStarGradient)" />
-            <circle cx="395" cy="195" r="12" fill="url(#logoStarGradient)" />
-            <circle cx="342" cy="362" r="12" fill="url(#logoStarGradient)" />
-            <circle cx="170" cy="362" r="12" fill="url(#logoStarGradient)" />
-            <circle cx="117" cy="195" r="12" fill="url(#logoStarGradient)" />
-            
+          <circle cx="256" cy="256" r="238" stroke={colorFrom} strokeWidth="4" strokeOpacity="0.3" />
+
+          <g filter={`url(#${glowId})`}>
+            <path d="M256 90L295 186L395 195L318 262L342 362L256 308L170 362L194 262L117 195L217 186L256 90Z" fill={`url(#${gradId})`} stroke={colorFrom} strokeWidth="2" />
+
+            <circle cx="256" cy="90" r="12" fill={`url(#${gradId})`} />
+            <circle cx="395" cy="195" r="12" fill={`url(#${gradId})`} />
+            <circle cx="342" cy="362" r="12" fill={`url(#${gradId})`} />
+            <circle cx="170" cy="362" r="12" fill={`url(#${gradId})`} />
+            <circle cx="117" cy="195" r="12" fill={`url(#${gradId})`} />
+
             <path d="M225 210L310 256L225 302V210Z" fill="white" />
           </g>
-          
-          <circle cx="256" cy="256" r="220" stroke="#22c55e" strokeWidth="1" strokeDasharray="8 12" strokeOpacity="0.2" />
+
+          <circle cx="256" cy="256" r="220" stroke={colorFrom} strokeWidth="1" strokeDasharray="8 12" strokeOpacity="0.2" />
         </svg>
       </div>
       
