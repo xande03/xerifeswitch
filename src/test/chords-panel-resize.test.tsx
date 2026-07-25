@@ -24,11 +24,9 @@ function getBody() {
   return screen.getByTestId("chords-body") as HTMLElement;
 }
 
-/** Extrai o valor vh definido em height: min(Xvh, ...) */
+/** Altura atual em vh, exposta via data-attribute (jsdom não resolve min()/calc()). */
 function currentVh(): number {
-  const h = getBody().style.height;
-  const m = h.match(/([\d.]+)vh/);
-  return m ? Number(m[1]) : NaN;
+  return Number(getBody().getAttribute("data-height-vh"));
 }
 
 function drag(handle: HTMLElement, deltaY: number) {
@@ -106,10 +104,8 @@ describe("Módulo de cifra — redimensionamento", () => {
     const { handle } = await renderPanel();
     fireEvent.keyDown(handle, { key: "ArrowUp" });
     await waitFor(() => expect(currentVh()).toBe(LEVELS[2]));
-    const style = getBody().style;
-    expect(style.height).toContain("min(");
-    expect(style.height).toContain("calc(100vh - 13rem)");
-    expect(style.minHeight).toBe("8rem");
+    expect(getBody().getAttribute("data-level")).toBe("2");
+    expect(getBody().style.minHeight).toBe("8rem");
     // conteúdo continua rolável, sem corte
     expect(getBody().className).toContain("overflow-y-auto");
   });
