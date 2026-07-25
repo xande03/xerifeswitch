@@ -1,4 +1,4 @@
-import { ChevronDown, Heart, Volume2, VolumeX, Video, Music2, Mic2, SkipBack, Play, Pause, SkipForward, Shuffle, Repeat, Loader2, ListVideo, MessageSquare, SkipForward as AutoPlayIcon, Maximize2, Minimize2, ListMusic, Download, Plus, Share2, PictureInPicture2, Headphones, RefreshCw, X, Palette } from "lucide-react";
+import { ChevronDown, Heart, Volume2, VolumeX, Video, Music2, Mic2, SkipBack, Play, Pause, SkipForward, Shuffle, Repeat, Loader2, ListVideo, MessageSquare, SkipForward as AutoPlayIcon, Maximize2, Minimize2, ListMusic, Download, Plus, Share2, PictureInPicture2, Headphones, RefreshCw, X, Palette, MoreVertical } from "lucide-react";
 
 import { Song, formatDuration } from "@/data/mockSongs";
 import { hdThumbnail } from "@/lib/utils";
@@ -656,7 +656,53 @@ const NowPlayingView = ({
 
   const ambientActive = !isVideoMode && !!ambientBg;
 
+  const toolItems = [
+    onAddToPlaylist ? { icon: Plus, label: "Adicionar à playlist", onClick: () => onAddToPlaylist(song) } : null,
+    onDownload ? { icon: Download, label: "Baixar música", onClick: onDownload } : null,
+    { icon: Music2, label: "Ver cifra", onClick: () => setChordsOpen(true), active: chordsOpen },
+    onShare ? { icon: Share2, label: "Compartilhar", onClick: onShare } : null,
+    context === "music"
+      ? {
+          icon: Palette,
+          label: dynamicBgEnabled ? "Desativar fundo dinâmico" : "Fundo dinâmico (paleta)",
+          onClick: () => setDynamicBgEnabled(!dynamicBgEnabled),
+          active: dynamicBgEnabled,
+        }
+      : null,
+  ].filter(Boolean) as { icon: any; label: string; onClick: () => void; active?: boolean }[];
+
+  const ToolsMenu = ({ className = "" }: { className?: string }) => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          title="Ferramentas"
+          aria-label="Ferramentas da faixa"
+          className={`w-10 h-10 flex items-center justify-center rounded-full bg-secondary/70 backdrop-blur text-foreground/90 hover:bg-primary hover:text-primary-foreground transition-all active:scale-95 shadow-lg ${className}`}
+        >
+          <MoreVertical size={20} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-60 p-1.5 z-[80]">
+        <div className="flex flex-col">
+          {toolItems.map((item, i) => (
+            <button
+              key={i}
+              onClick={item.onClick}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left transition-colors ${
+                item.active ? "bg-primary/15 text-primary" : "hover:bg-accent text-foreground"
+              }`}
+            >
+              <item.icon size={17} aria-hidden />
+              <span className="truncate">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+
   return (
+
     <div
       ref={containerRef}
       id="now-playing-shell"
@@ -739,7 +785,10 @@ const NowPlayingView = ({
             <Logo size={36} />
             <span className="font-display font-black text-lg lg:text-xl italic tracking-tighter">XERIFE <span className="text-primary">SWITCH</span></span>
           </button>
-          <div className="w-12 h-12" />
+          <div className="w-12 h-12 flex items-center justify-end">
+            {!isRailVideoMode && <ToolsMenu />}
+          </div>
+
         </div>
 
         {/* Main Layout */}
@@ -756,7 +805,7 @@ const NowPlayingView = ({
                 <div className="text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground/70 truncate max-w-[60%] text-center">
                   {context === "podcast" ? "Podcast" : "Tocando agora"}
                 </div>
-                <div className="w-9 h-9" />
+                <ToolsMenu className="w-9 h-9 shadow-none bg-background/70" />
               </div>
             )}
 
@@ -1078,28 +1127,8 @@ const NowPlayingView = ({
                             pressed: mode === 'video',
                           }
                         : null,
-                      { icon: Plus, label: 'Playlist', onClick: onAddToPlaylist ? () => onAddToPlaylist(song) : undefined },
-                      { icon: Download, label: 'Download', onClick: onDownload },
-                      { icon: Share2, label: 'Compartilhar', onClick: onShare },
-                      {
-                        icon: Music2,
-                        label: 'Cifra',
-                        onClick: () => setChordsOpen(true),
-                        active: chordsOpen,
-                      },
-                      // Fundo dinâmico (opcional): gera fundo a partir das cores da capa.
-                      context === "music"
-                        ? {
-                            icon: Palette,
-                            label: dynamicBgEnabled ? 'Desativar fundo dinâmico' : 'Fundo dinâmico',
-                            onClick: () => setDynamicBgEnabled(!dynamicBgEnabled),
-                            active: dynamicBgEnabled,
-                            pressed: dynamicBgEnabled,
-                          }
-                        : null,
-
-                      
                     ].filter(Boolean).map((btn: any, i) => btn.onClick && (
+
                       <button
                         key={i}
                         onClick={btn.onClick}
