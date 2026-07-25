@@ -16,7 +16,11 @@ import { fetchVideoInfo, type VideoInfo } from "@/lib/youtubeVideoInfo";
 import type { VideoResult } from "@/lib/youtubeGeneralSearch";
 import Logo from "./Logo";
 import SeekBar from "@/components/SeekBar";
-import { useAmbientTheme, useAmbientEnabled } from "@/hooks/useAmbientTheme";
+import { useAmbientTheme, useAmbientEnabled, useOverlayIntensity } from "@/hooks/useAmbientTheme";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Slider } from "@/components/ui/slider";
+import { SlidersHorizontal } from "lucide-react";
+
 import MarqueeText from "./MarqueeText";
 import ChordsSheet from "./ChordsSheet";
 import { fetchChords } from "@/lib/chords";
