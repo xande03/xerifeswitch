@@ -29,11 +29,18 @@ function currentVh(): number {
   return Number(getBody().getAttribute("data-height-vh"));
 }
 
+/** jsdom não implementa PointerEvent com clientY — criamos o evento manualmente. */
+function pointer(el: HTMLElement, type: string, clientY: number) {
+  const ev = new Event(type, { bubbles: true, cancelable: true });
+  Object.assign(ev, { clientY, clientX: 0, pointerId: 1, pointerType: "touch" });
+  fireEvent(el, ev);
+}
+
 function drag(handle: HTMLElement, deltaY: number) {
   // window.innerHeight padrão do jsdom = 768
-  fireEvent.pointerDown(handle, { clientY: 400, pointerId: 1 });
-  fireEvent.pointerMove(handle, { clientY: 400 - deltaY, pointerId: 1 });
-  fireEvent.pointerUp(handle, { clientY: 400 - deltaY, pointerId: 1 });
+  pointer(handle, "pointerdown", 400);
+  pointer(handle, "pointermove", 400 - deltaY);
+  pointer(handle, "pointerup", 400 - deltaY);
 }
 
 async function renderPanel() {
