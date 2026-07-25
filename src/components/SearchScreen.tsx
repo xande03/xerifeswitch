@@ -5,6 +5,8 @@ import { getSearchSuggestions, searchYouTubeMusic } from "@/lib/youtubeSearch";
 import { useArtistAvatars } from "@/hooks/useArtistAvatars";
 import { getSearchHistory, type SearchHistoryEntry } from "@/lib/localStorage";
 import SongCard from "./SongCard";
+import ChordsPanel from "./ChordsPanel";
+
 import type { Song } from "@/data/mockSongs";
 
 
@@ -47,7 +49,9 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [history, setHistory] = useState<SearchHistoryEntry[]>(() => getSearchHistory());
+  const [chordsSong, setChordsSong] = useState<Song | null>(null);
   const suggestTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
   // Token que identifica a última busca disparada. Requests antigos são descartados
   // ao comparar com o valor atual — evita "race conditions" ao digitar rapidamente.
   const searchTokenRef = useRef(0);
@@ -178,6 +182,12 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
   const artistAvatars = useArtistAvatars(uniqueArtists.slice(0, 10));
 
   const showFilteredResults = !loading && results.length > 0;
+
+  // Painel de cifra persistente: clicar na mesma música fecha, em outra apenas troca o conteúdo.
+  const handleOpenChords = (song: Song) => {
+    setChordsSong((cur) => (cur?.id === song.id ? null : song));
+  };
+
 
 
   return (
@@ -322,7 +332,8 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
 
       {/* Results */}
       {showFilteredResults && (
-        <div className="space-y-5">
+        <div className="lg:flex lg:items-start lg:gap-5">
+          <div className="space-y-5 min-w-0 flex-1">
           {/* Artists section */}
           {(filter === "all" || filter === "artists") && uniqueArtists.length > 0 && (
             <div>
@@ -383,18 +394,49 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
             <div>
               {filter === "all" && results.length > 0 && <h3 className="text-sm font-semibold text-muted-foreground mb-2">Músicas</h3>}
               {results.map((song) => (
-                <SongCard
-                  key={song.id}
-                  song={song}
-                  isActive={song.id === currentSongId}
-                  onSelect={onSelect}
-                  onAddToPlaylist={onAddToPlaylist}
-                />
+                <div key={song.id}>
+                  <SongCard
+                    song={song}
+                    isActive={song.id === currentSongId}
+                    onSelect={onSelect}
+                    onAddToPlaylist={onAddToPlaylist}
+                    onOpenChords={handleOpenChords}
+                    chordsActive={chordsSong?.id === song.id}
+                  />
+                  {/* Inline (mobile/tablet) */}
+                  {chordsSong?.id === song.id && (
+                    <div className="lg:hidden mt-2 mb-3 rounded-xl border border-border bg-card overflow-hidden animate-in fade-in slide-in-from-top-1 motion-reduce:animate-none">
+                      <ChordsPanel
+                        key={`${song.artist}::${song.title}`}
+                        artist={song.artist}
+                        title={song.title}
+                        showHeading={false}
+                        onClose={() => setChordsSong(null)}
+                        bodyClassName="max-h-[60vh]"
+                      />
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}
+          </div>
+
+          {/* Coluna lateral persistente (desktop) */}
+          {chordsSong && (
+            <aside className="hidden lg:flex flex-col w-[380px] xl:w-[440px] flex-shrink-0 sticky top-4 max-h-[calc(100vh-8rem)] rounded-xl border border-border bg-card overflow-hidden animate-in fade-in slide-in-from-right-2 motion-reduce:animate-none">
+              <ChordsPanel
+                key={`${chordsSong.artist}::${chordsSong.title}`}
+                artist={chordsSong.artist}
+                title={chordsSong.title}
+                onClose={() => setChordsSong(null)}
+                className="flex-1 min-h-0"
+              />
+            </aside>
+          )}
         </div>
       )}
+
 
       {/* Empty state */}
       {!loading && query.length >= 2 && results.length === 0 && (

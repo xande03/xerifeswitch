@@ -20,13 +20,22 @@ interface SongCardProps {
   onVote?: (song: Song) => void;
   onDownload?: (song: Song) => void;
   onAddToPlaylist?: (song: Song) => void;
+  /** Quando definido, o clique na cifra delega ao pai (painel lateral/inline) em vez de abrir o Sheet. */
+  onOpenChords?: (song: Song) => void;
   showVotes?: boolean;
   hasVoted?: boolean;
+  chordsActive?: boolean;
 }
 
-const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylist, showVotes = false, hasVoted = false }: SongCardProps) => {
+const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylist, onOpenChords, showVotes = false, hasVoted = false, chordsActive = false }: SongCardProps) => {
   const [chordsOpen, setChordsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+
+  const openChords = () => {
+    if (onOpenChords) onOpenChords(song);
+    else setChordsOpen(true);
+  };
+
 
   return (
   <>
@@ -79,13 +88,17 @@ const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylis
       )}
       {/* Cifra — sempre visível */}
       <button
-        onClick={() => setChordsOpen(true)}
+        onClick={openChords}
         title="Ver cifra"
         aria-label={`Ver cifra de ${song.title}`}
-        className="p-1.5 rounded-full text-muted-foreground hover:text-primary transition-colors"
+        aria-pressed={chordsActive}
+        className={`p-1.5 rounded-full transition-colors ${
+          chordsActive ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary"
+        }`}
       >
         <Music2 size={16} />
       </button>
+
       {onDownload && (
         <button
           onClick={() => onDownload(song)}
@@ -124,7 +137,7 @@ const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylis
               <ListPlus size={15} /> Adicionar à playlist
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onClick={() => setChordsOpen(true)} className="gap-2">
+          <DropdownMenuItem onClick={openChords} className="gap-2">
             <Music2 size={15} /> Ver cifra
           </DropdownMenuItem>
         </DropdownMenuContent>
