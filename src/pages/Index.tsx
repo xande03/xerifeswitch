@@ -24,7 +24,8 @@ import { fetchArtistAlbumQueue, fetchHistoryBasedQueue } from "@/lib/artistAlbum
 
 import QueueDrawer from "@/components/QueueDrawer";
 import Logo from "@/components/Logo";
-import DynamicIslandModules from "@/components/DynamicIslandModules";
+import ModuleSwitcher, { MODULE_LABEL, type SwitchableModule } from "@/components/ModuleSwitcher";
+
 
 import { getSearchSuggestions, searchYouTubeMusic } from "@/lib/youtubeSearch";
 import { hdThumbnail } from "@/lib/utils";
@@ -1829,126 +1830,114 @@ const Index = () => {
         })()}
 
 
-        {/* Header */}
+        {/* Header — YouTube Music-style: [Logo + Sessão]  ...  [Tools] [Switcher] [Profile] */}
+        {(() => {
+          const currentModule: SwitchableModule = podcastMode
+            ? "podcast"
+            : homeMode === "video"
+            ? "video"
+            : "music";
+          const moduleColors: Record<SwitchableModule, { from: string; to: string; text: string }> = {
+            music:   { from: "#22c55e", to: "#166534", text: "text-[hsl(142_55%_45%)]" },
+            video:   { from: "#ef4444", to: "#7f1d1d", text: "text-[hsl(0_68%_55%)]" },
+            podcast: { from: "#a855f7", to: "#6b21a8", text: "text-[hsl(270_55%_60%)]" },
+          };
+          const mc = moduleColors[currentModule];
+          const handleSwitch = (m: SwitchableModule) => {
+            if (m === "podcast") {
+              setPodcastMode(true);
+              setActiveTab("podcast");
+            } else {
+              setPodcastMode(false);
+              setHomeMode(m);
+              setActiveTab("home");
+            }
+          };
+          return (
         <header
-          className="relative flex items-center gap-2 sm:gap-3 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-6 flex-shrink-0 bg-background"
+          className="relative flex items-center gap-2 sm:gap-3 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-5 flex-shrink-0 bg-background"
           style={{
             paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)',
             paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
             paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
           }}
         >
-          <div className="flex items-center gap-2 lg:hidden shrink-0">
-            <Logo size={32} />
-            <span
-              aria-hidden="true"
-              className="inline-flex items-center justify-center h-7 px-2 rounded-md font-display font-black italic text-[13px] tracking-tight bg-gradient-to-b from-primary to-primary/60 bg-clip-text text-transparent border border-primary/30 shadow-[0_0_12px_rgba(34,197,94,0.25)]"
-            >
-              SW
+          {/* Left: Logo (tingida pela sessão) + nome da sessão */}
+          <button
+            type="button"
+            onClick={() => {
+              if (podcastMode) setActiveTab("podcast");
+              else setActiveTab("home");
+            }}
+            className="flex items-center gap-2 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-lg"
+            aria-label={`Ir para o início de Xerife ${MODULE_LABEL[currentModule]}`}
+          >
+            <Logo size={32} colorFrom={mc.from} colorTo={mc.to} tooltipLabel={`Xerife ${MODULE_LABEL[currentModule]}`} />
+            <span className={`font-display font-black text-[18px] sm:text-[20px] tracking-tight ${mc.text}`}>
+              {MODULE_LABEL[currentModule]}
             </span>
-          </div>
+          </button>
 
-
-
-          <div className="hidden lg:flex items-center gap-3">
-            {activeTab !== "home" && activeTab !== "podcast" && (() => {
-              const mod = homeMode === "video" ? "video" : "music";
-              const Icon = mod === "video" ? MonitorPlay : Music;
-              const label = mod === "video" ? "Xerife Videos" : "Xerife Music";
-              return (
-                <>
-                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary/15 text-primary">
-                    <Icon size={17} />
-                  </span>
-                  <h2 className="text-lg font-display font-semibold text-foreground">
-                    <span className="text-primary">{label.split(" ")[0]}</span> {label.split(" ").slice(1).join(" ")}
-                    <span className="ml-2 text-xs font-normal text-muted-foreground">
-                      · {activeTab === "library" ? "Biblioteca" : activeTab === "offline" ? "Downloads" : activeTab === "search" ? "Buscar" : "Playlists"}
-                    </span>
-                  </h2>
-                </>
-              );
-            })()}
-          </div>
-
-
-          {/* Center: Dynamic-island module switcher (Início / Música / Vídeo / Podcast) — absolutely centered */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-            <div className="pointer-events-auto">
-              <DynamicIslandModules
-                activeModule={
-                  podcastMode
-                    ? "podcast"
-                    : (homeMode === "video" ? "video" : homeMode === "music" ? "music" : "hub")
-                }
-                onSelect={(id) => {
-                  if (id === "podcast") { setPodcastMode(true); setActiveTab("podcast"); }
-                  else { setPodcastMode(false); setHomeMode(id); setActiveTab("home"); }
-                }}
-              />
-            </div>
-          </div>
-
-
+          {/* Right cluster: Tools → Switcher → Profile */}
           <div className="flex items-center gap-2 ml-auto">
-
             {!isOnline && (
-              <span className="flex items-center text-xs text-primary">
+              <span className="flex items-center text-xs text-primary" aria-label="Offline">
                 <WifiOff size={18} />
               </span>
             )}
-            <div className="md:hidden">
-              <ProfileButton
-                user={localUser}
-                onLogin={localLogin}
-                onLogout={localLogout}
-                onOpenHistory={() => setActiveTab("history")}
-                onUpdateName={updateName}
-              />
-            </div>
-            {/* Mobile-only: Tools button (replaces 3-dots submenu) */}
-            <div className="md:hidden">
-              <HeaderMenu
-                homeMode={homeMode}
-                onHomeModeChange={setHomeMode}
-                isDark={isDark}
-                onToggleTheme={toggleTheme}
-                colorTheme={colorTheme}
-                onColorChange={(id: string) => {
-                  document.documentElement.classList.remove('theme-red','theme-blue','theme-purple','theme-green','theme-orange','theme-pink','theme-default');
-                  if (id !== 'default') {
-                    document.documentElement.classList.add(`theme-${id}`);
+
+            <HeaderMenu
+              homeMode={homeMode}
+              onHomeModeChange={setHomeMode}
+              isDark={isDark}
+              onToggleTheme={toggleTheme}
+              colorTheme={colorTheme}
+              onColorChange={(id: string) => {
+                document.documentElement.classList.remove('theme-red','theme-blue','theme-purple','theme-green','theme-orange','theme-pink','theme-default');
+                if (id !== 'default') {
+                  document.documentElement.classList.add(`theme-${id}`);
+                }
+                localStorage.setItem('demus-color', id);
+                setColorTheme(id);
+              }}
+              onCast={() => {
+                const iframe = document.querySelector('#yt-player iframe') as HTMLIFrameElement | null;
+                if (iframe && 'remote' in iframe) {
+                  (iframe as any).remote.prompt().catch(() => {
+                    console.warn('Cast not available');
+                  });
+                } else {
+                  const video = document.querySelector('video');
+                  if (video && 'remote' in video) {
+                    (video as any).remote.prompt().catch(() => {});
                   }
-                  localStorage.setItem('demus-color', id);
-                  setColorTheme(id);
-                }}
-                onCast={() => {
-                  const iframe = document.querySelector('#yt-player iframe') as HTMLIFrameElement | null;
-                  if (iframe && 'remote' in iframe) {
-                    (iframe as any).remote.prompt().catch(() => {
-                      console.warn('Cast not available');
-                    });
-                  } else {
-                    const video = document.querySelector('video');
-                    if (video && 'remote' in video) {
-                      (video as any).remote.prompt().catch(() => {});
-                    }
-                  }
-                }}
-                onOpenHistory={() => setActiveTab("history")}
-                onOpenPlaylists={() => setActiveTab("playlists")}
-                onOpenDownloads={() => setActiveTab("offline")}
-                
-                onZoomChange={setAppZoom}
-                onLogin={localLogin}
-                onLogout={localLogout}
-                user={localUser}
-                isLoadingUser={false}
-                currentZoom={appZoom}
-              />
-            </div>
+                }
+              }}
+              onOpenHistory={() => setActiveTab("history")}
+              onOpenPlaylists={() => setActiveTab("playlists")}
+              onOpenDownloads={() => setActiveTab("offline")}
+              onZoomChange={setAppZoom}
+              onLogin={localLogin}
+              onLogout={localLogout}
+              user={localUser}
+              isLoadingUser={false}
+              currentZoom={appZoom}
+            />
+
+            <ModuleSwitcher active={currentModule} onSelect={handleSwitch} />
+
+            <ProfileButton
+              user={localUser}
+              onLogin={localLogin}
+              onLogout={localLogout}
+              onOpenHistory={() => setActiveTab("history")}
+              onUpdateName={updateName}
+            />
           </div>
         </header>
+          );
+        })()}
+
 
         {/* Main content */}
         <main className="flex-1 overflow-y-auto pb-4 overscroll-contain lg:px-2" key={activeTab} style={{ animation: 'fade-in 0.25s ease-out' }}>
