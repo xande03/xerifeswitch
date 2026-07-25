@@ -88,13 +88,17 @@ const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylis
       )}
       {/* Cifra — sempre visível */}
       <button
-        onClick={() => setChordsOpen(true)}
+        onClick={openChords}
         title="Ver cifra"
         aria-label={`Ver cifra de ${song.title}`}
-        className="p-1.5 rounded-full text-muted-foreground hover:text-primary transition-colors"
+        aria-pressed={chordsActive}
+        className={`p-1.5 rounded-full transition-colors ${
+          chordsActive ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary"
+        }`}
       >
         <Music2 size={16} />
       </button>
+
       {onDownload && (
         <button
           onClick={() => onDownload(song)}
