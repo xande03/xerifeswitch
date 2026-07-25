@@ -63,7 +63,7 @@ const musicTabs: { id: Tab; icon: typeof Home; label: string }[] = [
 const videoTabs: { id: Tab; icon: typeof Home; label: string }[] = [
   { id: "home", icon: Home, label: "Início" },
   { id: "search", icon: Compass, label: "Explorar" },
-  { id: "library", icon: MonitorPlay, label: "Inscrições" },
+  { id: "library", icon: ThumbsUp, label: "Gostei" },
   { id: "libraryhub", icon: Library, label: "Biblioteca" },
   { id: "history", icon: Clock, label: "Histórico" },
   { id: "playlists", icon: ListMusic, label: "Playlists" },
