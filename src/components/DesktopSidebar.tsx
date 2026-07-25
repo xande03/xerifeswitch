@@ -186,7 +186,10 @@ const DesktopSidebar = ({
   isLoadingUser,
   currentZoom = 1,
   onUpdateName,
+  playerSlot,
+  collapsedPlayerSlot,
 }: DesktopSidebarProps) => {
+
   const mainTabs = podcastMode ? podcastTabs : (homeMode === "video" ? videoTabs : musicTabs);
   const activeType: "music" | "video" | "podcast" =
     podcastMode ? "podcast" : homeMode === "video" ? "video" : "music";
