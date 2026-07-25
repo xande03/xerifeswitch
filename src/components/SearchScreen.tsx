@@ -77,7 +77,9 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
         const { recordSearchQuery } = await import("@/lib/localStorage");
         recordSearchQuery(q);
       } catch {}
-      const apiFilter = filter === "all" ? "songs" : filter;
+      // Sempre busca como "songs" para termos metadados de artista/álbum;
+      // as abas "artists" e "albums" são derivadas client-side desses resultados.
+      const apiFilter = "songs";
       try {
         const res = await searchYouTubeMusic(q, apiFilter);
         if (token !== searchTokenRef.current) return; // request obsoleto
