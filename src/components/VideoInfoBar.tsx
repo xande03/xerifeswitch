@@ -200,14 +200,17 @@ const VideoInfoBar = ({
   // Auto-load comments preview when track changes
   useEffect(() => {
     setComments([]);
-    setShowComments(false);
     setTitleExpanded(false);
     if (!song.youtubeId) return;
     let cancelled = false;
     setLoadingComments(true);
     fetchVideoInfo(song.youtubeId)
       .then((info) => {
-        if (!cancelled) setComments(info.comments || []);
+        if (cancelled) return;
+        const list = info.comments || [];
+        setComments(list);
+        // Auto-expand when comments actually arrive so o usuário os vê sem clicar
+        if (list.length > 0) setShowComments(true);
       })
       .finally(() => {
         if (!cancelled) setLoadingComments(false);
