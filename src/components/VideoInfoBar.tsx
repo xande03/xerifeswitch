@@ -379,7 +379,12 @@ const VideoInfoBar = ({
                 fill={isLiked ? "currentColor" : "none"}
                 strokeWidth={isLiked ? 0 : 2}
                 key={isLiked ? "liked" : "unliked"}
-                className={`transition-transform duration-200 ${isLiked ? "animate-scale-in scale-110" : "hover:scale-110"}`}
+                className={`transition-transform duration-200 ${
+                  isLiked
+                    ? "animate-scale-in scale-110"
+                    : "animate-[fade-in_0.2s_ease-out] hover:scale-110"
+                }`}
+                style={!isLiked ? { animation: "scale-out 0.18s ease-out reverse" } : undefined}
               />
               <span>{isLiked ? "Gostei" : "Gostei"}</span>
             </button>
