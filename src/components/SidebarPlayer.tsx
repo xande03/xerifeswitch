@@ -89,11 +89,11 @@ const SidebarPlayer = ({
   }
 
   return (
-    <div className="px-3 pb-4 pt-2 space-y-3">
+    <div className="px-3 pb-4 pt-3 space-y-2.5">
       {/* Capa do álbum */}
       <button
         onClick={onExpand}
-        className="block w-full rounded-2xl overflow-hidden ring-1 ring-border shadow-lg group relative"
+        className="block mx-auto w-full max-w-[190px] rounded-2xl overflow-hidden ring-1 ring-border shadow-lg group relative"
         aria-label="Abrir tocando agora"
       >
         {song.cover ? (
@@ -108,6 +108,7 @@ const SidebarPlayer = ({
           </div>
         )}
       </button>
+
 
       {/* Título */}
       <div className="min-w-0 text-left">
