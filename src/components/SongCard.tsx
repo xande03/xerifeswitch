@@ -1,8 +1,17 @@
-import { Download, DownloadCloud, Play, ThumbsUp, Check, MoreVertical, Plus, Music2 } from "lucide-react";
+import { useState } from "react";
+import { Download, DownloadCloud, ThumbsUp, Check, MoreVertical, Plus, Music2, Share2, ListPlus } from "lucide-react";
 import BlurImage from "@/components/BlurImage";
-import { Song, formatDuration } from "@/data/mockSongs";
+import { Song } from "@/data/mockSongs";
 import { motion } from "framer-motion";
 import { hdThumbnail } from "@/lib/utils";
+import ChordsSheet from "@/components/ChordsSheet";
+import { ShareModal } from "@/components/ShareModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface SongCardProps {
   song: Song;
