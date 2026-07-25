@@ -61,12 +61,32 @@ const ChordsPanel = ({
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef<{ startY: number; startVh: number; lastY: number; lastT: number; velocity: number } | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  /** Espaço realmente disponível abaixo do topo da cifra (evita corte em qualquer tela). */
+  const [maxPx, setMaxPx] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!resizable) return;
+    const measure = () => {
+      const el = bodyRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      setMaxPx(Math.max(140, window.innerHeight - top - 24));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+    };
+  }, [resizable, heightVh, data, loading]);
 
   // Persiste a preferência de altura entre sessões de busca.
   useEffect(() => {
     if (dragging) return;
     try { localStorage.setItem(HEIGHT_STORAGE_KEY, String(heightVh)); } catch { /* ignore */ }
   }, [heightVh, dragging]);
+
 
   /** Encaixa no nível mais próximo, favorecendo o sentido do gesto (velocidade). */
   const snapTo = (vh: number, velocity = 0) => {
