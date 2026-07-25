@@ -150,12 +150,6 @@ const Index = () => {
   const prevClickRef = useRef<number>(0);
 
   const [showVideoOverlayControls, setShowVideoOverlayControls] = useState(true);
-  const [videoAudioOnly, setVideoAudioOnly] = useState(false);
-  useEffect(() => {
-    const onAudioOnly = (e: Event) => setVideoAudioOnly(!!(e as CustomEvent).detail?.active);
-    window.addEventListener("xerife:video-audio-only", onAudioOnly);
-    return () => window.removeEventListener("xerife:video-audio-only", onAudioOnly);
-  }, []);
   const videoOverlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoOverlayInteractingRef = useRef(false);
   const videoOverlayKeepOpenRef = useRef(false);
@@ -1616,17 +1610,6 @@ const Index = () => {
 
           <div id="yt-player" className="w-full h-full rounded-xl overflow-hidden relative z-0" />
           {expanded && playerMode === "video" && <QualityBadge />}
-          {/* Audio-only mask: hides the video image while keeping YT audio playing.
-              Toggled via the Headphones pill in VideoInfoBar. Video resumes visually from the same spot. */}
-          {expanded && playerMode === "video" && !isPlayingOffline && videoAudioOnly && (
-            <div className="absolute inset-0 z-[205] bg-black md:rounded-xl flex flex-col items-center justify-center gap-3 pointer-events-none select-none">
-              <div className="w-16 h-16 rounded-full bg-primary/15 border border-primary/40 flex items-center justify-center text-primary">
-                <Music size={28} />
-              </div>
-              <div className="text-white/90 text-sm font-semibold tracking-wide">Reproduzindo apenas o áudio</div>
-              <div className="text-white/50 text-[11px] uppercase tracking-[0.2em]">Toque em "Só áudio" novamente para voltar ao vídeo</div>
-            </div>
-          )}
           {/* Overlay controls on top of the actual YouTube player */}
           {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && (
             <>

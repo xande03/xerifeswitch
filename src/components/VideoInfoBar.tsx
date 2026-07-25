@@ -7,11 +7,9 @@ import {
   ThumbsUp,
   ThumbsDown,
   Download,
-  Bookmark,
+  Clock,
   Settings2,
-  Headphones,
   Plus,
-  Heart,
   Check,
   Loader2,
 } from "lucide-react";
@@ -43,8 +41,6 @@ interface VideoInfoBarProps {
   onShare: () => void;
   onDownload?: () => void;
   onClose: () => void;
-  audioOnly?: boolean;
-  onToggleAudioOnly?: () => void;
   isLiked?: boolean;
   onToggleLike?: () => void;
   onAddToPlaylist?: () => void;
@@ -58,8 +54,6 @@ const VideoInfoBar = ({
   onShare,
   onDownload,
   onClose,
-  audioOnly = false,
-  onToggleAudioOnly,
   isLiked = false,
   onToggleLike,
   onAddToPlaylist,
@@ -149,7 +143,7 @@ const VideoInfoBar = ({
       ? (activeLabel ? `Auto · ${activeLabel}` : "Automática")
       : prefLabel;
 
-  // Video "Salvar" = adiciona à mesma lista de "Assistir mais tarde" (mesma lógica das playlists)
+  // Video "Assistir mais tarde" = adiciona à lista de watch later
   const videoId = song.youtubeId || song.id.replace(/^yt-/, "");
   const [saved, setSaved] = useState<boolean>(() => isInWatchLater(videoId));
   useEffect(() => { setSaved(isInWatchLater(videoId)); }, [videoId]);
@@ -157,7 +151,7 @@ const VideoInfoBar = ({
     if (saved) {
       removeFromWatchLater(videoId);
       setSaved(false);
-      toast.success("Removido de Salvos");
+      toast.success("Removido de Assistir mais tarde");
     } else {
       addToWatchLater({
         videoId,
@@ -168,7 +162,7 @@ const VideoInfoBar = ({
         duration: "",
       } as any);
       setSaved(true);
-      toast.success("Adicionado a Salvos");
+      toast.success("Adicionado a Assistir mais tarde");
     }
   };
 
@@ -206,14 +200,17 @@ const VideoInfoBar = ({
   // Auto-load comments preview when track changes
   useEffect(() => {
     setComments([]);
-    setShowComments(false);
     setTitleExpanded(false);
     if (!song.youtubeId) return;
     let cancelled = false;
     setLoadingComments(true);
     fetchVideoInfo(song.youtubeId)
       .then((info) => {
-        if (!cancelled) setComments(info.comments || []);
+        if (cancelled) return;
+        const list = info.comments || [];
+        setComments(list);
+        // Auto-expand when comments actually arrive so o usuário os vê sem clicar
+        if (list.length > 0) setShowComments(true);
       })
       .finally(() => {
         if (!cancelled) setLoadingComments(false);
@@ -402,14 +399,8 @@ const VideoInfoBar = ({
 
           <PillAction icon={<Share2 size={16} />} label="Compartilhar" onClick={onShare} />
           <PillAction
-            icon={<Headphones size={16} fill={audioOnly ? "currentColor" : "none"} />}
-            label={audioOnly ? "Só áudio" : "Só áudio"}
-            onClick={() => onToggleAudioOnly?.()}
-            active={audioOnly}
-          />
-          <PillAction
-            icon={<Bookmark size={16} fill={saved ? "currentColor" : "none"} />}
-            label={saved ? "Salvo" : "Salvar"}
+            icon={<Clock size={16} fill={saved ? "currentColor" : "none"} />}
+            label={saved ? "Salvo em Assistir mais tarde" : "Assistir mais tarde"}
             onClick={toggleSaved}
             active={saved}
           />
