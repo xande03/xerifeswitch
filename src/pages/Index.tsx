@@ -2518,27 +2518,30 @@ const Index = () => {
               </div>
               
               {(() => {
-                const historyAsSongs = recentHistory.map(e => ({
-                  id: e.songId, youtubeId: e.youtubeId, title: e.title, artist: e.artist,
-                  album: e.album, cover: e.cover, duration: e.duration, votes: 1, isDownloaded: savedSongIds.has(e.songId),
-                  type: e.type || (e.songId.startsWith('yt-') ? 'video' as const : 'music' as const)
-                }));
-                
+                // Strict per-session filter: an item only appears in this
+                // section if its stamped `type` matches the current module.
+                // Never infer from `id` prefixes (music tracks also use `yt-`),
+                // otherwise Music/Video/Podcast favorites cross-contaminate.
+                const activeType: "music" | "video" | "podcast" =
+                  podcastMode ? "podcast" : (homeMode === "video" ? "video" : "music");
+
+                const historyAsSongs = recentHistory
+                  .filter(e => (e.type ?? "music") === activeType)
+                  .map(e => ({
+                    id: e.songId, youtubeId: e.youtubeId, title: e.title, artist: e.artist,
+                    album: e.album, cover: e.cover, duration: e.duration, votes: 1, isDownloaded: savedSongIds.has(e.songId),
+                    type: (e.type ?? "music") as "music" | "video" | "podcast",
+                  }));
+
                 const allRecentItems = [...songs, ...historyAsSongs, ...favoritesMetadata];
                 const uniqueItems = Array.from(new Map(allRecentItems.map(item => [item.id, item])).values());
-                
+
                 const favorites = uniqueItems.filter(s => {
-                  const isFavorited = votedSongs.has(s.id);
-                  if (!isFavorited) return false;
-                  const itemType = s.type || (s.id.startsWith('yt-') ? 'video' : 'music');
-                  if (itemType === 'podcast') return false;
-                  if (homeMode === "music") {
-                    return itemType === "music";
-                  } else {
-                    return itemType === "video";
-                  }
+                  if (!votedSongs.has(s.id)) return false;
+                  const itemType = ((s as any).type ?? "music") as "music" | "video" | "podcast";
+                  return itemType === activeType;
                 });
-                
+
                 return favorites.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20 text-muted-foreground opacity-30">
                     <Heart size={64} strokeWidth={1} />
