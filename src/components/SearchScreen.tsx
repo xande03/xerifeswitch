@@ -33,15 +33,15 @@ const GENRES = [
 ];
 
 const FILTERS: { id: MusicFilter; label: string }[] = [
-  { id: "all", label: "Tudo" },
   { id: "songs", label: "Músicas" },
-  { id: "artists", label: "Artistas" },
+  { id: "all", label: "Tudo" },
   { id: "albums", label: "Álbuns" },
+  { id: "artists", label: "Artistas" },
 ];
 
 const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist }: SearchScreenProps) => {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<MusicFilter>("all");
+  const [filter, setFilter] = useState<MusicFilter>("songs");
   const [results, setResults] = useState<Song[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -133,20 +133,29 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
   // Título das faixas — usado para excluir "artistas" que na verdade são nomes de músicas
   const titleSet = new Set(results.map((s) => s.title.toLowerCase().trim()));
   const norm = (s: string) => s.toLowerCase().trim();
+  const q = norm(query);
+
+  // Score de relevância: match exato > começa com > contém > outros
+  const relevanceScore = (value: string) => {
+    const v = norm(value);
+    if (!q) return 0;
+    if (v === q) return 100;
+    if (v.startsWith(q)) return 75;
+    if (v.includes(q)) return 50;
+    return 0;
+  };
 
   // Artistas: apenas nomes que aparecem como artista em pelo menos uma faixa,
-  // não são "Desconhecido" e não coincidem com o título de nenhuma música do resultado
-  // (evita que o próprio nome da música apareça como artista).
+  // não são "Desconhecido" e não coincidem com o título de nenhuma música do resultado.
   const uniqueArtists = [
     ...new Set(
       results
         .map((s) => s.artist)
         .filter((a) => a && a !== "Desconhecido" && !titleSet.has(norm(a)))
     ),
-  ];
+  ].sort((a, b) => relevanceScore(b) - relevanceScore(a));
 
-  // Álbuns: exige nome de álbum diferente do título da faixa e diferente do nome do artista
-  // (assim clipes/singles sem álbum real não poluem a seção).
+  // Álbuns: exige nome de álbum diferente do título da faixa e diferente do nome do artista.
   const uniqueAlbums = [
     ...new Set(
       results
@@ -158,7 +167,13 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
         })
         .map((s) => `${s.album}|||${s.artist}|||${s.cover}`)
     ),
-  ];
+  ].sort((a, b) => {
+    const [albumA, artistA] = a.split("|||");
+    const [albumB, artistB] = b.split("|||");
+    const scoreA = Math.max(relevanceScore(albumA), relevanceScore(artistA));
+    const scoreB = Math.max(relevanceScore(albumB), relevanceScore(artistB));
+    return scoreB - scoreA;
+  });
 
   const artistAvatars = useArtistAvatars(uniqueArtists.slice(0, 10));
 
