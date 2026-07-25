@@ -41,19 +41,70 @@ interface Props {
 
 const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props) {
   const [open, setOpen] = useState(false);
+  const [transitionTo, setTransitionTo] = useState<SwitchableModule | null>(null);
   const { isLight } = useTheme();
   const activeTones = getModuleTones(MODULE_COLOR[active], isLight);
 
   const handle = useCallback(
     (m: SwitchableModule) => {
-      onSelect(m);
       setOpen(false);
+      if (m === active) return;
+      setTransitionTo(m);
+      window.setTimeout(() => onSelect(m), 220);
+      window.setTimeout(() => setTransitionTo(null), 620);
     },
-    [onSelect],
+    [onSelect, active],
+  );
+
+  const TransitionIcon = transitionTo ? MODULE_ICON[transitionTo] : Music;
+  const transitionTones = getModuleTones(
+    MODULE_COLOR[transitionTo ?? active],
+    isLight,
   );
 
   return (
+    <>
+    {/* Fundo fosco enquanto o alternador está aberto */}
+    {open && (
+      <div
+        aria-hidden
+        className="fixed inset-0 z-40 backdrop-blur-md bg-background/50 animate-fade-in motion-reduce:animate-none"
+      />
+    )}
+
+    {/* Tela de passagem entre sessões */}
+    {transitionTo && (
+      <div
+        aria-hidden
+        className="fixed inset-0 z-[100] flex items-center justify-center backdrop-blur-xl animate-fade-in motion-reduce:animate-none"
+        style={{
+          backgroundColor: "hsl(var(--background) / 0.85)",
+          backgroundImage: `radial-gradient(circle at 50% 45%, hsl(${MODULE_COLOR[transitionTo]} / 0.28), transparent 62%)`,
+        }}
+      >
+        <div className="flex flex-col items-center gap-3 animate-scale-in motion-reduce:animate-none">
+          <span
+            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl"
+            style={{
+              color: transitionTones.fg,
+              backgroundColor: transitionTones.bg,
+              boxShadow: `0 0 0 1px ${transitionTones.ring}, 0 18px 45px -18px hsl(${MODULE_COLOR[transitionTo]} / 0.7)`,
+            }}
+          >
+            <TransitionIcon size={28} strokeWidth={2.2} />
+          </span>
+          <span
+            className="text-sm font-semibold tracking-wide"
+            style={{ color: transitionTones.fg }}
+          >
+            Xerife {MODULE_LABEL[transitionTo]}
+          </span>
+        </div>
+      </div>
+    )}
+
     <Popover open={open} onOpenChange={setOpen}>
+
       <TooltipProvider delayDuration={250}>
         <Tooltip>
           <TooltipTrigger asChild>
