@@ -260,60 +260,9 @@ const DesktopSidebar = ({
         {collapsed && <Logo size={48} className="hidden lg:block" />}
       </div>
 
-      {/* Vertical module switcher when collapsed (icons-only + tooltips on hover) */}
-      {collapsed && onHomeModeChange && (() => {
-        const modules = [
-          { id: "hub", label: "Início", Icon: Home, color: "217 91% 60%", active: pillHub, onClick: () => { onHomeModeChange("hub"); onChange("home"); } },
-          { id: "music", label: "Music", Icon: Music, color: "142 55% 45%", active: pillMusic, onClick: () => { onHomeModeChange("music"); onChange("home"); } },
-          { id: "video", label: "Vídeos", Icon: MonitorPlay, color: "0 68% 55%", active: pillVideo, onClick: () => { onHomeModeChange("video"); onChange("home"); } },
-          { id: "podcast", label: "Podcasts", Icon: Headphones, color: "270 55% 60%", active: isPodcast, onClick: () => onChange("podcast") },
-        ] as const;
-        return (
-          <div className="hidden lg:flex flex-col gap-1 p-1 mx-2 mb-3 rounded-2xl border border-border bg-secondary shadow-inner">
-            {modules.map((m) => (
-              <ModulePillButton
-                key={m.id}
-                label={m.label}
-                Icon={m.Icon}
-                color={m.color}
-                isActive={m.active}
-                onClick={m.onClick}
-                orientation="vertical"
-              />
-            ))}
-          </div>
-        );
-      })()}
-
-      {/* Module switcher pill — matches mobile Dynamic Island styling (expanded state) */}
-      {onHomeModeChange && (() => {
-        const modules = [
-          { id: "hub", label: "Início", Icon: Home, color: "217 91% 60%", active: pillHub, onClick: () => { onHomeModeChange("hub"); onChange("home"); } },
-          { id: "music", label: "Music", Icon: Music, color: "142 55% 45%", active: pillMusic, onClick: () => { onHomeModeChange("music"); onChange("home"); } },
-          { id: "video", label: "Vídeos", Icon: MonitorPlay, color: "0 68% 55%", active: pillVideo, onClick: () => { onHomeModeChange("video"); onChange("home"); } },
-          { id: "podcast", label: "Podcasts", Icon: Headphones, color: "270 55% 60%", active: isPodcast, onClick: () => onChange("podcast") },
-        ] as const;
-        return (
-          <div className="pl-2 pr-3 lg:pl-2.5 lg:pr-4 pb-3" data-sidebar-fullonly>
-            <div className="flex items-center gap-0.5 p-1 rounded-full border border-border shadow-md bg-secondary overflow-hidden">
-
-              {modules.map((m) => (
-                <ModulePillButton
-                  key={m.id}
-                  label={m.label}
-                  Icon={m.Icon}
-                  color={m.color}
-                  isActive={m.active}
-                  onClick={m.onClick}
-                />
-              ))}
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Divider between pill and nav */}
+      {/* Divider between logo and nav */}
       <div className="h-px bg-sidebar-border/60 mx-4 mb-1" />
+
 
       {/* Main nav */}
       <nav className="flex-1 px-3 pt-3 lg:pt-4 pb-4 lg:pb-2 space-y-1.5 lg:space-y-0.5">
