@@ -1,4 +1,4 @@
-import { ChevronDown, Heart, Volume2, VolumeX, Video, Music2, Mic2, SkipBack, Play, Pause, SkipForward, Shuffle, Repeat, Loader2, ListVideo, MessageSquare, SkipForward as AutoPlayIcon, Maximize2, Minimize2, ListMusic, Download, Plus, Share2, PictureInPicture2, Headphones, RefreshCw, X, Palette, MoreVertical } from "lucide-react";
+import { ChevronDown, Heart, Volume2, VolumeX, Video, Music2, Mic2, SkipBack, Play, Pause, SkipForward, Shuffle, Repeat, Loader2, ListVideo, MessageSquare, SkipForward as AutoPlayIcon, Maximize2, Minimize2, ListMusic, Download, Plus, Share2, PictureInPicture2, Headphones, RefreshCw, X, Palette, MoreHorizontal } from "lucide-react";
 
 import { Song, formatDuration } from "@/data/mockSongs";
 import { hdThumbnail } from "@/lib/utils";
@@ -679,7 +679,7 @@ const NowPlayingView = ({
           aria-label="Ferramentas da faixa"
           className={`w-10 h-10 flex items-center justify-center rounded-full bg-secondary/70 backdrop-blur text-foreground/90 hover:bg-primary hover:text-primary-foreground transition-all active:scale-95 shadow-lg ${className}`}
         >
-          <MoreVertical size={20} />
+          <MoreHorizontal size={20} />
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-60 p-1.5 z-[80]">
