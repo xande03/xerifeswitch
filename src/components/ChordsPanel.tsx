@@ -155,7 +155,27 @@ const ChordsPanel = ({
 
   return (
     <div className={`flex flex-col min-h-0 ${className}`}>
-      <div className="p-4 border-b border-border/60 space-y-2">
+      {resizable && (
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Arraste para expandir ou minimizar a cifra"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onDoubleClick={handleToggle}
+          className="w-full py-2.5 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none group"
+        >
+          <span
+            className={`h-1.5 rounded-full transition-all ${
+              dragging ? "w-16 bg-primary" : "w-10 bg-muted-foreground/40 group-hover:bg-muted-foreground/70"
+            }`}
+          />
+        </div>
+      )}
+      <div className="p-4 pt-2 border-b border-border/60 space-y-2">
+
         {(showHeading || onClose) && (
           <div className="flex items-start gap-2">
             {showHeading && (
