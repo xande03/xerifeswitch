@@ -13,9 +13,14 @@ export interface ChordsPanelProps {
   className?: string;
   /** Altura máxima da área de cifra (usado no modo inline). */
   bodyClassName?: string;
+  /** Exibe a barra de arraste no topo para expandir/minimizar o módulo. */
+  resizable?: boolean;
 }
 
 const CHORD_LINE_REGEX = /^(?:\s*(?:[A-G](?:#|b)?(?:m|maj|sus|dim|aug|add)?\d{0,2}(?:sus\d?|add\d)?(?:\/[A-G](?:#|b)?)?)\s*)+$/;
+
+/** Níveis de altura (em vh) da área de cifra: minimizado, padrão, expandido. */
+const HEIGHT_LEVELS = [22, 55, 85];
 
 function isChordLine(line: string): boolean {
   const trimmed = line.trim();
@@ -30,6 +35,7 @@ const ChordsPanel = ({
   showHeading = true,
   className = "",
   bodyClassName = "",
+  resizable = false,
 }: ChordsPanelProps) => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<ChordsResult | null>(null);
@@ -38,7 +44,43 @@ const ChordsPanel = ({
   const [fontSize, setFontSize] = useState(14);
   const [autoScroll, setAutoScroll] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState(1);
+  const [heightVh, setHeightVh] = useState(HEIGHT_LEVELS[1]);
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef<{ startY: number; startVh: number } | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+
+  const snapTo = (vh: number) => {
+    const nearest = HEIGHT_LEVELS.reduce((a, b) => (Math.abs(b - vh) < Math.abs(a - vh) ? b : a));
+    setHeightVh(nearest);
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = { startY: e.clientY, startVh: heightVh };
+    setDragging(true);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d) return;
+    // Puxar para cima aumenta, puxar para baixo diminui.
+    const deltaVh = ((d.startY - e.clientY) / window.innerHeight) * 100;
+    setHeightVh(Math.min(90, Math.max(16, d.startVh + deltaVh)));
+  };
+
+  const handlePointerUp = () => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    setDragging(false);
+    snapTo(heightVh);
+  };
+
+  /** Toque simples na barra alterna entre expandido e padrão/minimizado. */
+  const handleToggle = () => {
+    const idx = HEIGHT_LEVELS.indexOf(heightVh);
+    setHeightVh(idx === HEIGHT_LEVELS.length - 1 ? HEIGHT_LEVELS[0] : HEIGHT_LEVELS[HEIGHT_LEVELS.length - 1]);
+  };
+
 
   useEffect(() => {
     let cancelled = false;
@@ -113,7 +155,27 @@ const ChordsPanel = ({
 
   return (
     <div className={`flex flex-col min-h-0 ${className}`}>
-      <div className="p-4 border-b border-border/60 space-y-2">
+      {resizable && (
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Arraste para expandir ou minimizar a cifra"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onDoubleClick={handleToggle}
+          className="w-full py-2.5 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none group"
+        >
+          <span
+            className={`h-1.5 rounded-full transition-all ${
+              dragging ? "w-16 bg-primary" : "w-10 bg-muted-foreground/40 group-hover:bg-muted-foreground/70"
+            }`}
+          />
+        </div>
+      )}
+      <div className="p-4 pt-2 border-b border-border/60 space-y-2">
+
         {(showHeading || onClose) && (
           <div className="flex items-start gap-2">
             {showHeading && (
@@ -261,8 +323,9 @@ const ChordsPanel = ({
       <div
         ref={bodyRef}
         data-testid="chords-body"
-        className={`flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 font-mono leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${bodyClassName}`}
-        style={{ fontSize }}
+        className={`flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 font-mono leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${bodyClassName} ${!dragging ? "transition-[height] duration-200 motion-reduce:transition-none" : ""}`}
+        style={resizable ? { fontSize, height: `${heightVh}vh` } : { fontSize }}
+
       >
         {loading && (
           <div className="flex flex-col items-center justify-center h-full min-h-[8rem] gap-3 text-muted-foreground">
