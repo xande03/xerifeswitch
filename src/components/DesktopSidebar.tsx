@@ -49,7 +49,10 @@ interface DesktopSidebarProps {
   isLoadingUser?: boolean;
   currentZoom?: number;
   onUpdateName?: (name: string) => void;
+  playerSlot?: React.ReactNode;
+  collapsedPlayerSlot?: React.ReactNode;
 }
+
 
 const musicTabs: { id: Tab; icon: typeof Home; label: string }[] = [
   { id: "home", icon: Home, label: "Início" },
@@ -183,7 +186,10 @@ const DesktopSidebar = ({
   isLoadingUser,
   currentZoom = 1,
   onUpdateName,
+  playerSlot,
+  collapsedPlayerSlot,
 }: DesktopSidebarProps) => {
+
   const mainTabs = podcastMode ? podcastTabs : (homeMode === "video" ? videoTabs : musicTabs);
   const activeType: "music" | "video" | "podcast" =
     podcastMode ? "podcast" : homeMode === "video" ? "video" : "music";
@@ -236,7 +242,7 @@ const DesktopSidebar = ({
   return (
     <aside
       data-sidebar-collapsed={collapsed}
-      className="hidden md:flex flex-col w-20 lg:w-[268px] h-full bg-sidebar border-r border-sidebar-border flex-shrink-0 transition-[width] duration-300 ease-in-out relative"
+      className="hidden md:flex flex-col w-20 lg:w-[320px] h-full bg-sidebar border-r border-sidebar-border flex-shrink-0 transition-[width] duration-300 ease-in-out relative"
     >
       {/* Collapse / expand toggle — evidente e destacado */}
       <button
@@ -260,88 +266,39 @@ const DesktopSidebar = ({
         {collapsed && <Logo size={48} className="hidden lg:block" />}
       </div>
 
-      {/* Vertical module switcher when collapsed (icons-only + tooltips on hover) */}
-      {collapsed && onHomeModeChange && (() => {
-        const modules = [
-          { id: "hub", label: "Início", Icon: Home, color: "217 91% 60%", active: pillHub, onClick: () => { onHomeModeChange("hub"); onChange("home"); } },
-          { id: "music", label: "Music", Icon: Music, color: "142 55% 45%", active: pillMusic, onClick: () => { onHomeModeChange("music"); onChange("home"); } },
-          { id: "video", label: "Vídeos", Icon: MonitorPlay, color: "0 68% 55%", active: pillVideo, onClick: () => { onHomeModeChange("video"); onChange("home"); } },
-          { id: "podcast", label: "Podcasts", Icon: Headphones, color: "270 55% 60%", active: isPodcast, onClick: () => onChange("podcast") },
-        ] as const;
-        return (
-          <div className="hidden lg:flex flex-col gap-1 p-1 mx-2 mb-3 rounded-2xl border border-border bg-secondary shadow-inner">
-            {modules.map((m) => (
-              <ModulePillButton
-                key={m.id}
-                label={m.label}
-                Icon={m.Icon}
-                color={m.color}
-                isActive={m.active}
-                onClick={m.onClick}
-                orientation="vertical"
-              />
-            ))}
-          </div>
-        );
-      })()}
-
-      {/* Module switcher pill — matches mobile Dynamic Island styling (expanded state) */}
-      {onHomeModeChange && (() => {
-        const modules = [
-          { id: "hub", label: "Início", Icon: Home, color: "217 91% 60%", active: pillHub, onClick: () => { onHomeModeChange("hub"); onChange("home"); } },
-          { id: "music", label: "Music", Icon: Music, color: "142 55% 45%", active: pillMusic, onClick: () => { onHomeModeChange("music"); onChange("home"); } },
-          { id: "video", label: "Vídeos", Icon: MonitorPlay, color: "0 68% 55%", active: pillVideo, onClick: () => { onHomeModeChange("video"); onChange("home"); } },
-          { id: "podcast", label: "Podcasts", Icon: Headphones, color: "270 55% 60%", active: isPodcast, onClick: () => onChange("podcast") },
-        ] as const;
-        return (
-          <div className="pl-2 pr-3 lg:pl-2.5 lg:pr-4 pb-3" data-sidebar-fullonly>
-            <div className="flex items-center gap-0.5 p-1 rounded-full border border-border shadow-md bg-secondary overflow-hidden">
-
-              {modules.map((m) => (
-                <ModulePillButton
-                  key={m.id}
-                  label={m.label}
-                  Icon={m.Icon}
-                  color={m.color}
-                  isActive={m.active}
-                  onClick={m.onClick}
-                />
-              ))}
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Divider between pill and nav */}
+      {/* Divider between logo and nav */}
       <div className="h-px bg-sidebar-border/60 mx-4 mb-1" />
 
+
       {/* Main nav */}
-      <nav className="flex-1 px-3 pt-3 lg:pt-4 pb-4 lg:pb-2 space-y-1.5 lg:space-y-0.5">
+      <nav className="flex-shrink-0 overflow-y-auto px-3 pt-2 pb-2 space-y-1 lg:space-y-0.5">
         {mainTabs.map(({ id, icon: Icon, label }) => (
           <Tooltip key={id} delayDuration={200}>
             <TooltipTrigger asChild>
               <button
                 onClick={() => onChange(id)}
                 aria-label={label}
-                className={`w-full flex flex-col lg:flex-row items-center gap-2 lg:gap-3.5 px-2 lg:px-4 py-3.5 lg:py-3 rounded-2xl lg:rounded-xl text-[10px] lg:text-[13px] font-semibold transition-all duration-200 group relative ${
+                className={`w-full flex flex-col lg:flex-row items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2.5 lg:py-2 rounded-2xl lg:rounded-xl text-[10px] lg:text-[12.5px] font-semibold transition-all duration-200 group relative ${
                   active === id
                     ? "bg-primary/15 text-primary shadow-sm shadow-primary/5"
                     : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                 }`}
               >
+
                 {active === id && (
                   <div className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-primary rounded-r-full" />
                 )}
-                <div className={`relative flex items-center justify-center w-9 h-9 lg:w-8 lg:h-8 rounded-xl transition-all duration-200 ${
+                <div className={`relative flex items-center justify-center w-8 h-8 lg:w-7 lg:h-7 rounded-xl transition-all duration-200 ${
                   active === id
                     ? "bg-primary/20 text-primary scale-105"
                     : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80 group-hover:bg-sidebar-accent group-hover:scale-105"
                 }`}>
                   <Icon
-                    size={active === id ? 22 : 20}
+                    size={active === id ? 20 : 18}
                     strokeWidth={active === id ? 2.5 : 1.8}
                     className="transition-all duration-200"
                   />
+
                   {id === "library" && likedCount > 0 && (
                     <span
                       key={likedCount}
@@ -367,45 +324,13 @@ const DesktopSidebar = ({
 
       </nav>
 
-      {/* Bottom section — Profile + Settings/Tools button */}
-      <div className="px-3 pb-6 lg:pb-4 space-y-2 lg:space-y-1 relative" ref={toolsRef}>
-        <div className="h-px bg-sidebar-border mx-2 mb-2 opacity-50" />
-        <div className={`flex flex-col gap-2 ${collapsed ? "items-center" : "items-stretch"}`} data-sidebar-iconcenter>
-          {/* Ferramentas — reuses the exact same module as mobile (HeaderMenu) */}
-          <div className={`flex ${collapsed ? "justify-center w-11" : "justify-center lg:justify-start w-full"}`}>
-            <HeaderMenu
-              homeMode={homeMode}
-              onHomeModeChange={(m) => onHomeModeChange?.(m)}
-              isDark={!!isDark}
-              onToggleTheme={() => onToggleTheme?.()}
-              colorTheme={colorTheme}
-              onColorChange={(c) => onColorChange?.(c)}
-              onCast={onCast}
-              onOpenHistory={onOpenHistory}
-              onOpenPlaylists={onOpenPlaylists}
-              onOpenDownloads={onOpenDownloads}
-              onZoomChange={onZoomChange}
-              onOpenChat={onOpenChat}
-              onLogin={onLogin}
-              onLogout={onLogout}
-              user={user}
-              isLoadingUser={isLoadingUser}
-              currentZoom={currentZoom}
-              placement="sidebar"
-            />
-          </div>
-          {/* Profile button */}
-          <div className={`flex ${collapsed ? "justify-center w-11" : "justify-center lg:justify-start w-full"}`}>
-            <ProfileButton
-              user={user ?? null}
-              onLogin={() => onLogin?.()}
-              onLogout={() => onLogout?.()}
-              onOpenHistory={onOpenHistory}
-              onUpdateName={onUpdateName}
-            />
-          </div>
-        </div>
+      {/* Bottom section — Player embutido na sidebar */}
+      <div className="mt-auto border-t border-sidebar-border/60 overflow-y-auto" ref={toolsRef}>
+        <div className="hidden lg:block">{collapsed ? collapsedPlayerSlot : playerSlot}</div>
+        <div className="lg:hidden">{collapsedPlayerSlot}</div>
       </div>
+
+
 
     </aside>
 

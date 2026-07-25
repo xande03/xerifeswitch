@@ -47,6 +47,8 @@ import DesktopSidebar from "@/components/DesktopSidebar";
 import SearchSkeleton from "@/components/SearchSkeleton";
 import SearchScreen from "@/components/SearchScreen";
 import DesktopPlayer from "@/components/DesktopPlayer";
+import SidebarPlayer from "@/components/SidebarPlayer";
+
 import SplashScreen from "@/components/SplashScreen";
 import FullscreenOverlay from "@/components/FullscreenOverlay";
 import HeaderMenu from "@/components/HeaderMenu";
@@ -1584,7 +1586,41 @@ const Index = () => {
           isLoadingUser={false}
           currentZoom={appZoom}
           onUpdateName={updateName}
+          playerSlot={
+            <SidebarPlayer
+              song={currentSong}
+              isPlaying={isPlaying}
+              currentTime={ct}
+              duration={dur}
+              volume={volume}
+              onTogglePlay={handleTogglePlay}
+              onNext={handleNext}
+              onPrev={handlePrev}
+              onExpand={() => setExpanded(true)}
+              onSeek={handleSeek}
+              onVolumeChange={setVolumeState}
+              isShuffled={isShuffled}
+              onShuffle={handleShuffle}
+            />
+          }
+          collapsedPlayerSlot={
+            <SidebarPlayer
+              collapsed
+              song={currentSong}
+              isPlaying={isPlaying}
+              currentTime={ct}
+              duration={dur}
+              volume={volume}
+              onTogglePlay={handleTogglePlay}
+              onNext={handleNext}
+              onPrev={handlePrev}
+              onExpand={() => setExpanded(true)}
+              onSeek={handleSeek}
+              onVolumeChange={setVolumeState}
+            />
+          }
         />
+
 
         {/* Main column */}
         <div className="flex-1 flex flex-col min-w-0">
@@ -2805,23 +2841,8 @@ const Index = () => {
                 podcastMode={podcastMode}
               />
             </div>
-            <div className="hidden md:block">
-              <DesktopPlayer
-                song={currentSong}
-                isPlaying={isPlaying}
-                currentTime={ct}
-                duration={dur}
-                volume={volume}
-                onTogglePlay={handleTogglePlay}
-                onNext={handleNext}
-                onPrev={handlePrev}
-                onExpand={() => setExpanded(true)}
-                onSeek={handleSeek}
-                onVolumeChange={setVolumeState}
-                isShuffled={isShuffled}
-                onShuffle={handleShuffle}
-              />
-            </div>
+            {/* Player desktop agora fica embutido na sidebar lateral */}
+
           </>
         )}
 
