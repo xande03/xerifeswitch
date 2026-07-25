@@ -16,7 +16,11 @@ import { fetchVideoInfo, type VideoInfo } from "@/lib/youtubeVideoInfo";
 import type { VideoResult } from "@/lib/youtubeGeneralSearch";
 import Logo from "./Logo";
 import SeekBar from "@/components/SeekBar";
-import { useAmbientTheme, useAmbientEnabled } from "@/hooks/useAmbientTheme";
+import { useAmbientTheme, useAmbientEnabled, useOverlayIntensity } from "@/hooks/useAmbientTheme";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Slider } from "@/components/ui/slider";
+import { SlidersHorizontal } from "lucide-react";
+
 import MarqueeText from "./MarqueeText";
 import ChordsSheet from "./ChordsSheet";
 import { fetchChords } from "@/lib/chords";
@@ -156,6 +160,8 @@ const NowPlayingView = ({
 
   // Fundo dinâmico opcional baseado na capa do álbum (cache por URL no localStorage)
   const [dynamicBgEnabled, setDynamicBgEnabled] = useAmbientEnabled();
+  const [overlayIntensity, setOverlayIntensityValue] = useOverlayIntensity();
+
   const ambient = useAmbientTheme(song.cover);
   const ambientBg = ambient.gradient;
 
@@ -688,7 +694,8 @@ const NowPlayingView = ({
                 filter: "blur(72px) saturate(1.25)",
                 transform: "scale(1.35) translateZ(0)",
                 willChange: "opacity, transform",
-                animationDuration: "800ms",
+                // Cores já em cache → crossfade curto; extração nova → mais suave
+                animationDuration: ambient.fromCache ? "220ms" : "800ms",
               }}
             />
           )}
@@ -702,18 +709,19 @@ const NowPlayingView = ({
               opacity: 0.85,
               transform: "translateZ(0)",
               willChange: "opacity",
-              animationDuration: "900ms",
+              animationDuration: ambient.fromCache ? "260ms" : "900ms",
             }}
           />
-          {/* 3) Overlay para contraste/legibilidade do texto e controles */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 z-0"
-            style={{
-              backgroundImage:
-                "linear-gradient(180deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.10) 45%, rgba(0,0,0,0.42) 100%)",
-            }}
-          />
+
+          {/* 3) Overlay para contraste/legibilidade — intensidade ajustável e adaptada ao tema */}
+          {ambient.overlay && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-0"
+              style={{ backgroundImage: ambient.overlay, transition: "background-image 300ms ease-out" }}
+            />
+          )}
+
         </>
       )}
 
@@ -1107,7 +1115,40 @@ const NowPlayingView = ({
                         <btn.icon size={18} aria-hidden />
                       </button>
                     ))}
+
+                    {/* Ajuste da intensidade do overlay (legibilidade do fundo dinâmico) */}
+                    {context === "music" && dynamicBgEnabled && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            title="Legibilidade do fundo"
+                            aria-label="Ajustar intensidade do overlay do fundo dinâmico"
+                            className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl transition-all active:scale-90 bg-secondary/30 hover:bg-primary/20 hover:text-primary text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                          >
+                            <SlidersHorizontal size={18} aria-hidden />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-60 space-y-3">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-medium">Legibilidade do fundo</span>
+                            <span className="tabular-nums text-muted-foreground">{overlayIntensity}%</span>
+                          </div>
+                          <Slider
+                            value={[overlayIntensity]}
+                            min={0}
+                            max={100}
+                            step={5}
+                            onValueChange={(v) => setOverlayIntensityValue(v[0])}
+                            aria-label="Intensidade do overlay"
+                          />
+                          <p className="text-[11px] leading-snug text-muted-foreground">
+                            Aumente para escurecer (ou clarear, no tema claro) o fundo e deixar o texto mais legível.
+                          </p>
+                        </PopoverContent>
+                      </Popover>
+                    )}
                   </div>
+
                 )}
 
                 {/* SeekBar & Transport — hidden only in rail (Xerife Vídeos) mode */}
