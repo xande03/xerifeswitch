@@ -122,6 +122,7 @@ const ChordsPanel = ({
     d.lastT = now;
     // Puxar para cima aumenta, puxar para baixo diminui.
     const deltaVh = ((d.startY - e.clientY) / window.innerHeight) * 100;
+    if (!Number.isFinite(deltaVh)) return;
     setHeightVh(Math.min(92, Math.max(14, d.startVh + deltaVh)));
   };
 
