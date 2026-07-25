@@ -203,20 +203,39 @@ const ChordsPanel = ({
         <div
           role="separator"
           aria-orientation="horizontal"
-          aria-label="Arraste para expandir ou minimizar a cifra"
+          aria-label={`Arraste para ajustar a altura da cifra (${HEIGHT_LEVEL_LABELS[activeLevel]})`}
+          aria-valuenow={activeLevel + 1}
+          aria-valuemin={1}
+          aria-valuemax={HEIGHT_LEVELS.length}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
           onDoubleClick={handleToggle}
-          className="w-full py-2.5 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none group"
+          onKeyDown={(e) => {
+            if (e.key === "ArrowUp") { e.preventDefault(); setHeightVh(HEIGHT_LEVELS[Math.min(HEIGHT_LEVELS.length - 1, activeLevel + 1)]); }
+            if (e.key === "ArrowDown") { e.preventDefault(); setHeightVh(HEIGHT_LEVELS[Math.max(0, activeLevel - 1)]); }
+          }}
+          tabIndex={0}
+          className="w-full py-2.5 flex flex-col items-center justify-center gap-1 cursor-grab active:cursor-grabbing touch-none select-none group outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-t-xl"
         >
           <span
-            className={`h-1.5 rounded-full transition-all ${
+            className={`h-1.5 rounded-full transition-all duration-200 motion-reduce:transition-none ${
               dragging ? "w-16 bg-primary" : "w-10 bg-muted-foreground/40 group-hover:bg-muted-foreground/70"
             }`}
           />
+          <span className="flex items-center gap-1" aria-hidden="true">
+            {HEIGHT_LEVELS.map((_, i) => (
+              <span
+                key={i}
+                className={`h-1 rounded-full transition-all duration-200 motion-reduce:transition-none ${
+                  i === activeLevel ? "w-3 bg-primary/70" : "w-1 bg-muted-foreground/30"
+                }`}
+              />
+            ))}
+          </span>
         </div>
+
       )}
       <div className="p-4 pt-2 border-b border-border/60 space-y-2">
 
