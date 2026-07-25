@@ -1,4 +1,4 @@
-import { ChevronDown, Heart, Volume2, VolumeX, Video, Music2, Mic2, SkipBack, Play, Pause, SkipForward, Shuffle, Repeat, Loader2, ListVideo, MessageSquare, SkipForward as AutoPlayIcon, Maximize2, Minimize2, ListMusic, Download, Plus, Share2, PictureInPicture2, Headphones, RefreshCw, X, Palette } from "lucide-react";
+import { ChevronDown, Heart, Volume2, VolumeX, Video, Music2, Mic2, SkipBack, Play, Pause, SkipForward, Shuffle, Repeat, Loader2, ListVideo, MessageSquare, SkipForward as AutoPlayIcon, Maximize2, Minimize2, ListMusic, Download, Plus, Share2, PictureInPicture2, Headphones, RefreshCw, X, Palette, MoreVertical } from "lucide-react";
 
 import { Song, formatDuration } from "@/data/mockSongs";
 import { hdThumbnail } from "@/lib/utils";
