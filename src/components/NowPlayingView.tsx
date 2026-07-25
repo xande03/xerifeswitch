@@ -719,14 +719,15 @@ const NowPlayingView = ({
       : null,
   ].filter(Boolean) as { icon: any; label: string; onClick: () => void; active?: boolean }[];
 
-  const toolsMenuNode = (className = "") => (
+  const toolsMenuNode = (className = "", id = "desktop") => (
     <ToolsMenu
       className={className}
       items={toolItems}
-      open={toolsOpen}
-      onOpenChange={setToolsOpen}
+      open={toolsOpen === id}
+      onOpenChange={(v) => setToolsOpen(v ? id : null)}
     />
   );
+
 
 
   return (
