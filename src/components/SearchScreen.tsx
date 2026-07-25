@@ -49,7 +49,9 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [history, setHistory] = useState<SearchHistoryEntry[]>(() => getSearchHistory());
+  const [chordsSong, setChordsSong] = useState<Song | null>(null);
   const suggestTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
   // Token que identifica a última busca disparada. Requests antigos são descartados
   // ao comparar com o valor atual — evita "race conditions" ao digitar rapidamente.
   const searchTokenRef = useRef(0);
