@@ -323,8 +323,9 @@ const ChordsPanel = ({
       <div
         ref={bodyRef}
         data-testid="chords-body"
-        className={`flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 font-mono leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${bodyClassName}`}
-        style={{ fontSize }}
+        className={`flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 font-mono leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${bodyClassName} ${!dragging ? "transition-[height] duration-200 motion-reduce:transition-none" : ""}`}
+        style={resizable ? { fontSize, height: `${heightVh}vh` } : { fontSize }}
+
       >
         {loading && (
           <div className="flex flex-col items-center justify-center h-full min-h-[8rem] gap-3 text-muted-foreground">
