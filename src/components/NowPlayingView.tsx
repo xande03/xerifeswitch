@@ -1127,8 +1127,11 @@ const NowPlayingView = ({
                             pressed: mode === 'video',
                           }
                         : null,
+                      // Baixar música (atalho direto na pílula)
+                      onDownload ? { icon: Download, label: 'Baixar música', onClick: onDownload, active: false } : null,
                       // Compartilhar (atalho direto na pílula)
                       onShare ? { icon: Share2, label: 'Compartilhar', onClick: onShare, active: false } : null,
+
 
                     ].filter(Boolean).map((btn: any, i) => btn.onClick && (
 
