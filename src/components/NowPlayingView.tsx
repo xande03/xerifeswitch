@@ -154,9 +154,11 @@ const NowPlayingView = ({
 
   const progress = duration > 0 ? currentTime / duration : 0;
 
-  // Ambient theme based on album cover (cached per URL in localStorage)
+  // Fundo dinâmico opcional baseado na capa do álbum (cache por URL no localStorage)
+  const [dynamicBgEnabled, setDynamicBgEnabled] = useAmbientEnabled();
   const ambient = useAmbientTheme(song.cover);
   const ambientBg = ambient.gradient;
+
 
 
 
