@@ -21,6 +21,19 @@ const CHORD_LINE_REGEX = /^(?:\s*(?:[A-G](?:#|b)?(?:m|maj|sus|dim|aug|add)?\d{0,
 
 /** Níveis de altura (em vh) da área de cifra: minimizado, padrão, expandido. */
 const HEIGHT_LEVELS = [22, 55, 85];
+const HEIGHT_LEVEL_LABELS = ["Minimizado", "Padrão", "Expandido"];
+const HEIGHT_STORAGE_KEY = "xerife:chords-panel-height";
+
+function loadStoredHeight(): number {
+  try {
+    const raw = localStorage.getItem(HEIGHT_STORAGE_KEY);
+    const n = raw ? Number(raw) : NaN;
+    if (Number.isFinite(n)) {
+      return HEIGHT_LEVELS.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a));
+    }
+  } catch { /* ignore */ }
+  return HEIGHT_LEVELS[1];
+}
 
 function isChordLine(line: string): boolean {
   const trimmed = line.trim();
@@ -44,42 +57,73 @@ const ChordsPanel = ({
   const [fontSize, setFontSize] = useState(14);
   const [autoScroll, setAutoScroll] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState(1);
-  const [heightVh, setHeightVh] = useState(HEIGHT_LEVELS[1]);
+  const [heightVh, setHeightVh] = useState(() => loadStoredHeight());
   const [dragging, setDragging] = useState(false);
-  const dragRef = useRef<{ startY: number; startVh: number } | null>(null);
+  const dragRef = useRef<{ startY: number; startVh: number; lastY: number; lastT: number; velocity: number } | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  const snapTo = (vh: number) => {
-    const nearest = HEIGHT_LEVELS.reduce((a, b) => (Math.abs(b - vh) < Math.abs(a - vh) ? b : a));
-    setHeightVh(nearest);
+  // Persiste a preferência de altura entre sessões de busca.
+  useEffect(() => {
+    if (dragging) return;
+    try { localStorage.setItem(HEIGHT_STORAGE_KEY, String(heightVh)); } catch { /* ignore */ }
+  }, [heightVh, dragging]);
+
+  /** Encaixa no nível mais próximo, favorecendo o sentido do gesto (velocidade). */
+  const snapTo = (vh: number, velocity = 0) => {
+    let nearestIdx = 0;
+    HEIGHT_LEVELS.forEach((lvl, i) => {
+      if (Math.abs(lvl - vh) < Math.abs(HEIGHT_LEVELS[nearestIdx] - vh)) nearestIdx = i;
+    });
+    // velocity > 0 => puxando para cima (expandir); < 0 => para baixo (minimizar)
+    if (Math.abs(velocity) > 0.35) {
+      const dir = velocity > 0 ? 1 : -1;
+      const target = HEIGHT_LEVELS[nearestIdx];
+      if ((dir > 0 && vh > target) || (dir < 0 && vh < target)) {
+        nearestIdx = Math.min(HEIGHT_LEVELS.length - 1, Math.max(0, nearestIdx + dir));
+      }
+    }
+    setHeightVh(HEIGHT_LEVELS[nearestIdx]);
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    dragRef.current = { startY: e.clientY, startVh: heightVh };
+    dragRef.current = { startY: e.clientY, startVh: heightVh, lastY: e.clientY, lastT: performance.now(), velocity: 0 };
     setDragging(true);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
     if (!d) return;
+    const now = performance.now();
+    const dt = Math.max(1, now - d.lastT);
+    // px/ms positivo quando puxa para cima
+    d.velocity = (d.lastY - e.clientY) / dt;
+    d.lastY = e.clientY;
+    d.lastT = now;
     // Puxar para cima aumenta, puxar para baixo diminui.
     const deltaVh = ((d.startY - e.clientY) / window.innerHeight) * 100;
-    setHeightVh(Math.min(90, Math.max(16, d.startVh + deltaVh)));
+    setHeightVh(Math.min(92, Math.max(14, d.startVh + deltaVh)));
   };
 
   const handlePointerUp = () => {
-    if (!dragRef.current) return;
+    const d = dragRef.current;
+    if (!d) return;
     dragRef.current = null;
     setDragging(false);
-    snapTo(heightVh);
+    snapTo(heightVh, d.velocity);
   };
 
-  /** Toque simples na barra alterna entre expandido e padrão/minimizado. */
+  /** Duplo clique alterna entre expandido e minimizado. */
   const handleToggle = () => {
     const idx = HEIGHT_LEVELS.indexOf(heightVh);
     setHeightVh(idx === HEIGHT_LEVELS.length - 1 ? HEIGHT_LEVELS[0] : HEIGHT_LEVELS[HEIGHT_LEVELS.length - 1]);
   };
+
+  const activeLevel = HEIGHT_LEVELS.reduce(
+    (best, lvl, i) => (Math.abs(lvl - heightVh) < Math.abs(HEIGHT_LEVELS[best] - heightVh) ? i : best),
+    0,
+  );
+
 
 
   useEffect(() => {
@@ -159,20 +203,39 @@ const ChordsPanel = ({
         <div
           role="separator"
           aria-orientation="horizontal"
-          aria-label="Arraste para expandir ou minimizar a cifra"
+          aria-label={`Arraste para ajustar a altura da cifra (${HEIGHT_LEVEL_LABELS[activeLevel]})`}
+          aria-valuenow={activeLevel + 1}
+          aria-valuemin={1}
+          aria-valuemax={HEIGHT_LEVELS.length}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
           onDoubleClick={handleToggle}
-          className="w-full py-2.5 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none group"
+          onKeyDown={(e) => {
+            if (e.key === "ArrowUp") { e.preventDefault(); setHeightVh(HEIGHT_LEVELS[Math.min(HEIGHT_LEVELS.length - 1, activeLevel + 1)]); }
+            if (e.key === "ArrowDown") { e.preventDefault(); setHeightVh(HEIGHT_LEVELS[Math.max(0, activeLevel - 1)]); }
+          }}
+          tabIndex={0}
+          className="w-full py-2.5 flex flex-col items-center justify-center gap-1 cursor-grab active:cursor-grabbing touch-none select-none group outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-t-xl"
         >
           <span
-            className={`h-1.5 rounded-full transition-all ${
+            className={`h-1.5 rounded-full transition-all duration-200 motion-reduce:transition-none ${
               dragging ? "w-16 bg-primary" : "w-10 bg-muted-foreground/40 group-hover:bg-muted-foreground/70"
             }`}
           />
+          <span className="flex items-center gap-1" aria-hidden="true">
+            {HEIGHT_LEVELS.map((_, i) => (
+              <span
+                key={i}
+                className={`h-1 rounded-full transition-all duration-200 motion-reduce:transition-none ${
+                  i === activeLevel ? "w-3 bg-primary/70" : "w-1 bg-muted-foreground/30"
+                }`}
+              />
+            ))}
+          </span>
         </div>
+
       )}
       <div className="p-4 pt-2 border-b border-border/60 space-y-2">
 
@@ -323,7 +386,7 @@ const ChordsPanel = ({
       <div
         ref={bodyRef}
         data-testid="chords-body"
-        className={`flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 font-mono leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${bodyClassName} ${!dragging ? "transition-[height] duration-200 motion-reduce:transition-none" : ""}`}
+        className={`flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 font-mono leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${bodyClassName} ${!dragging ? "transition-[height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none" : ""}`}
         style={resizable ? { fontSize, height: `${heightVh}vh` } : { fontSize }}
 
       >
