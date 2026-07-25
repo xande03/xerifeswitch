@@ -1,4 +1,4 @@
-import { ChevronDown, Heart, Volume2, VolumeX, Video, Music2, Mic2, SkipBack, Play, Pause, SkipForward, Shuffle, Repeat, Loader2, ListVideo, MessageSquare, SkipForward as AutoPlayIcon, Maximize2, Minimize2, ListMusic, Download, Plus, Share2, PictureInPicture2, Headphones, RefreshCw, X } from "lucide-react";
+import { ChevronDown, Heart, Volume2, VolumeX, Video, Music2, Mic2, SkipBack, Play, Pause, SkipForward, Shuffle, Repeat, Loader2, ListVideo, MessageSquare, SkipForward as AutoPlayIcon, Maximize2, Minimize2, ListMusic, Download, Plus, Share2, PictureInPicture2, Headphones, RefreshCw, X, Palette } from "lucide-react";
 
 import { Song, formatDuration } from "@/data/mockSongs";
 import { hdThumbnail } from "@/lib/utils";
@@ -16,7 +16,7 @@ import { fetchVideoInfo, type VideoInfo } from "@/lib/youtubeVideoInfo";
 import type { VideoResult } from "@/lib/youtubeGeneralSearch";
 import Logo from "./Logo";
 import SeekBar from "@/components/SeekBar";
-import { useAmbientTheme } from "@/hooks/useAmbientTheme";
+import { useAmbientTheme, useAmbientEnabled } from "@/hooks/useAmbientTheme";
 import MarqueeText from "./MarqueeText";
 import ChordsSheet from "./ChordsSheet";
 import { fetchChords } from "@/lib/chords";
@@ -154,9 +154,11 @@ const NowPlayingView = ({
 
   const progress = duration > 0 ? currentTime / duration : 0;
 
-  // Ambient theme based on album cover (cached per URL in localStorage)
+  // Fundo dinâmico opcional baseado na capa do álbum (cache por URL no localStorage)
+  const [dynamicBgEnabled, setDynamicBgEnabled] = useAmbientEnabled();
   const ambient = useAmbientTheme(song.cover);
   const ambientBg = ambient.gradient;
+
 
 
 
@@ -670,15 +672,51 @@ const NowPlayingView = ({
           : {}),
       }}
     >
-      {/* Ambient matte gradient — crossfades on track change via keyed layer */}
+      {/* Fundo dinâmico — camadas com crossfade suave ao trocar de faixa */}
       {ambientActive && (
-        <div
-          key={ambientBg}
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-0 animate-fade-in"
-          style={{ backgroundImage: ambientBg }}
-        />
+        <>
+          {/* 1) Capa em baixa resolução com blur pesado (GPU) */}
+          {ambient.blurSrc && (
+            <div
+              key={`blur-${ambient.blurSrc}`}
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-0 motion-safe:animate-fade-in"
+              style={{
+                backgroundImage: `url(${ambient.blurSrc})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                filter: "blur(72px) saturate(1.25)",
+                transform: "scale(1.35) translateZ(0)",
+                willChange: "opacity, transform",
+                animationDuration: "800ms",
+              }}
+            />
+          )}
+          {/* 2) Mesh gradient derivado das cores dominantes */}
+          <div
+            key={`mesh-${ambientBg}`}
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-0 motion-safe:animate-fade-in"
+            style={{
+              backgroundImage: ambientBg,
+              opacity: 0.85,
+              transform: "translateZ(0)",
+              willChange: "opacity",
+              animationDuration: "900ms",
+            }}
+          />
+          {/* 3) Overlay para contraste/legibilidade do texto e controles */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-0"
+            style={{
+              backgroundImage:
+                "linear-gradient(180deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.10) 45%, rgba(0,0,0,0.42) 100%)",
+            }}
+          />
+        </>
       )}
+
       <div className="relative z-10 flex-1 flex flex-col min-h-0">
 
 
@@ -1041,6 +1079,17 @@ const NowPlayingView = ({
                         onClick: () => setChordsOpen(true),
                         active: chordsOpen,
                       },
+                      // Fundo dinâmico (opcional): gera fundo a partir das cores da capa.
+                      context === "music"
+                        ? {
+                            icon: Palette,
+                            label: dynamicBgEnabled ? 'Desativar fundo dinâmico' : 'Fundo dinâmico',
+                            onClick: () => setDynamicBgEnabled(!dynamicBgEnabled),
+                            active: dynamicBgEnabled,
+                            pressed: dynamicBgEnabled,
+                          }
+                        : null,
+
                       
                     ].filter(Boolean).map((btn: any, i) => btn.onClick && (
                       <button
