@@ -43,7 +43,7 @@ const BottomNav = ({ active, onChange, homeMode = "music", podcastMode = false }
     const recompute = () => {
       try {
         const favs = getFavoritesMetadata();
-        const n = favs.filter((f: any) => (f?.type ?? (String(f?.id).startsWith("yt-") ? "video" : "music")) === "video").length;
+        const n = favs.filter((f: any) => (f?.type ?? "music") === "video").length;
         setLikedVideoCount(n);
       } catch {}
     };
