@@ -185,6 +185,24 @@ const DesktopSidebar = ({
   onUpdateName,
 }: DesktopSidebarProps) => {
   const mainTabs = podcastMode ? podcastTabs : (homeMode === "video" ? videoTabs : musicTabs);
+  const [likedVideoCount, setLikedVideoCount] = useState(0);
+  useEffect(() => {
+    if (homeMode !== "video" || podcastMode) return;
+    const recompute = () => {
+      try {
+        const favs = getFavoritesMetadata();
+        setLikedVideoCount(favs.filter((f: any) => (f?.type ?? "music") === "video").length);
+      } catch {}
+    };
+    recompute();
+    const h = () => recompute();
+    window.addEventListener("storage", h);
+    window.addEventListener("demus:favorites-updated", h);
+    return () => {
+      window.removeEventListener("storage", h);
+      window.removeEventListener("demus:favorites-updated", h);
+    };
+  }, [homeMode, podcastMode]);
   const [toolsOpen, setToolsOpen] = useState(false);
   
   const [showServerStatus, setShowServerStatus] = useState(false);
