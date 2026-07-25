@@ -425,7 +425,7 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
 
           {/* Coluna lateral persistente (desktop) */}
           {chordsSong && (
-            <aside className="hidden lg:flex flex-col w-[380px] xl:w-[440px] flex-shrink-0 sticky top-4 rounded-xl border border-border bg-card overflow-hidden animate-in fade-in slide-in-from-right-2 motion-reduce:animate-none">
+            <aside className="hidden lg:flex flex-col w-[380px] xl:w-[440px] flex-shrink-0 sticky top-4 max-h-[calc(100vh-6rem)] rounded-xl border border-border bg-card overflow-hidden animate-in fade-in slide-in-from-right-2 motion-reduce:animate-none">
               <ChordsPanel
                 key={`${chordsSong.artist}::${chordsSong.title}`}
                 artist={chordsSong.artist}
