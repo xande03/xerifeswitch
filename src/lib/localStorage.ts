@@ -146,17 +146,34 @@ export function getFavoritesMetadata(): any[] {
   }
 }
 
+function emitFavoritesUpdated() {
+  try { window.dispatchEvent(new CustomEvent("demus:favorites-updated")); } catch {}
+}
+
 export function saveFavoriteMetadata(song: any): void {
   const favorites = getFavoritesMetadata();
-  if (!favorites.some(f => f.id === song.id)) {
-    favorites.push(song);
-    localStorage.setItem(FAVORITES_METADATA_KEY, JSON.stringify(favorites));
+  // Normalize `type` so the Library counters/filters classify it correctly.
+  // Music entries backed by YouTube start with "yt-" but are still music when
+  // an explicit type is provided by the caller.
+  const normalized = {
+    ...song,
+    type: song?.type ?? (String(song?.id).startsWith("yt-") ? "video" : "music"),
+    favoritedAt: song?.favoritedAt ?? Date.now(),
+  };
+  const idx = favorites.findIndex(f => f.id === song.id);
+  if (idx >= 0) {
+    favorites[idx] = { ...favorites[idx], ...normalized };
+  } else {
+    favorites.push(normalized);
   }
+  localStorage.setItem(FAVORITES_METADATA_KEY, JSON.stringify(favorites));
+  emitFavoritesUpdated();
 }
 
 export function removeFavoriteMetadata(songId: string): void {
   const favorites = getFavoritesMetadata().filter(f => f.id !== songId);
   localStorage.setItem(FAVORITES_METADATA_KEY, JSON.stringify(favorites));
+  emitFavoritesUpdated();
 }
 
 // Queue state (vote counts)
@@ -368,6 +385,10 @@ export function getPlaylists(): Playlist[] {
   }
 }
 
+function emitPlaylistsUpdated() {
+  try { window.dispatchEvent(new CustomEvent("demus:playlists-updated")); } catch {}
+}
+
 export function savePlaylist(playlist: Playlist): void {
   const playlists = getPlaylists();
   const index = playlists.findIndex(p => p.id === playlist.id);
@@ -377,11 +398,13 @@ export function savePlaylist(playlist: Playlist): void {
     playlists.push(playlist);
   }
   localStorage.setItem(PLAYLISTS_KEY, JSON.stringify(playlists));
+  emitPlaylistsUpdated();
 }
 
 export function deletePlaylist(id: string): void {
   const playlists = getPlaylists().filter(p => p.id !== id);
   localStorage.setItem(PLAYLISTS_KEY, JSON.stringify(playlists));
+  emitPlaylistsUpdated();
 }
 
 export function addSongToPlaylist(playlistId: string, song: any): void {

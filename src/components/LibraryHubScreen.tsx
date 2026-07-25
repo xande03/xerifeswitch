@@ -67,10 +67,20 @@ const LibraryHubScreen = ({ onHomeModeChange, onOpenTool, initialFilter }: Libra
     const onStorage = () => recompute();
     window.addEventListener("storage", onStorage);
     window.addEventListener("demus:history-updated", onStorage);
+    window.addEventListener("demus:favorites-updated", onStorage);
+    window.addEventListener("demus:watchlater-updated", onStorage);
+    window.addEventListener("demus:playlists-updated", onStorage);
+    window.addEventListener("demus:downloads-updated", onStorage);
+    window.addEventListener("xerife:podcast-favs-updated", onStorage);
     return () => {
       cancelled = true;
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("demus:history-updated", onStorage);
+      window.removeEventListener("demus:favorites-updated", onStorage);
+      window.removeEventListener("demus:watchlater-updated", onStorage);
+      window.removeEventListener("demus:playlists-updated", onStorage);
+      window.removeEventListener("demus:downloads-updated", onStorage);
+      window.removeEventListener("xerife:podcast-favs-updated", onStorage);
     };
   }, [filter]);
 

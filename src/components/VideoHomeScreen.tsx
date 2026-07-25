@@ -36,18 +36,24 @@ export function getWatchLater(): VideoResult[] {
   }
 }
 
+function emitWatchLaterUpdated() {
+  try { window.dispatchEvent(new CustomEvent("demus:watchlater-updated")); } catch {}
+}
+
 export function addToWatchLater(video: VideoResult): void {
   const list = getWatchLater();
   if (!list.some(v => v.videoId === video.videoId)) {
     list.unshift(video);
     if (list.length > 50) list.length = 50;
     localStorage.setItem(WATCH_LATER_KEY, JSON.stringify(list));
+    emitWatchLaterUpdated();
   }
 }
 
 export function removeFromWatchLater(videoId: string): void {
   const list = getWatchLater().filter(v => v.videoId !== videoId);
   localStorage.setItem(WATCH_LATER_KEY, JSON.stringify(list));
+  emitWatchLaterUpdated();
 }
 
 export function isInWatchLater(videoId: string): boolean {

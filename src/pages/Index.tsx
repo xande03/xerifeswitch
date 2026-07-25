@@ -1320,6 +1320,13 @@ const Index = () => {
   });
 
   const handleVote = useCallback((song: Song) => {
+    // Ensure the favorite carries a stable `type` so the Library counters and
+    // "Curtidos" filter classify it under the correct module (music/video/podcast).
+    const inferredType: "music" | "video" | "podcast" =
+      (song as any).type ??
+      (podcastMode ? "podcast" : (homeMode === "video" ? "video" : "music"));
+    const stampedSong = { ...song, type: inferredType } as Song;
+
     if (votedSongs.has(song.id)) {
       // Un-favorite
       removeVotedSong(song.id);
@@ -1334,12 +1341,12 @@ const Index = () => {
     } else {
       // Favorite
       addVotedSong(song.id);
-      saveFavoriteMetadata(song);
+      saveFavoriteMetadata(stampedSong);
       setVotedSongs((prev) => new Set([...prev, song.id]));
-      setFavoritesMetadata((prev) => [...prev, song]);
+      setFavoritesMetadata((prev) => [...prev, stampedSong]);
       setSongs((prev) => prev.map((s) => (s.id === song.id ? { ...s, votes: s.votes + 1 } : s)));
     }
-  }, [votedSongs]);
+  }, [votedSongs, podcastMode, homeMode]);
 
   const handleDownload = useCallback((song: Song) => {
     setModalSong(song);
