@@ -1855,11 +1855,11 @@ const Index = () => {
           };
           return (
         <header
-          className="relative flex items-center gap-2 sm:gap-3 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-5 flex-shrink-0 bg-background"
+          className="relative flex items-center gap-3 sm:gap-4 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 lg:py-5 flex-shrink-0 bg-background"
           style={{
             paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)',
-            paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
-            paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+            paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+            paddingRight: 'max(1rem, env(safe-area-inset-right))',
           }}
         >
           {/* Left: Logo (tingida pela sessão) + nome da sessão */}
@@ -1869,17 +1869,18 @@ const Index = () => {
               if (podcastMode) setActiveTab("podcast");
               else setActiveTab("home");
             }}
-            className="flex items-center gap-2 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-lg"
+            className="flex items-center gap-2.5 sm:gap-3 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-lg"
             aria-label={`Ir para o início de Xerife ${MODULE_LABEL[currentModule]}`}
           >
-            <Logo size={32} colorFrom={mc.from} colorTo={mc.to} tooltipLabel={`Xerife ${MODULE_LABEL[currentModule]}`} />
-            <span className={`font-display font-black text-[18px] sm:text-[20px] tracking-tight ${mc.text}`}>
+            <Logo size={40} colorFrom={mc.from} colorTo={mc.to} tooltipLabel={`Xerife ${MODULE_LABEL[currentModule]}`} />
+            <span className={`font-display font-black text-[22px] sm:text-[26px] lg:text-[28px] tracking-tight leading-none ${mc.text}`}>
               {MODULE_LABEL[currentModule]}
             </span>
           </button>
 
           {/* Right cluster: Tools → Switcher → Profile */}
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+
             {!isOnline && (
               <span className="flex items-center text-xs text-primary" aria-label="Offline">
                 <WifiOff size={18} />
