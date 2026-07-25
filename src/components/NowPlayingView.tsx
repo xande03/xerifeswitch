@@ -705,15 +705,15 @@ const NowPlayingView = ({
               animationDuration: "900ms",
             }}
           />
-          {/* 3) Overlay para contraste/legibilidade do texto e controles */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 z-0"
-            style={{
-              backgroundImage:
-                "linear-gradient(180deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.10) 45%, rgba(0,0,0,0.42) 100%)",
-            }}
-          />
+          {/* 3) Overlay para contraste/legibilidade — intensidade ajustável e adaptada ao tema */}
+          {ambient.overlay && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-0"
+              style={{ backgroundImage: ambient.overlay, transition: "background-image 300ms ease-out" }}
+            />
+          )}
+
         </>
       )}
 
