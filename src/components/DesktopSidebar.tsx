@@ -242,7 +242,7 @@ const DesktopSidebar = ({
   return (
     <aside
       data-sidebar-collapsed={collapsed}
-      className="hidden md:flex flex-col w-20 lg:w-[268px] h-full bg-sidebar border-r border-sidebar-border flex-shrink-0 transition-[width] duration-300 ease-in-out relative"
+      className="hidden md:flex flex-col w-20 lg:w-[320px] h-full bg-sidebar border-r border-sidebar-border flex-shrink-0 transition-[width] duration-300 ease-in-out relative"
     >
       {/* Collapse / expand toggle — evidente e destacado */}
       <button
