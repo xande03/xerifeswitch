@@ -85,6 +85,17 @@ const Index = () => {
   // and back/forward navigation. Never mutate those directly — always use the
   // setters below.
   const { homeMode, podcastMode, moduleKey, setHomeMode, setPodcastMode } = useModuleMode();
+  // Re-render library sections when watch later list changes elsewhere
+  const [watchLaterVersion, setWatchLaterVersion] = useState(0);
+  useEffect(() => {
+    const bump = () => setWatchLaterVersion((v) => v + 1);
+    window.addEventListener("demus:watchlater-updated", bump);
+    window.addEventListener("storage", bump);
+    return () => {
+      window.removeEventListener("demus:watchlater-updated", bump);
+      window.removeEventListener("storage", bump);
+    };
+  }, []);
   // Persist activeTab
   useEffect(() => {
     try { localStorage.setItem('demus-active-tab', activeTab); } catch {}

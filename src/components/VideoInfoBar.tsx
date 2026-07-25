@@ -153,16 +153,27 @@ const VideoInfoBar = ({
       setSaved(false);
       toast.success("Removido de Assistir mais tarde");
     } else {
-      addToWatchLater({
+      const item = {
         videoId,
         title: song.title,
         channel: song.artist,
         thumbnail: song.cover,
         lengthSeconds: song.duration,
         duration: "",
-      } as any);
+      } as any;
+      addToWatchLater(item);
       setSaved(true);
-      toast.success("Adicionado a Assistir mais tarde");
+      toast.success("Adicionado a Assistir mais tarde", {
+        duration: 6000,
+        action: {
+          label: "Desfazer",
+          onClick: () => {
+            removeFromWatchLater(videoId);
+            setSaved(false);
+            toast.message("Ação desfeita");
+          },
+        },
+      });
     }
   };
 
@@ -309,7 +320,7 @@ const VideoInfoBar = ({
           aria-expanded={titleExpanded}
         >
           <div className="flex items-center gap-1.5 flex-wrap text-[13px] font-medium text-foreground/85">
-            <span>{comments.length > 0 ? `${comments.length.toLocaleString("pt-BR")} interações` : "Vídeo"}</span>
+            <span>{comments.length > 0 ? `${comments.length.toLocaleString("pt-BR")} ${comments.length === 1 ? "comentário" : "comentários"}` : "Vídeo"}</span>
             <span className="text-muted-foreground/60">·</span>
             <span className="text-muted-foreground">enviado recentemente</span>
             <span className="ml-1 text-foreground font-semibold">...{titleExpanded ? "menos" : "mais"}</span>
