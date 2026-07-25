@@ -342,15 +342,16 @@ const DesktopSidebar = ({
                     strokeWidth={active === id ? 2.5 : 1.8}
                     className="transition-all duration-200"
                   />
-                  {id === "library" && homeMode === "video" && !podcastMode && likedVideoCount > 0 && (
+                  {id === "library" && likedCount > 0 && (
                     <span
-                      key={likedVideoCount}
+                      key={likedCount}
                       className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center animate-scale-in shadow-sm"
-                      aria-label={`${likedVideoCount} vídeos curtidos`}
+                      aria-label={`${likedCount} curtidos`}
                     >
-                      {likedVideoCount > 99 ? "99+" : likedVideoCount}
+                      {likedCount > 99 ? "99+" : likedCount}
                     </span>
                   )}
+
                 </div>
                 <span className="lg:block transition-all font-medium" data-sidebar-fullonly>{label}</span>
                 {active === id && (
