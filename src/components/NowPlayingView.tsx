@@ -160,6 +160,8 @@ const NowPlayingView = ({
 
   // Fundo dinâmico opcional baseado na capa do álbum (cache por URL no localStorage)
   const [dynamicBgEnabled, setDynamicBgEnabled] = useAmbientEnabled();
+  const [overlayIntensity, setOverlayIntensityValue] = useOverlayIntensity();
+
   const ambient = useAmbientTheme(song.cover);
   const ambientBg = ambient.gradient;
 
