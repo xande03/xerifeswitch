@@ -1,4 +1,4 @@
-import { Home, Search, Heart, Compass, MonitorPlay, Library } from "lucide-react";
+import { Home, Search, Heart, Compass, ThumbsUp, Library } from "lucide-react";
 
 type Tab = "home" | "search" | "library" | "offline" | "profile" | "history" | "playlists" | "podcast" | "libraryhub";
 type HomeMode = "hub" | "music" | "video";
