@@ -1,4 +1,4 @@
-import { Home, Search, Heart, Compass, MonitorPlay, Library } from "lucide-react";
+import { Home, Search, Heart, Compass, ThumbsUp, Library } from "lucide-react";
 
 type Tab = "home" | "search" | "library" | "offline" | "profile" | "history" | "playlists" | "podcast" | "libraryhub";
 type HomeMode = "hub" | "music" | "video";
@@ -20,7 +20,7 @@ const musicTabs: { id: Tab; icon: typeof Home; label: string }[] = [
 const videoTabs: { id: Tab; icon: typeof Home; label: string }[] = [
   { id: "home", icon: Home, label: "Início" },
   { id: "search", icon: Compass, label: "Explorar" },
-  { id: "library", icon: MonitorPlay, label: "Inscrições" },
+  { id: "library", icon: ThumbsUp, label: "Gostei" },
   { id: "libraryhub", icon: Library, label: "Biblioteca" },
 ];
 
