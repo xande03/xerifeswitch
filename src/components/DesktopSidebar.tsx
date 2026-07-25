@@ -282,16 +282,17 @@ const DesktopSidebar = ({
                 {active === id && (
                   <div className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-primary rounded-r-full" />
                 )}
-                <div className={`relative flex items-center justify-center w-9 h-9 lg:w-8 lg:h-8 rounded-xl transition-all duration-200 ${
+                <div className={`relative flex items-center justify-center w-8 h-8 lg:w-7 lg:h-7 rounded-xl transition-all duration-200 ${
                   active === id
                     ? "bg-primary/20 text-primary scale-105"
                     : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80 group-hover:bg-sidebar-accent group-hover:scale-105"
                 }`}>
                   <Icon
-                    size={active === id ? 22 : 20}
+                    size={active === id ? 20 : 18}
                     strokeWidth={active === id ? 2.5 : 1.8}
                     className="transition-all duration-200"
                   />
+
                   {id === "library" && likedCount > 0 && (
                     <span
                       key={likedCount}
