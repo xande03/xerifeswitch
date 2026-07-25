@@ -2841,23 +2841,8 @@ const Index = () => {
                 podcastMode={podcastMode}
               />
             </div>
-            <div className="hidden md:block">
-              <DesktopPlayer
-                song={currentSong}
-                isPlaying={isPlaying}
-                currentTime={ct}
-                duration={dur}
-                volume={volume}
-                onTogglePlay={handleTogglePlay}
-                onNext={handleNext}
-                onPrev={handlePrev}
-                onExpand={() => setExpanded(true)}
-                onSeek={handleSeek}
-                onVolumeChange={setVolumeState}
-                isShuffled={isShuffled}
-                onShuffle={handleShuffle}
-              />
-            </div>
+            {/* Player desktop agora fica embutido na sidebar lateral */}
+
           </>
         )}
 
