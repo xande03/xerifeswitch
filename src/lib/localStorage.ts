@@ -157,7 +157,7 @@ export function saveFavoriteMetadata(song: any): void {
   // an explicit type is provided by the caller.
   const normalized = {
     ...song,
-    type: song?.type ?? (String(song?.id).startsWith("yt-") ? "video" : "music"),
+    type: song?.type ?? "music",
     favoritedAt: song?.favoritedAt ?? Date.now(),
   };
   const idx = favorites.findIndex(f => f.id === song.id);
