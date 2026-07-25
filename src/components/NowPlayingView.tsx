@@ -16,7 +16,7 @@ import { fetchVideoInfo, type VideoInfo } from "@/lib/youtubeVideoInfo";
 import type { VideoResult } from "@/lib/youtubeGeneralSearch";
 import Logo from "./Logo";
 import SeekBar from "@/components/SeekBar";
-import { useAmbientTheme } from "@/hooks/useAmbientTheme";
+import { useAmbientTheme, useAmbientEnabled } from "@/hooks/useAmbientTheme";
 import MarqueeText from "./MarqueeText";
 import ChordsSheet from "./ChordsSheet";
 import { fetchChords } from "@/lib/chords";
