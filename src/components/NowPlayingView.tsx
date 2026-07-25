@@ -74,6 +74,53 @@ interface NowPlayingViewProps {
   activeVideoId?: string | null;
 }
 
+type ToolItem = { icon: any; label: string; onClick: () => void; active?: boolean };
+
+const ToolsMenu = ({
+  className = "",
+  items,
+  open,
+  onOpenChange,
+}: {
+  className?: string;
+  items: ToolItem[];
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) => (
+  <Popover open={open} onOpenChange={onOpenChange}>
+    <PopoverTrigger asChild>
+      <button
+        type="button"
+        title="Ferramentas"
+        aria-label="Ferramentas da faixa"
+        className={`w-10 h-10 flex items-center justify-center rounded-full bg-secondary/70 backdrop-blur text-foreground/90 hover:bg-primary hover:text-primary-foreground transition-all active:scale-95 shadow-lg ${className}`}
+      >
+        <MoreHorizontal size={20} />
+      </button>
+    </PopoverTrigger>
+    <PopoverContent align="end" className="w-60 p-1.5 z-[80]">
+      <div className="flex flex-col">
+        {items.map((item, i) => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={() => {
+              onOpenChange(false);
+              item.onClick();
+            }}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left transition-colors ${
+              item.active ? "bg-primary/15 text-primary" : "hover:bg-accent text-foreground"
+            }`}
+          >
+            <item.icon size={17} aria-hidden />
+            <span className="truncate">{item.label}</span>
+          </button>
+        ))}
+      </div>
+    </PopoverContent>
+  </Popover>
+);
+
 const NowPlayingView = ({
   song, isPlaying, isEnded, currentTime, duration,
   onTogglePlay, onNext, onPrev,
@@ -131,6 +178,7 @@ const NowPlayingView = ({
   const [lyricsChecked, setLyricsChecked] = useState(false);
   const [lyricsOffset, setLyricsOffsetState] = useState<number>(() => getLyricsOffset(song.id));
   const [chordsOpen, setChordsOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
 
   // Prefetch de cifra em background quando a música muda: garante que ao abrir
   // o painel a cifra apareça instantaneamente (cache mem + localStorage).
@@ -766,7 +814,7 @@ const NowPlayingView = ({
             <span className="font-display font-black text-lg lg:text-xl italic tracking-tighter">XERIFE <span className="text-primary">SWITCH</span></span>
           </button>
           <div className="w-12 h-12 flex items-center justify-end">
-            {!isRailVideoMode && <ToolsMenu />}
+            {!isRailVideoMode && toolsMenuNode()}
           </div>
 
         </div>
@@ -785,7 +833,7 @@ const NowPlayingView = ({
                 <div className="text-[11px] uppercase tracking-[0.18em] font-semibold text-foreground/70 truncate max-w-[60%] text-center">
                   {context === "podcast" ? "Podcast" : "Tocando agora"}
                 </div>
-                <ToolsMenu className="w-9 h-9 shadow-none bg-background/70" />
+                {toolsMenuNode("w-9 h-9 shadow-none bg-background/70")}
               </div>
             )}
 
