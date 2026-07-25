@@ -136,6 +136,48 @@ function buildTheme(d: number[], p1: number[], p2: number[]): ColorTheme {
   };
 }
 
+/** Parse "rgb(r, g, b)" back into a tuple. */
+function parseRgb(css: string): [number, number, number] | null {
+  const m = css.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+/**
+ * Reajusta o "matte" (muted/deep) e as cores de texto do tema para o modo
+ * claro ou escuro. As cores dominantes (primary/secondary/accent) continuam
+ * as mesmas — só a base e o contraste mudam.
+ */
+export function adaptThemeToMode(theme: ColorTheme, isLightMode: boolean): ColorTheme {
+  const rgb = parseRgb(theme.primary);
+  if (!rgb) return theme;
+  const [h, s] = rgbToHsl(rgb[0], rgb[1], rgb[2]);
+
+  const mutedS = isLightMode ? Math.min(s, 0.28) : Math.min(s, 0.35);
+  const mutedL = isLightMode ? 0.88 : 0.22;
+  const deepL = isLightMode ? 0.96 : 0.12;
+
+  const fgHsl = isLightMode ? `${h.toFixed(0)} ${(Math.min(s, 0.2) * 100).toFixed(0)}% 12%` : `0 0% 96%`;
+  const mfgHsl = isLightMode ? `${h.toFixed(0)} ${(Math.min(s, 0.2) * 100).toFixed(0)}% 30%` : `0 0% 78%`;
+
+  return {
+    ...theme,
+    muted: hslCss(h, mutedS, mutedL),
+    deep: hslCss(h, Math.min(s, isLightMode ? 0.22 : 0.4), deepL),
+    foreground: `hsl(${fgHsl})`,
+    mutedForeground: `hsl(${mfgHsl})`,
+    foregroundHsl: fgHsl,
+    mutedForegroundHsl: mfgHsl,
+  };
+}
+
+/** Leitura sincrônica do cache (memória + localStorage) — usada para trocar
+ * o fundo instantaneamente, sem esperar a extração. */
+export function getCachedTheme(imageUrl?: string | null): ColorTheme | null {
+  if (!imageUrl) return null;
+  return themeCache.get(imageUrl) ?? null;
+}
+
+
 /** Last-resort theme derived from the URL hash — colored, never plain b/w. */
 function themeFromUrlHash(imageUrl: string): ColorTheme {
   const h = hueFromString(imageUrl);
