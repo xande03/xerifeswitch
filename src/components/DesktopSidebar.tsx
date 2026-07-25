@@ -49,7 +49,10 @@ interface DesktopSidebarProps {
   isLoadingUser?: boolean;
   currentZoom?: number;
   onUpdateName?: (name: string) => void;
+  playerSlot?: React.ReactNode;
+  collapsedPlayerSlot?: React.ReactNode;
 }
+
 
 const musicTabs: { id: Tab; icon: typeof Home; label: string }[] = [
   { id: "home", icon: Home, label: "Início" },
