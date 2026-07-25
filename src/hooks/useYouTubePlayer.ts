@@ -76,9 +76,6 @@ async function requestWakeLock() {
   releaseWakeLock();
 }
 
-function reacquireWakeLock() {
-  releaseWakeLock();
-}
 
 function releaseWakeLock() {
   try {
