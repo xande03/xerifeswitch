@@ -77,11 +77,12 @@ const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylis
           <span>{song.votes}</span>
         </button>
       )}
-      {/* Buscar Cifra button — next to download */}
+      {/* Cifra — sempre visível */}
       <button
-        onClick={() => openCifraClub(song)}
-        title="Buscar Cifra"
-        className="p-1.5 rounded-full text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+        onClick={() => setChordsOpen(true)}
+        title="Ver cifra"
+        aria-label={`Ver cifra de ${song.title}`}
+        className="p-1.5 rounded-full text-muted-foreground hover:text-primary transition-colors"
       >
         <Music2 size={16} />
       </button>
@@ -105,11 +106,41 @@ const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylis
           <Plus size={16} />
         </button>
       )}
-      <button className="p-1 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-        <MoreVertical size={16} />
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            aria-label={`Mais opções para ${song.title}`}
+            className="p-1 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <MoreVertical size={16} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52 z-50 bg-popover">
+          <DropdownMenuItem onClick={() => setShareOpen(true)} className="gap-2">
+            <Share2 size={15} /> Compartilhar
+          </DropdownMenuItem>
+          {onAddToPlaylist && (
+            <DropdownMenuItem onClick={() => onAddToPlaylist(song)} className="gap-2">
+              <ListPlus size={15} /> Adicionar à playlist
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onClick={() => setChordsOpen(true)} className="gap-2">
+            <Music2 size={15} /> Ver cifra
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   </motion.div>
-);
+
+  <ChordsSheet
+    open={chordsOpen}
+    onOpenChange={setChordsOpen}
+    artist={song.artist}
+    title={song.title}
+  />
+  <ShareModal open={shareOpen} onOpenChange={setShareOpen} song={song} isVideo={false} />
+  </>
+  );
+};
 
 export default SongCard;
