@@ -785,7 +785,10 @@ const NowPlayingView = ({
             <Logo size={36} />
             <span className="font-display font-black text-lg lg:text-xl italic tracking-tighter">XERIFE <span className="text-primary">SWITCH</span></span>
           </button>
-          <div className="w-12 h-12" />
+          <div className="w-12 h-12 flex items-center justify-end">
+            {!isRailVideoMode && <ToolsMenu />}
+          </div>
+
         </div>
 
         {/* Main Layout */}
