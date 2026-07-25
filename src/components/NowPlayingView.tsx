@@ -1079,6 +1079,17 @@ const NowPlayingView = ({
                         onClick: () => setChordsOpen(true),
                         active: chordsOpen,
                       },
+                      // Fundo dinâmico (opcional): gera fundo a partir das cores da capa.
+                      context === "music"
+                        ? {
+                            icon: Palette,
+                            label: dynamicBgEnabled ? 'Desativar fundo dinâmico' : 'Fundo dinâmico',
+                            onClick: () => setDynamicBgEnabled(!dynamicBgEnabled),
+                            active: dynamicBgEnabled,
+                            pressed: dynamicBgEnabled,
+                          }
+                        : null,
+
                       
                     ].filter(Boolean).map((btn: any, i) => btn.onClick && (
                       <button
