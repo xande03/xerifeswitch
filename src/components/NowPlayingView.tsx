@@ -688,7 +688,8 @@ const NowPlayingView = ({
                 filter: "blur(72px) saturate(1.25)",
                 transform: "scale(1.35) translateZ(0)",
                 willChange: "opacity, transform",
-                animationDuration: "800ms",
+                // Cores já em cache → crossfade curto; extração nova → mais suave
+                animationDuration: ambient.fromCache ? "220ms" : "800ms",
               }}
             />
           )}
@@ -702,9 +703,10 @@ const NowPlayingView = ({
               opacity: 0.85,
               transform: "translateZ(0)",
               willChange: "opacity",
-              animationDuration: "900ms",
+              animationDuration: ambient.fromCache ? "260ms" : "900ms",
             }}
           />
+
           {/* 3) Overlay para contraste/legibilidade — intensidade ajustável e adaptada ao tema */}
           {ambient.overlay && (
             <div
