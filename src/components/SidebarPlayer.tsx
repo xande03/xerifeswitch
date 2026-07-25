@@ -169,7 +169,7 @@ const SidebarPlayer = ({
       </div>
 
       {/* Volume */}
-      <div className="flex items-center gap-2 px-1">
+      <div className="flex items-center gap-2 px-1 pt-0.5">
         <Volume2 size={13} className="text-muted-foreground shrink-0" />
         <SeekBar
           progress={volume / 100}
@@ -179,6 +179,7 @@ const SidebarPlayer = ({
           className="flex-1"
         />
       </div>
+
     </div>
   );
 };
