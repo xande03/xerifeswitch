@@ -671,35 +671,15 @@ const NowPlayingView = ({
       : null,
   ].filter(Boolean) as { icon: any; label: string; onClick: () => void; active?: boolean }[];
 
-  const ToolsMenu = ({ className = "" }: { className?: string }) => (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          title="Ferramentas"
-          aria-label="Ferramentas da faixa"
-          className={`w-10 h-10 flex items-center justify-center rounded-full bg-secondary/70 backdrop-blur text-foreground/90 hover:bg-primary hover:text-primary-foreground transition-all active:scale-95 shadow-lg ${className}`}
-        >
-          <MoreHorizontal size={20} />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-60 p-1.5 z-[80]">
-        <div className="flex flex-col">
-          {toolItems.map((item, i) => (
-            <button
-              key={i}
-              onClick={item.onClick}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-left transition-colors ${
-                item.active ? "bg-primary/15 text-primary" : "hover:bg-accent text-foreground"
-              }`}
-            >
-              <item.icon size={17} aria-hidden />
-              <span className="truncate">{item.label}</span>
-            </button>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
+  const toolsMenuNode = (className = "") => (
+    <ToolsMenu
+      className={className}
+      items={toolItems}
+      open={toolsOpen}
+      onOpenChange={setToolsOpen}
+    />
   );
+
 
   return (
 
