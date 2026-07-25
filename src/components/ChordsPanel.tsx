@@ -413,11 +413,14 @@ const ChordsPanel = ({
           resizable
             ? {
                 fontSize,
-                // Altura do nível escolhido, limitada ao espaço útil da viewport
-                // (cabeçalho + toolbar do próprio módulo ocupam ~13rem).
-                height: `min(${heightVh}vh, calc(100vh - 13rem))`,
+                // Altura do nível escolhido, limitada ao espaço realmente disponível
+                // abaixo do módulo (medido em runtime) — nunca corta conteúdo.
+                height: maxPx
+                  ? `min(${heightVh}vh, ${Math.round(maxPx)}px)`
+                  : `min(${heightVh}vh, calc(100vh - 13rem))`,
                 minHeight: "8rem",
               }
+
             : { fontSize }
         }
 
