@@ -185,13 +185,14 @@ const DesktopSidebar = ({
   onUpdateName,
 }: DesktopSidebarProps) => {
   const mainTabs = podcastMode ? podcastTabs : (homeMode === "video" ? videoTabs : musicTabs);
-  const [likedVideoCount, setLikedVideoCount] = useState(0);
+  const activeType: "music" | "video" | "podcast" =
+    podcastMode ? "podcast" : homeMode === "video" ? "video" : "music";
+  const [likedCount, setLikedCount] = useState(0);
   useEffect(() => {
-    if (homeMode !== "video" || podcastMode) return;
     const recompute = () => {
       try {
         const favs = getFavoritesMetadata();
-        setLikedVideoCount(favs.filter((f: any) => (f?.type ?? "music") === "video").length);
+        setLikedCount(favs.filter((f: any) => (f?.type ?? "music") === activeType).length);
       } catch {}
     };
     recompute();
@@ -202,7 +203,8 @@ const DesktopSidebar = ({
       window.removeEventListener("storage", h);
       window.removeEventListener("demus:favorites-updated", h);
     };
-  }, [homeMode, podcastMode]);
+  }, [activeType]);
+
   const [toolsOpen, setToolsOpen] = useState(false);
   
   const [showServerStatus, setShowServerStatus] = useState(false);
@@ -340,15 +342,16 @@ const DesktopSidebar = ({
                     strokeWidth={active === id ? 2.5 : 1.8}
                     className="transition-all duration-200"
                   />
-                  {id === "library" && homeMode === "video" && !podcastMode && likedVideoCount > 0 && (
+                  {id === "library" && likedCount > 0 && (
                     <span
-                      key={likedVideoCount}
+                      key={likedCount}
                       className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center animate-scale-in shadow-sm"
-                      aria-label={`${likedVideoCount} vídeos curtidos`}
+                      aria-label={`${likedCount} curtidos`}
                     >
-                      {likedVideoCount > 99 ? "99+" : likedVideoCount}
+                      {likedCount > 99 ? "99+" : likedCount}
                     </span>
                   )}
+
                 </div>
                 <span className="lg:block transition-all font-medium" data-sidebar-fullonly>{label}</span>
                 {active === id && (
