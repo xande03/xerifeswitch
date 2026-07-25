@@ -1,5 +1,5 @@
 import { memo, useCallback, useState } from "react";
-import { Music, MonitorPlay, Headphones, Repeat2 } from "lucide-react";
+import { Music, MonitorPlay, Headphones, Repeat2, Check } from "lucide-react";
 import {
   Popover,
   PopoverContent,
