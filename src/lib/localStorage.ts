@@ -385,6 +385,10 @@ export function getPlaylists(): Playlist[] {
   }
 }
 
+function emitPlaylistsUpdated() {
+  try { window.dispatchEvent(new CustomEvent("demus:playlists-updated")); } catch {}
+}
+
 export function savePlaylist(playlist: Playlist): void {
   const playlists = getPlaylists();
   const index = playlists.findIndex(p => p.id === playlist.id);
@@ -394,11 +398,13 @@ export function savePlaylist(playlist: Playlist): void {
     playlists.push(playlist);
   }
   localStorage.setItem(PLAYLISTS_KEY, JSON.stringify(playlists));
+  emitPlaylistsUpdated();
 }
 
 export function deletePlaylist(id: string): void {
   const playlists = getPlaylists().filter(p => p.id !== id);
   localStorage.setItem(PLAYLISTS_KEY, JSON.stringify(playlists));
+  emitPlaylistsUpdated();
 }
 
 export function addSongToPlaylist(playlistId: string, song: any): void {
