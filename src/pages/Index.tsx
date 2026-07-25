@@ -1584,7 +1584,41 @@ const Index = () => {
           isLoadingUser={false}
           currentZoom={appZoom}
           onUpdateName={updateName}
+          playerSlot={
+            <SidebarPlayer
+              song={currentSong}
+              isPlaying={isPlaying}
+              currentTime={ct}
+              duration={dur}
+              volume={volume}
+              onTogglePlay={handleTogglePlay}
+              onNext={handleNext}
+              onPrev={handlePrev}
+              onExpand={() => setExpanded(true)}
+              onSeek={handleSeek}
+              onVolumeChange={setVolumeState}
+              isShuffled={isShuffled}
+              onShuffle={handleShuffle}
+            />
+          }
+          collapsedPlayerSlot={
+            <SidebarPlayer
+              collapsed
+              song={currentSong}
+              isPlaying={isPlaying}
+              currentTime={ct}
+              duration={dur}
+              volume={volume}
+              onTogglePlay={handleTogglePlay}
+              onNext={handleNext}
+              onPrev={handlePrev}
+              onExpand={() => setExpanded(true)}
+              onSeek={handleSeek}
+              onVolumeChange={setVolumeState}
+            />
+          }
         />
+
 
         {/* Main column */}
         <div className="flex-1 flex flex-col min-w-0">
