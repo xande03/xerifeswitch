@@ -46,8 +46,8 @@ const LibraryHubScreen = ({ onHomeModeChange, onOpenTool, initialFilter }: Libra
     const recompute = async () => {
       try {
         const favs = getFavoritesMetadata();
-        const likedMusic = favs.filter((f: any) => (f?.type ?? (String(f?.id).startsWith("yt-") ? "video" : "music")) === "music").length;
-        const likedVideo = favs.filter((f: any) => (f?.type ?? (String(f?.id).startsWith("yt-") ? "video" : "music")) === "video").length;
+        const likedMusic = favs.filter((f: any) => (f?.type ?? "music") === "music").length;
+        const likedVideo = favs.filter((f: any) => (f?.type ?? "music") === "video").length;
         const likedPodcast = getFavoriteEpisodes().length;
         const watchLater = getWatchLater().length;
         const playlists = getPlaylists().length;
