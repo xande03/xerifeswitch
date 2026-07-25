@@ -7,11 +7,9 @@ import {
   ThumbsUp,
   ThumbsDown,
   Download,
-  Bookmark,
+  Clock,
   Settings2,
-  Headphones,
   Plus,
-  Heart,
   Check,
   Loader2,
 } from "lucide-react";
