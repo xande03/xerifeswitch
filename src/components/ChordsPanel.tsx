@@ -387,7 +387,17 @@ const ChordsPanel = ({
         ref={bodyRef}
         data-testid="chords-body"
         className={`flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 font-mono leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${bodyClassName} ${!dragging ? "transition-[height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none" : ""}`}
-        style={resizable ? { fontSize, height: `${heightVh}vh` } : { fontSize }}
+        style={
+          resizable
+            ? {
+                fontSize,
+                // Altura do nível escolhido, limitada ao espaço útil da viewport
+                // (cabeçalho + toolbar do próprio módulo ocupam ~13rem).
+                height: `min(${heightVh}vh, calc(100vh - 13rem))`,
+                minHeight: "8rem",
+              }
+            : { fontSize }
+        }
 
       >
         {loading && (
