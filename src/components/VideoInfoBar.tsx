@@ -374,7 +374,13 @@ const VideoInfoBar = ({
               aria-label={isLiked ? "Remover dos favoritos" : "Gostei"}
               title={isLiked ? "Remover dos favoritos" : "Gostei (adiciona aos favoritos)"}
             >
-              <ThumbsUp size={16} fill={isLiked ? "currentColor" : "none"} strokeWidth={isLiked ? 0 : 2} />
+              <ThumbsUp
+                size={16}
+                fill={isLiked ? "currentColor" : "none"}
+                strokeWidth={isLiked ? 0 : 2}
+                key={isLiked ? "liked" : "unliked"}
+                className={`transition-transform duration-200 ${isLiked ? "animate-scale-in scale-110" : "hover:scale-110"}`}
+              />
               <span>{isLiked ? "Gostei" : "Gostei"}</span>
             </button>
             <span className="w-px h-5 bg-border/70" />
