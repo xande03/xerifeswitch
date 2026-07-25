@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { Home, Search, Heart, Compass, ThumbsUp, Library } from "lucide-react";
+import { getFavoritesMetadata } from "@/lib/localStorage";
 
 type Tab = "home" | "search" | "library" | "offline" | "profile" | "history" | "playlists" | "podcast" | "libraryhub";
 type HomeMode = "hub" | "music" | "video";
@@ -34,6 +36,26 @@ const podcastTabs: { id: Tab; icon: typeof Home; label: string }[] = [
 
 const BottomNav = ({ active, onChange, homeMode = "music", podcastMode = false }: BottomNavProps) => {
   const tabs = podcastMode ? podcastTabs : homeMode === "video" ? videoTabs : musicTabs;
+  const [likedVideoCount, setLikedVideoCount] = useState(0);
+
+  useEffect(() => {
+    if (homeMode !== "video" || podcastMode) return;
+    const recompute = () => {
+      try {
+        const favs = getFavoritesMetadata();
+        const n = favs.filter((f: any) => (f?.type ?? (String(f?.id).startsWith("yt-") ? "video" : "music")) === "video").length;
+        setLikedVideoCount(n);
+      } catch {}
+    };
+    recompute();
+    const handler = () => recompute();
+    window.addEventListener("storage", handler);
+    window.addEventListener("demus:favorites-updated", handler);
+    return () => {
+      window.removeEventListener("storage", handler);
+      window.removeEventListener("demus:favorites-updated", handler);
+    };
+  }, [homeMode, podcastMode]);
 
   return (
     <nav data-debug="bottomnav" aria-label="bottom-nav" className="bottom-nav w-full flex-shrink-0 bg-background/95 backdrop-blur-md border-t border-border/10 z-50">
@@ -45,20 +67,34 @@ const BottomNav = ({ active, onChange, homeMode = "music", podcastMode = false }
           paddingRight: 'max(4px, env(safe-area-inset-right))',
         }}
       >
-        {tabs.map(({ id, icon: Icon, label }) => (
-          <button
-            key={id}
-            onClick={() => onChange(id)}
-            className={`flex flex-col items-center gap-1 px-3 sm:px-4 py-1 transition-all min-w-[64px] ${
-              active === id
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Icon size={22} strokeWidth={active === id ? 2.2 : 1.5} />
-            <span className="text-[10px] font-medium">{label}</span>
-          </button>
-        ))}
+        {tabs.map(({ id, icon: Icon, label }) => {
+          const showBadge = id === "library" && homeMode === "video" && !podcastMode && likedVideoCount > 0;
+          return (
+            <button
+              key={id}
+              onClick={() => onChange(id)}
+              className={`flex flex-col items-center gap-1 px-3 sm:px-4 py-1 transition-all min-w-[64px] ${
+                active === id
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span className="relative">
+                <Icon size={22} strokeWidth={active === id ? 2.2 : 1.5} />
+                {showBadge && (
+                  <span
+                    key={likedVideoCount}
+                    className="absolute -top-1.5 -right-2 min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center animate-scale-in shadow-sm"
+                    aria-label={`${likedVideoCount} vídeos curtidos`}
+                  >
+                    {likedVideoCount > 99 ? "99+" : likedVideoCount}
+                  </span>
+                )}
+              </span>
+              <span className="text-[10px] font-medium">{label}</span>
+            </button>
+          );
+        })}
       </div>
     </nav>
   );
