@@ -371,11 +371,11 @@ const VideoInfoBar = ({
               className={`flex items-center gap-1.5 pl-3.5 pr-3 py-2 text-[13px] font-medium rounded-l-full transition-colors ${
                 isLiked ? "text-primary" : "text-foreground hover:bg-accent"
               }`}
-              aria-label={isLiked ? "Remover dos favoritos" : "Curtir"}
-              title={isLiked ? "Remover dos favoritos" : "Curtir (adiciona aos favoritos)"}
+              aria-label={isLiked ? "Remover dos favoritos" : "Gostei"}
+              title={isLiked ? "Remover dos favoritos" : "Gostei (adiciona aos favoritos)"}
             >
-              <Heart size={16} fill={isLiked ? "currentColor" : "none"} strokeWidth={isLiked ? 0 : 2} />
-              <span>{isLiked ? "Curtido" : "Curtir"}</span>
+              <ThumbsUp size={16} fill={isLiked ? "currentColor" : "none"} strokeWidth={isLiked ? 0 : 2} />
+              <span>{isLiked ? "Gostei" : "Gostei"}</span>
             </button>
             <span className="w-px h-5 bg-border/70" />
             <button
