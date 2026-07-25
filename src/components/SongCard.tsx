@@ -137,7 +137,7 @@ const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylis
               <ListPlus size={15} /> Adicionar à playlist
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onClick={() => setChordsOpen(true)} className="gap-2">
+          <DropdownMenuItem onClick={openChords} className="gap-2">
             <Music2 size={15} /> Ver cifra
           </DropdownMenuItem>
         </DropdownMenuContent>
