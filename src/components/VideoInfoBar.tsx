@@ -41,8 +41,6 @@ interface VideoInfoBarProps {
   onShare: () => void;
   onDownload?: () => void;
   onClose: () => void;
-  audioOnly?: boolean;
-  onToggleAudioOnly?: () => void;
   isLiked?: boolean;
   onToggleLike?: () => void;
   onAddToPlaylist?: () => void;
@@ -56,8 +54,6 @@ const VideoInfoBar = ({
   onShare,
   onDownload,
   onClose,
-  audioOnly = false,
-  onToggleAudioOnly,
   isLiked = false,
   onToggleLike,
   onAddToPlaylist,
