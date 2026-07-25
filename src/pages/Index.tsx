@@ -150,12 +150,6 @@ const Index = () => {
   const prevClickRef = useRef<number>(0);
 
   const [showVideoOverlayControls, setShowVideoOverlayControls] = useState(true);
-  const [videoAudioOnly, setVideoAudioOnly] = useState(false);
-  useEffect(() => {
-    const onAudioOnly = (e: Event) => setVideoAudioOnly(!!(e as CustomEvent).detail?.active);
-    window.addEventListener("xerife:video-audio-only", onAudioOnly);
-    return () => window.removeEventListener("xerife:video-audio-only", onAudioOnly);
-  }, []);
   const videoOverlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoOverlayInteractingRef = useRef(false);
   const videoOverlayKeepOpenRef = useRef(false);
