@@ -1127,6 +1127,9 @@ const NowPlayingView = ({
                             pressed: mode === 'video',
                           }
                         : null,
+                      // Compartilhar (atalho direto na pílula)
+                      onShare ? { icon: Share2, label: 'Compartilhar', onClick: onShare, active: false } : null,
+
                     ].filter(Boolean).map((btn: any, i) => btn.onClick && (
 
                       <button
