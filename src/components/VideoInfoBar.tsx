@@ -396,14 +396,8 @@ const VideoInfoBar = ({
 
           <PillAction icon={<Share2 size={16} />} label="Compartilhar" onClick={onShare} />
           <PillAction
-            icon={<Headphones size={16} fill={audioOnly ? "currentColor" : "none"} />}
-            label={audioOnly ? "Só áudio" : "Só áudio"}
-            onClick={() => onToggleAudioOnly?.()}
-            active={audioOnly}
-          />
-          <PillAction
-            icon={<Bookmark size={16} fill={saved ? "currentColor" : "none"} />}
-            label={saved ? "Salvo" : "Salvar"}
+            icon={<Clock size={16} fill={saved ? "currentColor" : "none"} />}
+            label={saved ? "Salvo em Assistir mais tarde" : "Assistir mais tarde"}
             onClick={toggleSaved}
             active={saved}
           />
