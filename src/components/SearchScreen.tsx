@@ -183,6 +183,12 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
 
   const showFilteredResults = !loading && results.length > 0;
 
+  // Painel de cifra persistente: clicar na mesma música fecha, em outra apenas troca o conteúdo.
+  const handleOpenChords = (song: Song) => {
+    setChordsSong((cur) => (cur?.id === song.id ? null : song));
+  };
+
+
 
   return (
     <div className="px-4 space-y-4">
