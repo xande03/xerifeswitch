@@ -1553,16 +1553,8 @@ const Index = () => {
     return [...counts.values()].sort((a, b) => b.n - a.n).slice(0, 12);
   })();
 
-  // Chips de humor/atividade → dispara uma busca no módulo de busca.
-  const moodChips = [
-    { label: "Energia", query: "músicas animadas para energia" },
-    { label: "Treino", query: "playlist treino academia" },
-    { label: "Foco", query: "música para foco concentração" },
-    { label: "Relax", query: "músicas relaxantes acústicas" },
-    { label: "Sertanejo", query: "sertanejo 2025" },
-    { label: "Pagode", query: "pagode romântico" },
-    { label: "Festa", query: "festa hits para dançar" },
-  ];
+
+
 
 
   return (
