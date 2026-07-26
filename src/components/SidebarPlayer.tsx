@@ -33,36 +33,6 @@ interface SidebarPlayerProps {
 }
 
 
-const PillButton = ({
-  label,
-  active,
-  onClick,
-  children,
-}: {
-  label: string;
-  active?: boolean;
-  onClick?: () => void;
-  children: React.ReactNode;
-}) => (
-  <Tooltip delayDuration={200}>
-    <TooltipTrigger asChild>
-      <button
-        onClick={onClick}
-        aria-label={label}
-        aria-pressed={active}
-        className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors active:scale-90 ${
-          active
-            ? "bg-primary/20 text-primary"
-            : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
-        }`}
-      >
-        {children}
-      </button>
-    </TooltipTrigger>
-    <TooltipContent side="top" className="text-xs font-semibold">{label}</TooltipContent>
-  </Tooltip>
-);
-
 const SidebarPlayer = ({
   song,
   isPlaying,
@@ -75,11 +45,13 @@ const SidebarPlayer = ({
   onExpand,
   onSeek,
   onVolumeChange,
-  isShuffled,
-  onShuffle,
   collapsed = false,
+  activeModule,
+  onSelectModule,
 }: SidebarPlayerProps) => {
   const progress = duration > 0 ? currentTime / duration : 0;
+  const { isLight } = useTheme();
+
 
   if (!song) return null;
 
