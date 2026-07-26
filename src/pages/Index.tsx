@@ -2201,21 +2201,6 @@ const Index = () => {
                   {/* Desktop logo banner removed — header already shows module title */}
 
 
-                  {/* Chips de humor / atividade */}
-                  <motion.div
-                    variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.3 } } }}
-                    className="flex gap-2 overflow-x-auto scrollbar-hide px-3 sm:px-4 pb-3"
-                  >
-                    {moodChips.map((chip) => (
-                      <button
-                        key={chip.label}
-                        onClick={() => { setActiveTab("search"); handleSearch(chip.query); }}
-                        className="px-4 py-1.5 rounded-full bg-secondary/70 hover:bg-primary/20 hover:text-primary border border-border/40 text-sm font-medium text-foreground whitespace-nowrap transition-colors active:scale-95"
-                      >
-                        {chip.label}
-                      </button>
-                    ))}
-                  </motion.div>
 
                   {/* Greeting (Mobile only now as desktop has its own) */}
                   <motion.div variants={{ hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35 } } }} className="px-4 pb-1 lg:hidden">
