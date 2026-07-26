@@ -1601,6 +1601,18 @@ const Index = () => {
               onVolumeChange={setVolumeState}
               isShuffled={isShuffled}
               onShuffle={handleShuffle}
+              activeModule={podcastMode ? "podcast" : homeMode === "video" ? "video" : "music"}
+              onSelectModule={(m) => {
+                if (m === "podcast") {
+                  setPodcastMode(true);
+                  setActiveTab("podcast");
+                } else {
+                  setPodcastMode(false);
+                  setHomeMode(m);
+                  setActiveTab("home");
+                }
+              }}
+
             />
           }
           collapsedPlayerSlot={
