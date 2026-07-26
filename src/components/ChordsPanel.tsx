@@ -424,7 +424,7 @@ const ChordsPanel = ({
 
           <button
             onClick={handleCopy}
-            className="ml-auto w-8 h-8 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center"
+            className="w-8 h-8 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center"
             title="Copiar"
             aria-label="Copiar cifra"
           >
