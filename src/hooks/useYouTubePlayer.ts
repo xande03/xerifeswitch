@@ -720,58 +720,70 @@ export function useYouTubePlayer(containerId: string) {
               shouldBePlaying: shouldBePlayingRef.current,
             });
 
-            // ── CRITICAL: Handle PAUSED state ──
+            // ── Handle PAUSED state ──
             if (paused) {
               const timeSincePause = Date.now() - pauseTimestampRef.current;
-              
-              // If page is hidden, NEVER treat as user pause
-              // The MediaSession API will handle lock screen controls
+
+              // Página oculta (tela bloqueada / app em segundo plano):
+              // se NÃO foi o usuário que pausou, o iOS/Android suspendeu a mídia.
+              // Precisamos reanimar a sessão de áudio e retomar o player,
+              // garantindo continuidade da reprodução.
               if (isHidden) {
-                console.info('[YT] Paused while hidden - ignoring (MediaSession will handle)');
-                // Don't update state, don't mark as user pause
+                if (!userPausedRef.current && !checkUserPausedFlag() && shouldBePlayingRef.current) {
+                  console.info('[YT] Pausa do sistema em background — retomando');
+                  try { ensureSilentAudio().play().catch(() => {}); } catch {}
+                  try { ensureProxyAudio().play().catch(() => {}); } catch {}
+                  resumeAudioContext();
+                  window.setTimeout(() => {
+                    if (
+                      shouldBePlayingRef.current &&
+                      !userPausedRef.current &&
+                      !checkUserPausedFlag()
+                    ) {
+                      try { playerRef.current?.playVideo?.(); } catch {}
+                    }
+                  }, 120);
+                } else {
+                  console.info('[YT] Pausa em background solicitada pelo usuário — mantendo pausado');
+                }
                 return;
               }
-              
-              // If page is visible and we just called pause() (within 500ms), it's legitimate
+
+              // Página visível e acabamos de chamar pause() (dentro de 500ms): legítimo
               if (timeSincePause < 500 && userPausedRef.current) {
                 console.info('[YT] Paused while visible - legitimate user pause');
                 setState((s) => ({ ...s, isPlaying: false, isEnded: false }));
                 return;
               }
-              
-              // If we're supposed to be playing and user hasn't paused, this is a system pause
-              if (shouldBePlayingRef.current && !userPausedRef.current && timeSincePause > 1000) {
-                console.info('[YT] System pause detected - will auto-resume');
-                // Don't mark as user pause, will auto-resume
-              }
             }
 
-            // ── CRITICAL: Handle PLAYING state ──
+            // ── Handle PLAYING state ──
             if (playing) {
-              // If user has explicitly paused, ALWAYS suppress and re-pause
+              // Só suprime se o usuário pausou há muito pouco tempo (proteção
+              // contra o autoplay do iframe imediatamente após um pause).
               if (userPausedRef.current) {
                 const timeSincePause = Date.now() - pauseTimestampRef.current;
-                // Only suppress if pause was recent (within 10 seconds)
-                if (timeSincePause < 10000) {
-                  console.info('[YT] Suppressing play - user has paused recently');
+                if (timeSincePause < 1200) {
+                  console.info('[YT] Suppressing play - pause acabou de acontecer');
                   playerRef.current?.pauseVideo?.();
                   setState((s) => ({ ...s, isPlaying: false, isEnded: false, duration: playerRef.current?.getDuration?.() || s.duration }));
                   return;
-                } else {
-                  // If it's been more than 10 seconds, user probably wants to play now
-                  console.info('[YT] Clearing old pause flag - been too long');
-                  userPausedRef.current = false;
                 }
+                console.info('[YT] Limpando flag de pausa antiga — play permitido');
+                userPausedRef.current = false;
+                clearUserPausedFlag();
               }
 
               shouldBePlayingRef.current = true; setShouldBePlayingGlobal(true);
               errorCountRef.current = 0;
               ensureSilentAudio().play().catch(() => {});
+              ensureProxyAudio().play().catch(() => {});
               resumeAudioContext();
               applyVolumeToPlayer(targetVolumeRef.current);
               // Notify listeners (quality-loading cleanup, etc.) that playback resumed.
               try { window.dispatchEvent(new CustomEvent('demus:playing')); } catch {}
             }
+
 
             // REMOVED: Auto-resume logic for system pauses
             // User must explicitly play if they want to resume
