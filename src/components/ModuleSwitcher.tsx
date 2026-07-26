@@ -87,13 +87,7 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
 
   return (
     <>
-    {/* Fundo fosco enquanto o alternador está aberto */}
-    {open && (
-      <div
-        aria-hidden
-        className="fixed inset-0 z-40 backdrop-blur-md bg-background/50 animate-fade-in motion-reduce:animate-none"
-      />
-    )}
+
 
     {/* Tela de passagem entre sessões */}
     {transitionTo && (
