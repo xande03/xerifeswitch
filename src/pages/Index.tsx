@@ -1517,7 +1517,13 @@ const Index = () => {
       seen.add(k);
       merged.push(s);
     }
-    return merged;
+    // Sobe o que combina com as buscas feitas no módulo "Explorar".
+    if (searchedTerms.length === 0) return merged;
+    const matchesSearch = (s: Song) => {
+      const hay = `${s.title} ${s.artist} ${s.album}`.toLowerCase();
+      return searchedTerms.some(t => hay.includes(t));
+    };
+    return [...merged.filter(matchesSearch), ...merged.filter(s => !matchesSearch(s))];
   })();
 
   // Trending data: use real YouTube trending if available, fallback to mock
