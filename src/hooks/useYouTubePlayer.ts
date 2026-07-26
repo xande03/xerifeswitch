@@ -1393,6 +1393,8 @@ export function useYouTubePlayer(containerId: string) {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
       trackMetric('fullscreen', 'enter-pseudo');
+      syncPlayerLayout();
+
       setState((s) => (s.isFullscreen ? s : { ...s, isFullscreen: true }));
     };
     trackMetric('fullscreen', 'request');
