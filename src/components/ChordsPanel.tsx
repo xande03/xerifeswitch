@@ -1,7 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, ExternalLink, Minus, Plus, Copy, RefreshCcw, Play, Pause, X } from "lucide-react";
+import { Loader2, ExternalLink, Minus, Plus, Copy, RefreshCcw, Play, Pause, X, Sun, Moon } from "lucide-react";
 import { fetchChords, transposeChords, cifraClubFallbackUrl, invalidateChordsCache, type ChordsResult } from "@/lib/chords";
 import { toast } from "sonner";
+
+type ChordsTheme = "dark" | "light";
+const THEME_KEY = "xerife:chords-theme";
+
+function loadChordsTheme(): ChordsTheme {
+  try {
+    const v = localStorage.getItem(THEME_KEY);
+    if (v === "light" || v === "dark") return v;
+    return document.documentElement.classList.contains("light") ? "light" : "dark";
+  } catch {
+    return "dark";
+  }
+}
+
+/** Deduz o tom original a partir do primeiro acorde da cifra. */
+function guessKey(text: string): string | null {
+  const m = text.match(/\b([A-G](?:#|b)?m?)\b/);
+  return m ? m[1] : null;
+}
 
 export interface ChordsPanelProps {
   artist: string;
