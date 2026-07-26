@@ -77,6 +77,11 @@ const ChordsPanel = ({
   const [autoScroll, setAutoScroll] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState(1);
   const [heightVh, setHeightVh] = useState(() => loadStoredHeight());
+  const [panelTheme, setPanelTheme] = useState<ChordsTheme>(() => loadChordsTheme());
+
+  useEffect(() => {
+    try { localStorage.setItem(THEME_KEY, panelTheme); } catch { /* ignore */ }
+  }, [panelTheme]);
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef<{ startY: number; startVh: number; lastY: number; lastT: number; velocity: number } | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
