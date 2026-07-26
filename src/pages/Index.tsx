@@ -1663,7 +1663,16 @@ const Index = () => {
           }
           style={
             playerState.isFullscreen
-              ? { width: '100vw', height: '100vh' }
+              ? {
+                  width: '100vw',
+                  height: '100dvh',
+                  // Fallback para navegadores sem dvh (Safari antigo)
+                  minHeight: '-webkit-fill-available',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                }
               : isRailMode
                 ? { height: 'var(--xerife-video-h)' }
                 : isMusicVideoMode
@@ -1674,7 +1683,26 @@ const Index = () => {
           }
         >
 
-          <div id="yt-player" className="w-full h-full rounded-xl overflow-hidden relative z-0" />
+          <div
+            id="yt-player"
+            className={
+              playerState.isFullscreen
+                ? "relative z-0 overflow-hidden bg-black"
+                : "w-full h-full rounded-xl overflow-hidden relative z-0"
+            }
+            style={
+              playerState.isFullscreen
+                ? {
+                    // Letterbox 16:9 centralizado: nunca corta nem distorce o vídeo,
+                    // independente do notch/safe-area em landscape.
+                    width: 'min(100vw, calc(100dvh * 16 / 9))',
+                    height: 'min(100dvh, calc(100vw * 9 / 16))',
+                    margin: 'auto',
+                  }
+                : undefined
+            }
+          />
+
           {expanded && playerMode === "video" && <QualityBadge />}
           {/* Overlay controls on top of the actual YouTube player */}
           {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && (
