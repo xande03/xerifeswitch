@@ -134,7 +134,7 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
         collisionPadding={12}
         onPointerDownOutside={() => setOpen(false)}
         onEscapeKeyDown={() => setOpen(false)}
-        className="z-50 w-[min(20rem,calc(100vw-24px))] sm:w-80 p-2.5 sm:p-2 rounded-2xl border border-border/70 bg-popover/95 backdrop-blur-xl shadow-2xl ring-1 ring-foreground/5 origin-top data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-2 data-[state=closed]:slide-out-to-top-2 motion-reduce:transition-none motion-reduce:animate-none motion-reduce:data-[state=open]:animate-none motion-reduce:data-[state=closed]:animate-none"
+        className="z-50 w-[min(20rem,calc(100vw-24px))] sm:w-80 p-2.5 sm:p-2 rounded-2xl border border-border/70 bg-popover/95 backdrop-blur-xl shadow-2xl ring-1 ring-foreground/5 origin-top will-change-transform data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:duration-300 data-[state=closed]:duration-150 data-[state=open]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[state=closed]:ease-[cubic-bezier(0.4,0,1,1)] data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-3 data-[state=closed]:slide-out-to-top-1 motion-reduce:transition-none motion-reduce:animate-none motion-reduce:data-[state=open]:animate-none motion-reduce:data-[state=closed]:animate-none"
         style={{
           boxShadow:
             "0 20px 50px -18px hsl(var(--foreground) / 0.35), 0 8px 22px -14px hsl(var(--foreground) / 0.22), 0 0 0 1px hsl(var(--border) / 0.6), inset 0 1px 0 hsl(var(--foreground) / 0.05)",
@@ -179,11 +179,11 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
                 onClick={() => handle(id)}
                 aria-pressed={isActive}
                 aria-current={isActive ? "true" : undefined}
-                className="group relative flex flex-col items-center justify-center gap-1.5 px-1.5 py-3 rounded-xl transition-all duration-200 ease-out hover:bg-muted/60 active:scale-[0.97] focus:outline-none focus-visible:ring-2 animate-fade-in motion-reduce:transition-none motion-reduce:animate-none motion-reduce:active:scale-100"
+        className="group relative flex flex-col items-center justify-center gap-1.5 px-1.5 py-3 rounded-xl transition-all duration-200 ease-out hover:bg-muted/60 active:scale-[0.97] focus:outline-none focus-visible:ring-2 animate-enter motion-reduce:transition-none motion-reduce:animate-none motion-reduce:active:scale-100"
                 style={{
                   boxShadow: isActive ? `inset 0 0 0 1px ${tones.ring}` : "none",
                   backgroundColor: isActive ? tones.bg : "transparent",
-                  animationDelay: `${idx * 40}ms`,
+                  animationDelay: `${60 + idx * 50}ms`,
                   animationFillMode: "backwards",
                 }}
               >
