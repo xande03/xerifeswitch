@@ -1505,17 +1505,27 @@ export function useYouTubePlayer(containerId: string) {
       syncPlayerLayout();
     };
     // Rotação de tela / mudança de viewport em tela cheia também exige re-medição.
-    const handleViewportChange = () => syncPlayerLayout();
+    // Alguns Androids não disparam `orientationchange` — só `resize` (window ou
+    // visualViewport). Ouvimos todos, com guarda contra o resize sintético.
+    const handleViewportChange = () => {
+      if (syncingLayoutRef.current) return;
+      syncPlayerLayout();
+    };
     document.addEventListener("fullscreenchange", handleFsChange);
     document.addEventListener("webkitfullscreenchange", handleFsChange);
     window.addEventListener("orientationchange", handleViewportChange);
+    window.addEventListener("resize", handleViewportChange);
+    try { (window as any)?.visualViewport?.addEventListener?.("resize", handleViewportChange); } catch {}
     try { (screen as any)?.orientation?.addEventListener?.("change", handleViewportChange); } catch {}
 
     return () => {
       document.removeEventListener("fullscreenchange", handleFsChange);
       document.removeEventListener("webkitfullscreenchange", handleFsChange);
       window.removeEventListener("orientationchange", handleViewportChange);
+      window.removeEventListener("resize", handleViewportChange);
+      try { (window as any)?.visualViewport?.removeEventListener?.("resize", handleViewportChange); } catch {}
       try { (screen as any)?.orientation?.removeEventListener?.("change", handleViewportChange); } catch {}
+
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
       if (pseudoFullscreenRef.current) {
