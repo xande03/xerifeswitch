@@ -1603,10 +1603,21 @@ const Index = () => {
               onShuffle={handleShuffle}
               isLiked={votedSongs.has(currentSong.id)}
               onLike={() => handleVote(currentSong)}
-              onLyrics={() => { setPlayerMode("lyrics"); setExpanded(true); }}
-              onVideo={() => { setPlayerMode("video"); setExpanded(true); }}
+              playerMode={playerMode}
+              module={podcastMode ? "podcast" : homeMode === "video" ? "video" : "music"}
+              onLyrics={() => {
+                if (playerMode === "lyrics") { setPlayerMode("audio"); return; }
+                setPlayerMode("lyrics");
+                setExpanded(true);
+              }}
+              onVideo={() => {
+                if (playerMode === "video") { setPlayerMode("audio"); return; }
+                setPlayerMode("video");
+                setExpanded(true);
+              }}
               onDownload={() => handleDownload(currentSong)}
               onShare={() => handleShare(currentSong)}
+
 
 
             />
