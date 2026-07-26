@@ -58,7 +58,7 @@ const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
       {/* Circular spinner loader */}
       <div className="absolute bottom-24 w-12 h-12" role="status" aria-label="Carregando">
         <div
-          className="w-full h-full rounded-full border-[3px] border-white/15 border-t-primary"
+          className="w-full h-full rounded-full border-[3px] border-foreground/15 border-t-[hsl(217_91%_45%)] dark:border-t-[hsl(213_94%_68%)]"
           style={{ animation: 'spin 0.9s linear infinite' }}
         />
       </div>
