@@ -1,14 +1,46 @@
 import { useState, useEffect } from "react";
 import Logo from "./Logo";
 
+const getLogoSize = () => {
+  if (typeof window === "undefined") return 240;
+  const min = Math.min(window.innerWidth, window.innerHeight);
+  return Math.round(Math.max(120, Math.min(240, min * 0.42)));
+};
+
 const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
   const [phase, setPhase] = useState<"logo" | "fade">("logo");
+  const [logoSize, setLogoSize] = useState(getLogoSize);
+  const [isDark, setIsDark] = useState(
+    () => typeof document !== "undefined" && document.documentElement.classList.contains("dark")
+  );
 
   useEffect(() => {
     const t1 = setTimeout(() => setPhase("fade"), 1800);
     const t2 = setTimeout(() => onFinish(), 2400);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [onFinish]);
+
+  useEffect(() => {
+    const onResize = () => setLogoSize(getLogoSize());
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    const obs = new MutationObserver(() =>
+      setIsDark(document.documentElement.classList.contains("dark"))
+    );
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onResize);
+      obs.disconnect();
+    };
+  }, []);
+
+  // Azul mais claro/luminoso no escuro; azul mais profundo e saturado no claro
+  const colorFrom = isDark ? "#60a5fa" : "#2563eb";
+  const colorTo = isDark ? "#2563eb" : "#1e3a8a";
+  const glow = isDark
+    ? "drop-shadow-[0_0_50px_rgba(96,165,250,0.45)]"
+    : "drop-shadow-[0_6px_24px_rgba(30,58,138,0.35)]";
 
   return (
     <div
@@ -23,8 +55,16 @@ const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
       </div>
 
       {/* Logo */}
-      <div className="relative flex flex-col items-center gap-8 animate-splash-logo">
-        <Logo size={240} colorFrom="#3b82f6" colorTo="#1e3a8a" className="drop-shadow-[0_0_50px_rgba(59,130,246,0.35)] transform transition-all duration-1000" style={{ transform: 'rotateY(15deg) rotateX(5deg)' }} />
+      <div className="relative flex flex-col items-center gap-6 sm:gap-8 px-6 animate-splash-logo">
+        <Logo
+          size={logoSize}
+          colorFrom={colorFrom}
+          colorTo={colorTo}
+          aria-label="Xerife Switch"
+          className={`${glow} transform transition-all duration-1000`}
+          style={{ transform: 'rotateY(15deg) rotateX(5deg)' }}
+        />
+
         <div className="flex flex-col items-center gap-3">
           <h1 className="text-4xl font-display font-bold text-foreground tracking-tight text-glow">Xerife Switch</h1>
           <p className="text-[10px] text-muted-foreground tracking-[0.35em] uppercase opacity-80">Multi-Streaming</p>
