@@ -830,14 +830,22 @@ export function useYouTubePlayer(containerId: string) {
     // When silent audio is interrupted (phone call, Siri, other app),
     // the browser fires pause/play events on audio elements.
     const handleInterruption = () => {
-      // CRITICAL FIX: Don't treat background interruptions as user pause
-      // The MediaSession API will handle lock screen controls properly
+      // Não tratamos interrupções de background como pausa do usuário.
       if (shouldBePlayingRef.current && !userPausedRef.current) {
         hasAudioFocus = false;
         focusLossTime = Date.now();
-        console.info('[AudioFocus] Lost — pausing silently (not marking as user pause)');
+        console.info('[AudioFocus] Lost — reanimando sessão de áudio silenciosa');
+        // Reanima o elemento silencioso para não perder a sessão de áudio
+        // (do contrário o iOS encerra a reprodução em background).
+        window.setTimeout(() => {
+          if (shouldBePlayingRef.current && !userPausedRef.current) {
+            try { ensureSilentAudio().play().catch(() => {}); } catch {}
+            resumeAudioContext();
+          }
+        }, 150);
       }
     };
+
 
     const handleFocusRegain = () => {
       // CRITICAL: NEVER auto-resume, even if we think we should be playing
