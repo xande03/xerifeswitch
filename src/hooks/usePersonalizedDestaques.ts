@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import type { Song } from "@/data/mockSongs";
 import { getHistory, getSearchHistory, type HistoryEntry } from "@/lib/localStorage";
 import { searchYouTubeMusic } from "@/lib/youtubeSearch";
+import { CYCLE_MS, getCycleId } from "@/lib/refreshCycle";
 
-const CACHE_KEY = "demus_personalized_destaques_v2";
-const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2h
+const CACHE_KEY = "demus_personalized_destaques_v3";
+// As sugestões ficam estáveis dentro da janela de 5 dias (ciclo de atualização).
+const CACHE_TTL_MS = CYCLE_MS;
 
 interface Cached {
   songs: Song[];
@@ -19,6 +21,7 @@ function readCache(): Cached | null {
     const c: Cached = JSON.parse(raw);
     if (!c?.songs?.length) return null;
     if (Date.now() - c.ts > CACHE_TTL_MS) return null;
+    if (getCycleId(c.ts) !== getCycleId()) return null; // virou o ciclo de 5 dias
     return c;
   } catch { return null; }
 }
@@ -75,22 +78,35 @@ function buildSeeds(): { seeds: string[]; sig: string } {
     .sort((a, b) => b.score - a.score)
     .slice(0, 2);
 
-  const recentSearches = getSearchHistory()
+  // Buscas feitas no módulo "Explorar" (localStorage) — fonte PRINCIPAL das
+  // categorias exibidas no Início. Também com peso por recência.
+  const searchScore = new Map<string, number>();
+  for (const e of getSearchHistory()) {
+    const q = (e.q || "").trim();
+    if (q.length < 2) continue;
+    const age = Math.max(0, now - (e.ts || now));
+    const w = Math.pow(0.5, age / HALF_LIFE_MS);
+    const k = q.toLowerCase();
+    searchScore.set(k, (searchScore.get(k) || 0) + w);
+  }
+  const topSearches = [...searchScore.entries()]
+    .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
-    .map(e => e.q.trim())
-    .filter(q => q && !topArtists.some(a => a.toLowerCase() === q.toLowerCase()))
-    .slice(0, 2);
+    .map(([q]) => q);
 
-  // Compose diverse queries: pure artist, "mix" variant, similar-to-song, searches.
+  // Compose diverse queries: buscas do Explorar primeiro, depois artistas ouvidos.
   const queries: string[] = [];
+  topSearches.forEach((q, i) => {
+    queries.push(q);
+    if (i < 2) queries.push(`${q} mix`);
+  });
   topArtists.forEach((a, i) => {
     queries.push(a);
-    if (i < 2) queries.push(`${a} mix`);
+    if (i < 1) queries.push(`${a} mix`);
   });
   topSongs.forEach(s => {
     queries.push(`${s.artist} ${s.title}`);
   });
-  queries.push(...recentSearches);
 
   // Dedup, cap.
   const seen = new Set<string>();
@@ -100,10 +116,11 @@ function buildSeeds(): { seeds: string[]; sig: string } {
     if (seen.has(k)) continue;
     seen.add(k);
     seeds.push(q);
-    if (seeds.length >= 7) break;
+    if (seeds.length >= 8) break;
   }
 
-  const sig = seeds.join("|").toLowerCase();
+  // O ciclo de 5 dias entra na assinatura: ao virar o ciclo, tudo é recarregado.
+  const sig = `${getCycleId()}::${seeds.join("|").toLowerCase()}`;
   return { seeds, sig };
 }
 
