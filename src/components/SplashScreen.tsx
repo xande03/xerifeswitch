@@ -45,12 +45,13 @@ const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
           <h1 className="text-4xl font-display font-bold text-foreground tracking-tight text-glow">Xerife Switch</h1>
           <p className="text-[10px] text-muted-foreground tracking-[0.35em] uppercase opacity-80">Multi-Streaming</p>
           <div className="flex items-center gap-2 mt-1 text-[11px] font-semibold uppercase tracking-wider">
-            <span className="px-2.5 py-1 rounded-full border border-[hsl(142_72%_45%/0.4)] text-[hsl(142_72%_55%)] bg-[hsl(142_72%_45%/0.08)]">Music</span>
+            <span className="px-2.5 py-1 rounded-full border border-[hsl(142_72%_38%/0.5)] dark:border-[hsl(142_72%_45%/0.4)] text-[hsl(142_72%_32%)] dark:text-[hsl(142_72%_55%)] bg-[hsl(142_72%_45%/0.1)] dark:bg-[hsl(142_72%_45%/0.08)]">Music</span>
             <span className="text-muted-foreground/50">·</span>
-            <span className="px-2.5 py-1 rounded-full border border-[hsl(0_78%_54%/0.4)] text-[hsl(0_78%_62%)] bg-[hsl(0_78%_54%/0.08)]">Videos</span>
+            <span className="px-2.5 py-1 rounded-full border border-[hsl(0_78%_46%/0.5)] dark:border-[hsl(0_78%_54%/0.4)] text-[hsl(0_78%_42%)] dark:text-[hsl(0_78%_62%)] bg-[hsl(0_78%_54%/0.1)] dark:bg-[hsl(0_78%_54%/0.08)]">Videos</span>
             <span className="text-muted-foreground/50">·</span>
-            <span className="px-2.5 py-1 rounded-full border border-[hsl(265_75%_62%/0.4)] text-[hsl(265_75%_70%)] bg-[hsl(265_75%_62%/0.08)]">Podcasts</span>
+            <span className="px-2.5 py-1 rounded-full border border-[hsl(265_75%_52%/0.5)] dark:border-[hsl(265_75%_62%/0.4)] text-[hsl(265_75%_45%)] dark:text-[hsl(265_75%_70%)] bg-[hsl(265_75%_62%/0.1)] dark:bg-[hsl(265_75%_62%/0.08)]">Podcasts</span>
           </div>
+
         </div>
       </div>
 
