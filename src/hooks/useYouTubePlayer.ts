@@ -882,10 +882,18 @@ export function useYouTubePlayer(containerId: string) {
 
 
       if (document.visibilityState === 'hidden' && shouldBePlayingRef.current && !userPausedRef.current) {
-        // Keep audio session alive but do NOT force-resume the YT player.
+        // Mantém a sessão de áudio viva E garante que o player continue tocando.
         const audio = ensureSilentAudio();
         audio.play().catch(() => {});
+        ensureProxyAudio().play().catch(() => {});
         resumeAudioContext();
+
+        // O iOS/Android costuma suspender o iframe ao sair do app: reanimamos
+        // o player logo após a transição para background.
+        window.setTimeout(() => {
+          if (!shouldBePlayingRef.current || userPausedRef.current || checkUserPausedFlag()) return;
+          try { playerRef.current?.playVideo?.(); } catch {}
+        }, 250);
 
         try {
           navigator.serviceWorker?.controller?.postMessage({
@@ -894,11 +902,12 @@ export function useYouTubePlayer(containerId: string) {
           });
         } catch {}
 
-        // Heartbeat: ONLY keeps silent audio alive. Never calls playVideo().
+        // Heartbeat: mantém áudio silencioso vivo e retoma o player se o
+        // sistema o tiver pausado sem ação do usuário.
         if (!bgIntervalRef.current) {
           const heartbeatInterval = browserRef.current === 'safari' ? 2000 : 3000;
           bgIntervalRef.current = setInterval(() => {
-            if (userPausedRef.current || !shouldBePlayingRef.current) {
+            if (userPausedRef.current || !shouldBePlayingRef.current || checkUserPausedFlag()) {
               clearInterval(bgIntervalRef.current);
               bgIntervalRef.current = undefined;
               return;
@@ -908,6 +917,19 @@ export function useYouTubePlayer(containerId: string) {
             const pa = ensureProxyAudio();
             if (pa.paused) pa.play().catch(() => {});
             resumeAudioContext();
+            // Se o player não está tocando, mas deveria, retoma.
+            try {
+              const st = playerRef.current?.getPlayerState?.();
+              const YTStates = window.YT?.PlayerState;
+              if (
+                YTStates &&
+                st !== YTStates.PLAYING &&
+                st !== YTStates.BUFFERING &&
+                st !== YTStates.ENDED
+              ) {
+                playerRef.current?.playVideo?.();
+              }
+            } catch {}
             try {
               navigator.serviceWorker?.controller?.postMessage({ type: 'HEARTBEAT' });
               localStorage.setItem('__bg_ts', Date.now().toString());
@@ -915,6 +937,7 @@ export function useYouTubePlayer(containerId: string) {
           }, heartbeatInterval);
         }
       } else if (document.visibilityState === 'visible') {
+
         if (bgIntervalRef.current) {
           clearInterval(bgIntervalRef.current);
           bgIntervalRef.current = undefined;
