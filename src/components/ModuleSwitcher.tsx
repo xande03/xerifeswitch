@@ -120,12 +120,12 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
       </div>
     )}
 
-    <Popover open={open} onOpenChange={setOpen}>
+    <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
 
       <TooltipProvider delayDuration={250}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
+            <DialogPrimitive.Trigger asChild>
               <button
                 ref={triggerRef}
                 aria-label="Alternar entre Music, Vídeos e Podcasts"
@@ -140,32 +140,28 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
               >
                 <Repeat2 size={18} strokeWidth={2.2} />
               </button>
-            </PopoverTrigger>
+            </DialogPrimitive.Trigger>
           </TooltipTrigger>
           <TooltipContent side="bottom">Alternar sessão</TooltipContent>
         </Tooltip>
       </TooltipProvider>
 
-      <PopoverContent
-        align="center"
-        sideOffset={12}
-        collisionPadding={12}
-        aria-label="Alternar sessão"
-        onPointerDownOutside={() => setOpen(false)}
-        onEscapeKeyDown={() => {
-          setOpen(false);
-          window.setTimeout(() => triggerRef.current?.focus(), 0);
-        }}
-        onCloseAutoFocus={(e) => {
-          e.preventDefault();
-          triggerRef.current?.focus();
-        }}
-        onOpenAutoFocus={(e) => {
-          e.preventDefault();
-          const idx = Math.max(0, MODULE_IDS.indexOf(active));
-          (itemRefs.current[idx] ?? itemRefs.current[0])?.focus();
-        }}
-        className="!fixed !left-1/2 !top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[min(20rem,calc(100vw-20px))] sm:w-80 max-h-[calc(100dvh-5rem)] overflow-y-auto p-2.5 sm:p-2 rounded-2xl border border-border/70 bg-popover/95 backdrop-blur-xl shadow-2xl ring-1 ring-foreground/5 origin-center will-change-transform data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:duration-300 data-[state=closed]:duration-150 data-[state=open]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[state=closed]:ease-[cubic-bezier(0.4,0,1,1)] data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 motion-reduce:transition-none motion-reduce:animate-none motion-reduce:data-[state=open]:animate-none motion-reduce:data-[state=closed]:animate-none"
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[90] backdrop-blur-md bg-background/60 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:duration-200 data-[state=closed]:duration-150 motion-reduce:animate-none" />
+        <DialogPrimitive.Content
+          aria-label="Alternar sessão"
+          onEscapeKeyDown={() => setOpen(false)}
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            triggerRef.current?.focus();
+          }}
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            const idx = Math.max(0, MODULE_IDS.indexOf(active));
+            (itemRefs.current[idx] ?? itemRefs.current[0])?.focus();
+          }}
+          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[95] w-[min(20rem,calc(100vw-24px))] sm:w-80 max-h-[calc(100dvh-5rem)] overflow-y-auto p-2.5 sm:p-2 rounded-2xl border border-border/70 bg-popover/95 backdrop-blur-xl shadow-2xl ring-1 ring-foreground/5 origin-center will-change-transform data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:duration-300 data-[state=closed]:duration-150 data-[state=open]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[state=closed]:ease-[cubic-bezier(0.4,0,1,1)] data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 motion-reduce:transition-none motion-reduce:animate-none motion-reduce:data-[state=open]:animate-none motion-reduce:data-[state=closed]:animate-none"
+
         style={{
           boxShadow:
             "0 20px 50px -18px hsl(var(--foreground) / 0.35), 0 8px 22px -14px hsl(var(--foreground) / 0.22), 0 0 0 1px hsl(var(--border) / 0.6), inset 0 1px 0 hsl(var(--foreground) / 0.05)",
