@@ -58,7 +58,7 @@ export function useMediaSession({
   const mediaTypeRef = useRef(mediaType);
   const isPlayingRef = useRef(isPlaying);
   const pauseActionTimestampRef = useRef(0);
-  const playSuppressionMsRef = useRef(getPlaySuppressionMs());
+  
   const nativeDurationKey = Math.floor(duration || 0);
 
   useEffect(() => {
