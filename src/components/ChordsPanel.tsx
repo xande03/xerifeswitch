@@ -1,7 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, ExternalLink, Minus, Plus, Copy, RefreshCcw, Play, Pause, X } from "lucide-react";
+import { Loader2, ExternalLink, Minus, Plus, Copy, RefreshCcw, Play, Pause, X, Sun, Moon } from "lucide-react";
 import { fetchChords, transposeChords, cifraClubFallbackUrl, invalidateChordsCache, type ChordsResult } from "@/lib/chords";
 import { toast } from "sonner";
+
+type ChordsTheme = "dark" | "light";
+const THEME_KEY = "xerife:chords-theme";
+
+function loadChordsTheme(): ChordsTheme {
+  try {
+    const v = localStorage.getItem(THEME_KEY);
+    if (v === "light" || v === "dark") return v;
+    return document.documentElement.classList.contains("light") ? "light" : "dark";
+  } catch {
+    return "dark";
+  }
+}
+
+/** Deduz o tom original a partir do primeiro acorde da cifra. */
+function guessKey(text: string): string | null {
+  const m = text.match(/\b([A-G](?:#|b)?m?)\b/);
+  return m ? m[1] : null;
+}
 
 export interface ChordsPanelProps {
   artist: string;
@@ -58,6 +77,11 @@ const ChordsPanel = ({
   const [autoScroll, setAutoScroll] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState(1);
   const [heightVh, setHeightVh] = useState(() => loadStoredHeight());
+  const [panelTheme, setPanelTheme] = useState<ChordsTheme>(() => loadChordsTheme());
+
+  useEffect(() => {
+    try { localStorage.setItem(THEME_KEY, panelTheme); } catch { /* ignore */ }
+  }, [panelTheme]);
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef<{ startY: number; startVh: number; lastY: number; lastT: number; velocity: number } | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -183,10 +207,11 @@ const ChordsPanel = ({
   }, [autoScroll, scrollSpeed]);
 
   const transposed = useMemo(() => (data ? transposeChords(data.chords, semitones) : ""), [data, semitones]);
+  const originalKey = useMemo(() => (data ? data.key || guessKey(data.chords) : null), [data]);
   const transposedKey = useMemo(() => {
-    if (!data?.key) return null;
-    return transposeChords(data.key, semitones);
-  }, [data?.key, semitones]);
+    if (!originalKey) return null;
+    return transposeChords(originalKey, semitones);
+  }, [originalKey, semitones]);
 
   const rendered = useMemo(() => {
     if (!transposed) return null;
@@ -219,7 +244,12 @@ const ChordsPanel = ({
   const externalUrl = data?.url || cifraClubFallbackUrl(artist, title);
 
   return (
-    <div className={`flex flex-col min-h-0 ${className}`}>
+    <div
+      data-chords-theme={panelTheme}
+      className={`flex flex-col min-h-0 bg-background text-foreground ${
+        panelTheme === "light" ? "chords-scope-light" : "chords-scope-dark"
+      } ${className}`}
+    >
       {resizable && (
         <div
           role="separator"
@@ -280,17 +310,17 @@ const ChordsPanel = ({
           </div>
         )}
 
-        {data?.key && (
+        {originalKey && (
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary text-foreground text-xs font-semibold">
               <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Tom original</span>
-              <span className="text-sm font-bold">{data.key}</span>
+              <span className="text-sm font-bold">{originalKey}</span>
             </div>
             <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
               semitones === 0 ? "bg-muted text-muted-foreground" : "bg-primary/15 text-primary"
             }`}>
               <span className="text-[10px] uppercase tracking-wide opacity-80">Tom atual</span>
-              <span className="text-sm font-bold">{transposedKey ?? data.key}</span>
+              <span className="text-sm font-bold">{transposedKey ?? originalKey}</span>
               {semitones !== 0 && (
                 <span className="text-[10px] font-normal opacity-80">
                   ({semitones > 0 ? `+${semitones}` : semitones} semitom{Math.abs(semitones) > 1 ? "s" : ""})
@@ -383,8 +413,18 @@ const ChordsPanel = ({
           )}
 
           <button
-            onClick={handleCopy}
+            onClick={() => setPanelTheme((t) => (t === "light" ? "dark" : "light"))}
             className="ml-auto w-8 h-8 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center"
+            title={panelTheme === "light" ? "Tema escuro da cifra" : "Tema claro da cifra"}
+            aria-label="Alternar tema claro/escuro da cifra"
+            aria-pressed={panelTheme === "light"}
+          >
+            {panelTheme === "light" ? <Moon size={14} /> : <Sun size={14} />}
+          </button>
+
+          <button
+            onClick={handleCopy}
+            className="w-8 h-8 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center"
             title="Copiar"
             aria-label="Copiar cifra"
           >

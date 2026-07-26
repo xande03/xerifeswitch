@@ -135,6 +135,47 @@
     --sidebar-ring: 142 60% 28%;
   }
 
+  /* Escopo de tema independente do painel de cifras */
+  .chords-scope-dark {
+    --background: 0 0% 7%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 142 65% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 18%;
+    --secondary-foreground: 0 0% 90%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 0 0% 20%;
+    --accent-foreground: 0 0% 100%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 142 65% 45%;
+  }
+
+  .chords-scope-light {
+    --background: 0 0% 99%;
+    --foreground: 0 0% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 8%;
+    --primary: 142 60% 28%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 94%;
+    --secondary-foreground: 0 0% 15%;
+    --muted: 0 0% 92%;
+    --muted-foreground: 0 0% 32%;
+    --accent: 0 0% 95%;
+    --accent-foreground: 0 0% 9%;
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 142 60% 28%;
+  }
+
   /* Per-module accent overrides for LIGHT theme — darker tones ensure WCAG AA
      contrast when used as text/icon color over light tinted backgrounds. */
   .light[data-module="hub"],
