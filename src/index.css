@@ -466,9 +466,15 @@ html, body {
   inset: 0 !important;
   width: 100% !important;
   height: 100% !important;
+  /* iframes têm borda padrão de 2px: sem isso o vídeo estoura 4px do
+     letterbox 16:9 e aparece cortado nas bordas em mobile. */
+  border: 0 !important;
+  box-sizing: border-box !important;
+  display: block !important;
   border-radius: 0 !important;
   z-index: 0 !important;
 }
+
 
 /* iOS: ensure horizontal scroll/snap carousels respond to swipes
    even though html/body restrict overscroll. */

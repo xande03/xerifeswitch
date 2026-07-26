@@ -1339,6 +1339,7 @@ export function useYouTubePlayer(containerId: string) {
    * resulta em um retângulo preto "sem conteúdo". Aqui zeramos transformações
    * residuais (pinch-zoom), forçamos 100%/100% e pedimos um resize ao player.
    */
+  const syncingLayoutRef = useRef(false);
   const syncPlayerLayout = useCallback(() => {
     const apply = () => {
       const holder = document.getElementById('yt-player') as HTMLElement | null;
@@ -1359,12 +1360,18 @@ export function useYouTubePlayer(containerId: string) {
         iframe.style.height = '100%';
         try { playerRef.current?.setSize?.(w, h); } catch {}
       }
+      // Guarda contra loop: o resize sintético abaixo não deve reentrar no sync.
+      syncingLayoutRef.current = true;
       try { window.dispatchEvent(new Event('resize')); } catch {}
+      window.setTimeout(() => { syncingLayoutRef.current = false; }, 0);
     };
     requestAnimationFrame(apply);
     window.setTimeout(apply, 120);
     window.setTimeout(apply, 450);
+    // iOS reporta as novas dimensões só depois que a animação de rotação termina.
+    window.setTimeout(apply, 900);
   }, []);
+
 
   const requestFullscreen = useCallback(async (preferredTarget?: HTMLElement | null) => {
 
@@ -1498,17 +1505,27 @@ export function useYouTubePlayer(containerId: string) {
       syncPlayerLayout();
     };
     // Rotação de tela / mudança de viewport em tela cheia também exige re-medição.
-    const handleViewportChange = () => syncPlayerLayout();
+    // Alguns Androids não disparam `orientationchange` — só `resize` (window ou
+    // visualViewport). Ouvimos todos, com guarda contra o resize sintético.
+    const handleViewportChange = () => {
+      if (syncingLayoutRef.current) return;
+      syncPlayerLayout();
+    };
     document.addEventListener("fullscreenchange", handleFsChange);
     document.addEventListener("webkitfullscreenchange", handleFsChange);
     window.addEventListener("orientationchange", handleViewportChange);
+    window.addEventListener("resize", handleViewportChange);
+    try { (window as any)?.visualViewport?.addEventListener?.("resize", handleViewportChange); } catch {}
     try { (screen as any)?.orientation?.addEventListener?.("change", handleViewportChange); } catch {}
 
     return () => {
       document.removeEventListener("fullscreenchange", handleFsChange);
       document.removeEventListener("webkitfullscreenchange", handleFsChange);
       window.removeEventListener("orientationchange", handleViewportChange);
+      window.removeEventListener("resize", handleViewportChange);
+      try { (window as any)?.visualViewport?.removeEventListener?.("resize", handleViewportChange); } catch {}
       try { (screen as any)?.orientation?.removeEventListener?.("change", handleViewportChange); } catch {}
+
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
       if (pseudoFullscreenRef.current) {
