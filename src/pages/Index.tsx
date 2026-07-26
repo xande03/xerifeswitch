@@ -2201,6 +2201,22 @@ const Index = () => {
                   {/* Desktop logo banner removed — header already shows module title */}
 
 
+                  {/* Chips de humor / atividade */}
+                  <motion.div
+                    variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.3 } } }}
+                    className="flex gap-2 overflow-x-auto scrollbar-hide px-3 sm:px-4 pb-3"
+                  >
+                    {moodChips.map((chip) => (
+                      <button
+                        key={chip.label}
+                        onClick={() => { setActiveTab("search"); handleSearch(chip.query); }}
+                        className="px-4 py-1.5 rounded-full bg-secondary/70 hover:bg-primary/20 hover:text-primary border border-border/40 text-sm font-medium text-foreground whitespace-nowrap transition-colors active:scale-95"
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </motion.div>
+
                   {/* Greeting (Mobile only now as desktop has its own) */}
                   <motion.div variants={{ hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35 } } }} className="px-4 pb-1 lg:hidden">
                     <h1 className="text-xl sm:text-2xl font-bold text-foreground">{greeting}</h1>
@@ -2226,41 +2242,89 @@ const Index = () => {
                     </div>
                   </motion.section>
 
-                  {/* Featured Albums */}
+                  {/* Destaques — carrossel imersivo */}
                   <motion.section variants={{ hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35 } } }} className="pt-4 border-t border-border/10 mx-3 sm:mx-4">
                     <div className="flex items-center justify-between mb-3 sm:mb-4">
                       <h2 className="text-base sm:text-xl font-black text-foreground uppercase tracking-widest italic">Destaques</h2>
                       {forYouSongs.length > 5 && (
                         <button
                           onClick={() => setShowAllDestaques(v => !v)}
-                          className="text-xs font-bold text-primary hover:underline"
+                          className="text-xs font-bold text-primary hover:underline uppercase tracking-wider"
                         >
                           {showAllDestaques ? "VER MENOS" : "VER MAIS"}
                         </button>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
-                      {forYouSongs.slice(0, showAllDestaques ? forYouSongs.length : 5).map((song) => (
-                        <button
-                          key={song.id}
-                          onClick={() => handleSelect(song)}
-                          className="group active:scale-[0.97] transition-transform text-left"
-                        >
-                          <div className="w-full aspect-square rounded-2xl overflow-hidden mb-2.5 relative shadow-lg">
-                            <img src={hdThumbnail(song.cover)} alt={song.album} className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-700" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                               <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center text-white scale-75 group-hover:scale-100 transition-transform shadow-xl">
+                    {showAllDestaques ? (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
+                        {forYouSongs.map((song) => (
+                          <button
+                            key={song.id}
+                            onClick={() => handleSelect(song)}
+                            className="group active:scale-[0.97] transition-transform text-left"
+                          >
+                            <div className="w-full aspect-square rounded-2xl overflow-hidden mb-2.5 relative shadow-lg">
+                              <img src={hdThumbnail(song.cover)} alt={song.album} className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-700" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center text-white scale-75 group-hover:scale-100 transition-transform shadow-xl">
                                   <Play size={24} fill="currentColor" className="ml-1" />
-                               </div>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                          <p className="text-sm font-bold text-foreground truncate leading-snug">{song.title}</p>
-                          <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">{song.artist}</p>
-                        </button>
-                      ))}
-                    </div>
+                            <p className="text-sm font-bold text-foreground truncate leading-snug">{song.title}</p>
+                            <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">{song.artist}</p>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 snap-x">
+                        {forYouSongs.map((song) => (
+                          <button
+                            key={song.id}
+                            onClick={() => handleSelect(song)}
+                            className="group active:scale-[0.97] transition-transform text-left flex-shrink-0 w-[150px] sm:w-[180px] snap-start"
+                          >
+                            <div className="w-full aspect-square rounded-2xl overflow-hidden mb-2.5 relative shadow-lg">
+                              <img src={hdThumbnail(song.cover)} alt={song.album} className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-700" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center text-white scale-75 group-hover:scale-100 transition-transform shadow-xl">
+                                  <Play size={24} fill="currentColor" className="ml-1" />
+                                </div>
+                              </div>
+                            </div>
+                            <p className="text-sm font-bold text-foreground truncate leading-snug">{song.title}</p>
+                            <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">{song.artist}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </motion.section>
+
+                  {/* Artistas frequentes */}
+                  {frequentArtists.length > 0 && (
+                    <motion.section variants={{ hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35 } } }} className="pt-5">
+                      <h2 className="px-3 sm:px-4 mb-3 text-base sm:text-lg font-black italic text-foreground">Artistas frequentes</h2>
+                      <div className="flex gap-5 overflow-x-auto scrollbar-hide px-3 sm:px-4 pb-2">
+                        {frequentArtists.map((a) => (
+                          <button
+                            key={a.name}
+                            onClick={() => setArtistView({ name: a.name, image: a.image })}
+                            className="flex flex-col items-center gap-2 flex-shrink-0 w-[84px] group active:scale-95 transition-transform"
+                          >
+                            <img
+                              src={hdThumbnail(a.image)}
+                              alt={a.name}
+                              className="w-20 h-20 rounded-full object-cover border border-border/40 shadow-md group-hover:ring-2 group-hover:ring-primary/60 transition-all"
+                            />
+                            <span className="text-xs font-medium text-foreground text-center truncate w-full">{a.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.section>
+                  )}
+
 
                   {/* Listen again */}
                   <motion.section variants={{ hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35 } } }}>
