@@ -1,8 +1,17 @@
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, VolumeX, Maximize2, Music } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, Music, MonitorPlay, Headphones } from "lucide-react";
 import { Song, formatDuration } from "@/data/mockSongs";
 import { hdThumbnail } from "@/lib/utils";
 import SeekBar from "@/components/SeekBar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { MODULE_COLOR, MODULE_LABEL, type SwitchableModule } from "@/components/ModuleSwitcher";
+import { getModuleTones } from "@/lib/moduleTones";
+import { useTheme } from "@/hooks/useTheme";
+
+const MODULE_ICON: Record<SwitchableModule, typeof Music> = {
+  music: Music,
+  video: MonitorPlay,
+  podcast: Headphones,
+};
 
 interface SidebarPlayerProps {
   song?: Song | null;
@@ -19,7 +28,10 @@ interface SidebarPlayerProps {
   isShuffled?: boolean;
   onShuffle?: () => void;
   collapsed?: boolean;
+  activeModule?: SwitchableModule;
+  onSelectModule?: (m: SwitchableModule) => void;
 }
+
 
 const PillButton = ({
   label,
