@@ -548,12 +548,24 @@ export function useYouTubePlayer(containerId: string) {
       return;
     }
 
+    // Player parado sem que o usuário tenha pausado (suspensão do sistema em
+    // background): retoma em vez de assumir estado pausado.
+    if (shouldBePlayingRef.current && !isEnded) {
+      ensureSilentAudio().play().catch(() => {});
+      ensureProxyAudio().play().catch(() => {});
+      resumeAudioContext();
+      try { player?.playVideo?.(); } catch {}
+      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: true, isEnded: false }));
+      return;
+    }
+
     shouldBePlayingRef.current = false; setShouldBePlayingGlobal(false);
     silentAudio?.pause();
     ensureProxyAudio().pause();
     releaseWakeLock();
     setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: false, isEnded: isEnded }));
   }, [checkUserPausedFlag]);
+
 
   // Capture first user gesture for iOS audio unlock
   useEffect(() => {
