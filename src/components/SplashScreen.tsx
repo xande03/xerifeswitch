@@ -29,7 +29,7 @@ const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
           <h1 className="text-4xl font-display font-bold text-foreground tracking-tight text-glow">Xerife Switch</h1>
           <p className="text-[10px] text-muted-foreground tracking-[0.35em] uppercase opacity-80">Multi-Streaming</p>
           <div className="flex items-center gap-2 mt-1 text-[11px] font-semibold uppercase tracking-wider">
-            <span className="px-2.5 py-1 rounded-full border border-[hsl(40_92%_52%/0.4)] text-[hsl(40_92%_60%)] bg-[hsl(40_92%_52%/0.08)]">Music</span>
+            <span className="px-2.5 py-1 rounded-full border border-[hsl(142_72%_45%/0.4)] text-[hsl(142_72%_55%)] bg-[hsl(142_72%_45%/0.08)]">Music</span>
             <span className="text-muted-foreground/50">·</span>
             <span className="px-2.5 py-1 rounded-full border border-[hsl(0_78%_54%/0.4)] text-[hsl(0_78%_62%)] bg-[hsl(0_78%_54%/0.08)]">Videos</span>
             <span className="text-muted-foreground/50">·</span>
