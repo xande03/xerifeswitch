@@ -98,7 +98,7 @@ const ToolsMenu = ({
         <MoreHorizontal size={20} />
       </button>
     </PopoverTrigger>
-    <PopoverContent align="end" className="w-60 p-1.5 z-[80]">
+    <PopoverContent align="end" className="w-60 p-1.5 z-[80] rounded-2xl">
       <div className="flex flex-col">
         {items.map((item, i) => (
           <button

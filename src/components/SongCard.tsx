@@ -107,7 +107,7 @@ const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylis
             <MoreVertical size={16} />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52 z-50 bg-popover">
+        <DropdownMenuContent align="end" className="w-52 z-50 bg-popover rounded-2xl">
           <DropdownMenuItem onClick={() => setShareOpen(true)} className="gap-2">
             <Share2 size={15} /> Compartilhar
           </DropdownMenuItem>
