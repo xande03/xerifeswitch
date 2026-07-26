@@ -1,8 +1,12 @@
+import { useState } from "react";
 import { Play, Pause, SkipBack, SkipForward, Volume2, Music, Heart, Mic2, Video, Download, Share2 } from "lucide-react";
 import { Song, formatDuration } from "@/data/mockSongs";
 import { hdThumbnail } from "@/lib/utils";
 import SeekBar from "@/components/SeekBar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Check } from "lucide-react";
+
+export type SidebarPlayerModule = "music" | "video" | "podcast";
 
 interface SidebarPlayerProps {
   song?: Song | null;
@@ -25,6 +29,12 @@ interface SidebarPlayerProps {
   onVideo?: () => void;
   onDownload?: () => void;
   onShare?: () => void;
+  /** Modo atual do player: capa (audio), letra ou vídeo */
+  playerMode?: "audio" | "lyrics" | "video";
+  /** Módulo/sessão atual (music, video, podcast) */
+  module?: SidebarPlayerModule;
+  hasLyrics?: boolean;
+  hasVideo?: boolean;
 }
 
 
@@ -47,7 +57,18 @@ const SidebarPlayer = ({
   onVideo,
   onDownload,
   onShare,
+  playerMode = "audio",
+  module = "music",
+  hasLyrics = true,
+  hasVideo = true,
 }: SidebarPlayerProps) => {
+  const [flash, setFlash] = useState<string | null>(null);
+  const runWithFeedback = (label: string, fn?: () => void) => {
+    if (!fn) return;
+    fn();
+    setFlash(label);
+    window.setTimeout(() => setFlash((f) => (f === label ? null : f)), 1400);
+  };
   const progress = duration > 0 ? currentTime / duration : 0;
 
 
@@ -116,24 +137,50 @@ const SidebarPlayer = ({
           <TooltipContent side="top" className="text-xs font-semibold">Favorito</TooltipContent>
         </Tooltip>
         {[
-          { icon: Mic2, label: "Letra", onClick: onLyrics },
-          { icon: Video, label: "Vídeo", onClick: onVideo },
-          { icon: Download, label: "Baixar música", onClick: onDownload },
-          { icon: Share2, label: "Compartilhar", onClick: onShare },
-        ].filter((b) => !!b.onClick).map((b) => (
-          <Tooltip key={b.label} delayDuration={200}>
-            <TooltipTrigger asChild>
-              <button
-                onClick={b.onClick}
-                aria-label={b.label}
-                className="w-8 h-8 rounded-xl flex items-center justify-center bg-secondary/30 text-muted-foreground hover:bg-primary/20 hover:text-primary transition-all active:scale-90"
-              >
-                <b.icon size={15} strokeWidth={2.2} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="text-xs font-semibold">{b.label}</TooltipContent>
-          </Tooltip>
-        ))}
+          module === "music" && hasLyrics
+            ? {
+                icon: Mic2,
+                label: playerMode === "lyrics" ? "Fechar letra" : "Letra",
+                onClick: onLyrics,
+                active: playerMode === "lyrics",
+                toggle: true,
+              }
+            : null,
+          hasVideo
+            ? {
+                icon: Video,
+                label: playerMode === "video" ? "Fechar vídeo" : "Vídeo",
+                onClick: onVideo,
+                active: playerMode === "video",
+                toggle: true,
+              }
+            : null,
+          { icon: Download, label: "Baixar música", onClick: onDownload, active: false, toggle: false },
+          { icon: Share2, label: "Compartilhar", onClick: onShare, active: false, toggle: false },
+        ]
+          .filter((b): b is { icon: typeof Mic2; label: string; onClick?: () => void; active: boolean; toggle: boolean } => !!b && !!b.onClick)
+          .map((b) => {
+            const done = flash === b.label;
+            return (
+              <Tooltip key={b.label} delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => (b.toggle ? b.onClick?.() : runWithFeedback(b.label, b.onClick))}
+                    aria-label={b.label}
+                    aria-pressed={b.toggle ? b.active : undefined}
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                      b.active || done
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary/30 text-muted-foreground hover:bg-primary/20 hover:text-primary"
+                    }`}
+                  >
+                    {done ? <Check size={15} strokeWidth={2.6} /> : <b.icon size={15} strokeWidth={2.2} />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs font-semibold">{b.label}</TooltipContent>
+              </Tooltip>
+            );
+          })}
       </div>
 
 
