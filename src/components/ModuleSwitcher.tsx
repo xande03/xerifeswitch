@@ -169,6 +169,10 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
             "linear-gradient(180deg, hsl(var(--foreground) / 0.03) 0%, transparent 40%)",
         }}
       >
+        <DialogPrimitive.Title className="sr-only">Alternar sessão</DialogPrimitive.Title>
+        <DialogPrimitive.Description className="sr-only">
+          Escolha entre Xerife Music, Vídeos ou Podcasts.
+        </DialogPrimitive.Description>
         <div
           className="pointer-events-none absolute inset-x-0 top-0 h-px rounded-t-2xl"
           style={{
