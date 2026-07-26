@@ -1362,13 +1362,18 @@ export function useYouTubePlayer(containerId: string) {
         1,
         container.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0),
       );
-      const w = Math.floor(Math.min(availW, availH * RATIO));
-      const h = Math.floor(Math.min(availH, availW / RATIO));
+      // Deriva a altura da largura (e vice-versa) para manter 16:9 exato mesmo
+      // depois do arredondamento.
+      let w = Math.floor(Math.min(availW, availH * RATIO));
+      let h = Math.round(w / RATIO);
+      if (h > availH) { h = Math.floor(availH); w = Math.round(h * RATIO); }
       if (w < 2 || h < 2) return;
+      holder.dataset.ytLetterboxFallback = '1';
       holder.style.setProperty('width', `${w}px`, 'important');
       holder.style.setProperty('height', `${h}px`, 'important');
       holder.style.setProperty('margin', 'auto', 'important');
       holder.style.setProperty('flex', '0 0 auto', 'important');
+
       if (iframe) {
         iframe.setAttribute('width', String(w));
         iframe.setAttribute('height', String(h));
