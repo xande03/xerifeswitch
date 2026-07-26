@@ -24,7 +24,13 @@ const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
 
       {/* Logo */}
       <div className="relative flex flex-col items-center gap-8 animate-splash-logo">
-        <Logo size={240} className="drop-shadow-[0_0_50px_rgba(34,197,94,0.3)] transform transition-all duration-1000" style={{ transform: 'rotateY(15deg) rotateX(5deg)' }} />
+        <Logo
+          size={240}
+          colorFrom="#3b82f6"
+          colorTo="#1e3a8a"
+          className="drop-shadow-[0_0_50px_rgba(59,130,246,0.35)] transform transition-all duration-1000"
+          style={{ transform: 'rotateY(15deg) rotateX(5deg)' }}
+        />
         <div className="flex flex-col items-center gap-3">
           <h1 className="text-4xl font-display font-bold text-foreground tracking-tight text-glow">Xerife Switch</h1>
           <p className="text-[10px] text-muted-foreground tracking-[0.35em] uppercase opacity-80">Multi-Streaming</p>
