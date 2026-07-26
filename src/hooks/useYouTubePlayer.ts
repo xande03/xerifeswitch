@@ -1464,13 +1464,14 @@ export function useYouTubePlayer(containerId: string) {
 
     clearPseudo();
     setState((s) => ({ ...s, isFullscreen: false }));
+    syncPlayerLayout();
 
     try {
       if (screen.orientation && (screen.orientation as any).unlock) {
         (screen.orientation as any).unlock();
       }
     } catch {}
-  }, []);
+  }, [syncPlayerLayout]);
 
   // Track fullscreen state
   useEffect(() => {
@@ -1492,9 +1493,17 @@ export function useYouTubePlayer(containerId: string) {
       trackMetric('fullscreen', 'change', { isFs });
       // Idempotent update — avoid re-rendering (and remounting overlay) when value is unchanged.
       setState((s) => (s.isFullscreen === isFs ? s : { ...s, isFullscreen: isFs }));
+      // Re-mede o iframe: sem isso o YouTube mantém o tamanho anterior e o
+      // vídeo aparece preto/cortado ao entrar ou sair da tela cheia (mobile).
+      syncPlayerLayout();
     };
+    // Rotação de tela / mudança de viewport em tela cheia também exige re-medição.
+    const handleViewportChange = () => syncPlayerLayout();
     document.addEventListener("fullscreenchange", handleFsChange);
     document.addEventListener("webkitfullscreenchange", handleFsChange);
+    window.addEventListener("orientationchange", handleViewportChange);
+    try { (screen as any)?.orientation?.addEventListener?.("change", handleViewportChange); } catch {}
+
     return () => {
       document.removeEventListener("fullscreenchange", handleFsChange);
       document.removeEventListener("webkitfullscreenchange", handleFsChange);
