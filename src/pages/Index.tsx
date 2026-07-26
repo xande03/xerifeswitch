@@ -1451,9 +1451,9 @@ const Index = () => {
         album: e.album, cover: e.cover, duration: e.duration, votes: 0, isDownloaded: false,
       }));
     if (base.length === 0) return [];
-    // Deterministic shuffle seeded by session so it's stable within a session
-    // but rotates on next reload.
-    const seed = listenAgainSeed.current;
+    // Embaralhamento determinístico ancorado no ciclo de 5 dias: a ordem
+    // permanece estável durante o ciclo e só rotaciona quando ele vira.
+    const seed = getCycleId();
     const arr = [...base];
     for (let i = arr.length - 1; i > 0; i--) {
       const x = Math.sin(seed + i) * 10000;
@@ -1461,8 +1461,16 @@ const Index = () => {
       const j = Math.floor(r * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
     }
-    return arr;
+    // Prioriza o que combina com o que foi pesquisado no módulo "Explorar".
+    const terms = searchedTerms;
+    if (terms.length === 0) return arr;
+    const matches = (s: Song) => {
+      const hay = `${s.title} ${s.artist} ${s.album}`.toLowerCase();
+      return terms.some(t => hay.includes(t));
+    };
+    return [...arr.filter(matches), ...arr.filter(s => !matches(s))];
   })();
+
 
   const personalizedSongs = (() => {
     const seen = new Set<string>();
