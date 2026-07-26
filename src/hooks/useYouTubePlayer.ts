@@ -1332,121 +1332,7 @@ export function useYouTubePlayer(containerId: string) {
     }
   }, [state.videoId]);
 
-  /**
-   * Força o iframe do YouTube a re-medir o próprio layout.
-   * Em iOS/Android, ao entrar ou sair de tela cheia o iframe mantém a largura/
-   * altura antigas (atributos width/height definidos pela IFrame API), o que
-   * resulta em um retângulo preto "sem conteúdo". Aqui zeramos transformações
-   * residuais (pinch-zoom), forçamos 100%/100% e pedimos um resize ao player.
-   */
-  const syncingLayoutRef = useRef(false);
-  const syncPlayerLayout = useCallback(() => {
-    const RATIO = 16 / 9;
-
-    /**
-     * Fallback: quando o CSS (container queries) ou o iframe não respondem ao
-     * resize, calculamos o letterbox 16:9 em pixels a partir da caixa do
-     * container em tela cheia (já descontada a safe-area) e aplicamos inline.
-     */
-    const applyPixelFallback = (holder: HTMLElement, iframe: HTMLIFrameElement | null) => {
-      const container =
-        (holder.closest('#yt-fullscreen-container, .pseudo-fullscreen') as HTMLElement | null) ||
-        (holder.parentElement as HTMLElement | null);
-      if (!container) return;
-      const cs = getComputedStyle(container);
-      const availW = Math.max(
-        1,
-        container.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0),
-      );
-      const availH = Math.max(
-        1,
-        container.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0),
-      );
-      // Deriva a altura da largura (e vice-versa) para manter 16:9 exato mesmo
-      // depois do arredondamento.
-      let w = Math.floor(Math.min(availW, availH * RATIO));
-      let h = Math.round(w / RATIO);
-      if (h > availH) { h = Math.floor(availH); w = Math.round(h * RATIO); }
-      if (w < 2 || h < 2) return;
-      holder.dataset.ytLetterboxFallback = '1';
-      holder.style.setProperty('width', `${w}px`, 'important');
-      holder.style.setProperty('height', `${h}px`, 'important');
-      holder.style.setProperty('margin', 'auto', 'important');
-      holder.style.setProperty('flex', '0 0 auto', 'important');
-
-      if (iframe) {
-        iframe.setAttribute('width', String(w));
-        iframe.setAttribute('height', String(h));
-        iframe.style.setProperty('width', '100%', 'important');
-        iframe.style.setProperty('height', '100%', 'important');
-        try { playerRef.current?.setSize?.(w, h); } catch {}
-      }
-    };
-
-    const apply = () => {
-      const holder = document.getElementById('yt-player') as HTMLElement | null;
-      if (holder) {
-        // Remove transform residual do pinch-zoom: ele pode deslocar/ocultar o vídeo.
-        holder.style.transform = '';
-        holder.style.transformOrigin = '';
-      }
-      const iframe = (playerRef.current?.getIframe?.() as HTMLIFrameElement | null)
-        || (holder?.querySelector('iframe') as HTMLIFrameElement | null);
-      if (iframe) {
-        const box = (iframe.parentElement || holder)?.getBoundingClientRect();
-        const w = Math.max(1, Math.round(box?.width || 0));
-        const h = Math.max(1, Math.round(box?.height || 0));
-        iframe.setAttribute('width', String(w));
-        iframe.setAttribute('height', String(h));
-        iframe.style.width = '100%';
-        iframe.style.height = '100%';
-        try { playerRef.current?.setSize?.(w, h); } catch {}
-      }
-
-      // Verificação pós-layout: se a caixa colapsou ou saiu do 16:9 (iframe que
-      // não respondeu ao resize), aplicamos o fallback em pixels.
-      if (holder) {
-        const isFs =
-          !!document.fullscreenElement ||
-          !!(document as any).webkitFullscreenElement ||
-          !!document.querySelector('#yt-fullscreen-container.app-fullscreen, .pseudo-fullscreen');
-        if (isFs) {
-          const r = holder.getBoundingClientRect();
-          const degenerate = r.width < 8 || r.height < 8;
-          const offRatio = r.height > 0 && Math.abs(r.width / r.height - RATIO) > RATIO * 0.02;
-          const ifr = iframe?.getBoundingClientRect();
-          const iframeMismatch = !!ifr && (ifr.width < 8 || ifr.height < 8 || Math.abs(ifr.width - r.width) > 2);
-          // Uma vez em modo fallback, recalculamos sempre (rotação muda a caixa
-          // disponível e o tamanho fixo anterior ficaria obsoleto/cortado).
-          const alreadyFallback = holder.dataset.ytLetterboxFallback === '1';
-          if (degenerate || offRatio || iframeMismatch || alreadyFallback) applyPixelFallback(holder, iframe);
-        } else {
-          // Fora da tela cheia: limpa qualquer tamanho fixo aplicado pelo fallback.
-          delete holder.dataset.ytLetterboxFallback;
-          holder.style.removeProperty('width');
-          holder.style.removeProperty('height');
-          holder.style.removeProperty('margin');
-          holder.style.removeProperty('flex');
-        }
-
-      }
-
-      // Guarda contra loop: o resize sintético abaixo não deve reentrar no sync.
-      syncingLayoutRef.current = true;
-      try { window.dispatchEvent(new Event('resize')); } catch {}
-      window.setTimeout(() => { syncingLayoutRef.current = false; }, 0);
-    };
-    requestAnimationFrame(apply);
-    window.setTimeout(apply, 120);
-    window.setTimeout(apply, 450);
-    // iOS reporta as novas dimensões só depois que a animação de rotação termina.
-    window.setTimeout(apply, 900);
-  }, []);
-
-
-
   const requestFullscreen = useCallback(async (preferredTarget?: HTMLElement | null) => {
-
     const videoContainer = document.getElementById('yt-fullscreen-container') as HTMLElement | null;
     const offlinePlayer = document.getElementById('offline-player') as HTMLVideoElement | null;
 
@@ -1472,8 +1358,6 @@ export function useYouTubePlayer(containerId: string) {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
       trackMetric('fullscreen', 'enter-pseudo');
-      syncPlayerLayout();
-
       setState((s) => (s.isFullscreen ? s : { ...s, isFullscreen: true }));
     };
     trackMetric('fullscreen', 'request');
@@ -1509,13 +1393,11 @@ export function useYouTubePlayer(containerId: string) {
       } catch {
         // orientation lock not supported
       }
-      syncPlayerLayout();
     } catch (err) {
       console.warn("Fullscreen request failed:", err);
       enterPseudoFullscreen();
     }
-  }, [syncPlayerLayout]);
-
+  }, []);
 
   const exitFullscreen = useCallback(async () => {
     const clearPseudo = () => {
@@ -1543,14 +1425,13 @@ export function useYouTubePlayer(containerId: string) {
 
     clearPseudo();
     setState((s) => ({ ...s, isFullscreen: false }));
-    syncPlayerLayout();
 
     try {
       if (screen.orientation && (screen.orientation as any).unlock) {
         (screen.orientation as any).unlock();
       }
     } catch {}
-  }, [syncPlayerLayout]);
+  }, []);
 
   // Track fullscreen state
   useEffect(() => {
@@ -1572,32 +1453,12 @@ export function useYouTubePlayer(containerId: string) {
       trackMetric('fullscreen', 'change', { isFs });
       // Idempotent update — avoid re-rendering (and remounting overlay) when value is unchanged.
       setState((s) => (s.isFullscreen === isFs ? s : { ...s, isFullscreen: isFs }));
-      // Re-mede o iframe: sem isso o YouTube mantém o tamanho anterior e o
-      // vídeo aparece preto/cortado ao entrar ou sair da tela cheia (mobile).
-      syncPlayerLayout();
-    };
-    // Rotação de tela / mudança de viewport em tela cheia também exige re-medição.
-    // Alguns Androids não disparam `orientationchange` — só `resize` (window ou
-    // visualViewport). Ouvimos todos, com guarda contra o resize sintético.
-    const handleViewportChange = () => {
-      if (syncingLayoutRef.current) return;
-      syncPlayerLayout();
     };
     document.addEventListener("fullscreenchange", handleFsChange);
     document.addEventListener("webkitfullscreenchange", handleFsChange);
-    window.addEventListener("orientationchange", handleViewportChange);
-    window.addEventListener("resize", handleViewportChange);
-    try { (window as any)?.visualViewport?.addEventListener?.("resize", handleViewportChange); } catch {}
-    try { (screen as any)?.orientation?.addEventListener?.("change", handleViewportChange); } catch {}
-
     return () => {
       document.removeEventListener("fullscreenchange", handleFsChange);
       document.removeEventListener("webkitfullscreenchange", handleFsChange);
-      window.removeEventListener("orientationchange", handleViewportChange);
-      window.removeEventListener("resize", handleViewportChange);
-      try { (window as any)?.visualViewport?.removeEventListener?.("resize", handleViewportChange); } catch {}
-      try { (screen as any)?.orientation?.removeEventListener?.("change", handleViewportChange); } catch {}
-
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
       if (pseudoFullscreenRef.current) {
@@ -1605,8 +1466,7 @@ export function useYouTubePlayer(containerId: string) {
       }
       pseudoFullscreenRef.current = null;
     };
-  }, [syncPlayerLayout]);
-
+  }, []);
 
   const requestAirPlay = useCallback(async (mode: 'audio' | 'video') => {
     try {

@@ -163,7 +163,7 @@ describe("FullscreenOverlay — pinch/pan/double-tap gestures", () => {
     vi.useRealTimers();
   });
 
-  it("resets zoom/pan on orientation change so the letterbox recenters", () => {
+  it("re-clamps pan on orientation change to keep player within bounds", () => {
     const { container } = render(<FullscreenOverlay {...makeProps()} />);
     const surface = container.firstChild as Element;
 
@@ -181,19 +181,21 @@ describe("FullscreenOverlay — pinch/pan/double-tap gestures", () => {
     const before = parseTransform();
     expect(before.s).toBeGreaterThan(1.5);
 
-    // Rotate to portrait — swap dims. Handler resets zoom + inline transform.
+    // Rotate to portrait — swap dims. Handler re-clamps via rAF.
     act(() => {
       setPlayerRect(720, 1280);
       window.dispatchEvent(new Event("orientationchange"));
     });
 
     const after = parseTransform();
-    // Neutral state: scale back to 1 and perfectly centered (no residual offset).
-    expect(after.s).toBeCloseTo(1, 2);
-    expect(Math.abs(after.tx)).toBeLessThanOrEqual(0.5);
-    expect(Math.abs(after.ty)).toBeLessThanOrEqual(0.5);
+    // After rotation, bounds tighten on x and loosen on y; pan must be within them.
+    const maxX = (720 * after.s - 720) / 2;
+    const maxY = (1280 * after.s - 1280) / 2;
+    expect(Math.abs(after.tx)).toBeLessThanOrEqual(maxX + 1);
+    expect(Math.abs(after.ty)).toBeLessThanOrEqual(maxY + 1);
+    // Scale is preserved (not distorted).
+    expect(after.s).toBeCloseTo(before.s, 2);
   });
-
 
   it("fully resets transform when unmounted mid-gesture (exit fullscreen)", () => {
     const { container, unmount } = render(<FullscreenOverlay {...makeProps()} />);
