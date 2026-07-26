@@ -1652,7 +1652,7 @@ const Index = () => {
           id="yt-fullscreen-container"
           className={
             playerState.isFullscreen
-              ? "fixed inset-0 z-[10000] bg-black"
+              ? "app-fullscreen fixed inset-0 z-[10000] bg-black flex items-center justify-center"
               : isRailMode
                 ? "fixed left-0 right-0 md:left-4 md:right-[calc(var(--xerife-video-rail)+32px)] z-[60] top-[env(safe-area-inset-top)] md:top-[90px] bg-black"
                 : isMusicVideoMode
@@ -1663,7 +1663,7 @@ const Index = () => {
           }
           style={
             playerState.isFullscreen
-              ? { width: '100vw', height: '100vh' }
+              ? {}
               : isRailMode
                 ? { height: 'var(--xerife-video-h)' }
                 : isMusicVideoMode
