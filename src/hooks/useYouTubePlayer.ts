@@ -1416,14 +1416,19 @@ export function useYouTubePlayer(containerId: string) {
           const offRatio = r.height > 0 && Math.abs(r.width / r.height - RATIO) > RATIO * 0.02;
           const ifr = iframe?.getBoundingClientRect();
           const iframeMismatch = !!ifr && (ifr.width < 8 || ifr.height < 8 || Math.abs(ifr.width - r.width) > 2);
-          if (degenerate || offRatio || iframeMismatch) applyPixelFallback(holder, iframe);
+          // Uma vez em modo fallback, recalculamos sempre (rotação muda a caixa
+          // disponível e o tamanho fixo anterior ficaria obsoleto/cortado).
+          const alreadyFallback = holder.dataset.ytLetterboxFallback === '1';
+          if (degenerate || offRatio || iframeMismatch || alreadyFallback) applyPixelFallback(holder, iframe);
         } else {
           // Fora da tela cheia: limpa qualquer tamanho fixo aplicado pelo fallback.
+          delete holder.dataset.ytLetterboxFallback;
           holder.style.removeProperty('width');
           holder.style.removeProperty('height');
           holder.style.removeProperty('margin');
           holder.style.removeProperty('flex');
         }
+
       }
 
       // Guarda contra loop: o resize sintético abaixo não deve reentrar no sync.
