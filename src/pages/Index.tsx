@@ -1539,6 +1539,32 @@ const Index = () => {
   const greetingHour = new Date().getHours();
   const greeting = greetingHour < 12 ? "Bom dia" : greetingHour < 18 ? "Boa tarde" : "Boa noite";
 
+  // Artistas frequentes: derivados do histórico (Ouvir novamente) + destaques.
+  const frequentArtists = (() => {
+    const counts = new Map<string, { name: string; image: string; n: number }>();
+    for (const s of [...listenAgainSongs, ...forYouSongs]) {
+      const name = (s.artist || "").trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      const cur = counts.get(key);
+      if (cur) cur.n += 1;
+      else counts.set(key, { name, image: s.cover, n: 1 });
+    }
+    return [...counts.values()].sort((a, b) => b.n - a.n).slice(0, 12);
+  })();
+
+  // Chips de humor/atividade → dispara uma busca no módulo de busca.
+  const moodChips = [
+    { label: "Energia", query: "músicas animadas para energia" },
+    { label: "Treino", query: "playlist treino academia" },
+    { label: "Foco", query: "música para foco concentração" },
+    { label: "Relax", query: "músicas relaxantes acústicas" },
+    { label: "Sertanejo", query: "sertanejo 2025" },
+    { label: "Pagode", query: "pagode романти" .replace("романти", "romântico") },
+    { label: "Festa", query: "festa hits para dançar" },
+  ];
+
+
   return (
     <MotionConfig reducedMotion="user">
       <>
