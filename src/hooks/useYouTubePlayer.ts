@@ -1332,7 +1332,42 @@ export function useYouTubePlayer(containerId: string) {
     }
   }, [state.videoId]);
 
+  /**
+   * Força o iframe do YouTube a re-medir o próprio layout.
+   * Em iOS/Android, ao entrar ou sair de tela cheia o iframe mantém a largura/
+   * altura antigas (atributos width/height definidos pela IFrame API), o que
+   * resulta em um retângulo preto "sem conteúdo". Aqui zeramos transformações
+   * residuais (pinch-zoom), forçamos 100%/100% e pedimos um resize ao player.
+   */
+  const syncPlayerLayout = useCallback(() => {
+    const apply = () => {
+      const holder = document.getElementById('yt-player') as HTMLElement | null;
+      if (holder) {
+        // Remove transform residual do pinch-zoom: ele pode deslocar/ocultar o vídeo.
+        holder.style.transform = '';
+        holder.style.transformOrigin = '';
+      }
+      const iframe = (playerRef.current?.getIframe?.() as HTMLIFrameElement | null)
+        || (holder?.querySelector('iframe') as HTMLIFrameElement | null);
+      if (iframe) {
+        const box = (iframe.parentElement || holder)?.getBoundingClientRect();
+        const w = Math.max(1, Math.round(box?.width || 0));
+        const h = Math.max(1, Math.round(box?.height || 0));
+        iframe.setAttribute('width', String(w));
+        iframe.setAttribute('height', String(h));
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        try { playerRef.current?.setSize?.(w, h); } catch {}
+      }
+      try { window.dispatchEvent(new Event('resize')); } catch {}
+    };
+    requestAnimationFrame(apply);
+    window.setTimeout(apply, 120);
+    window.setTimeout(apply, 450);
+  }, []);
+
   const requestFullscreen = useCallback(async (preferredTarget?: HTMLElement | null) => {
+
     const videoContainer = document.getElementById('yt-fullscreen-container') as HTMLElement | null;
     const offlinePlayer = document.getElementById('offline-player') as HTMLVideoElement | null;
 
@@ -1358,6 +1393,8 @@ export function useYouTubePlayer(containerId: string) {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
       trackMetric('fullscreen', 'enter-pseudo');
+      syncPlayerLayout();
+
       setState((s) => (s.isFullscreen ? s : { ...s, isFullscreen: true }));
     };
     trackMetric('fullscreen', 'request');
@@ -1393,11 +1430,13 @@ export function useYouTubePlayer(containerId: string) {
       } catch {
         // orientation lock not supported
       }
+      syncPlayerLayout();
     } catch (err) {
       console.warn("Fullscreen request failed:", err);
       enterPseudoFullscreen();
     }
-  }, []);
+  }, [syncPlayerLayout]);
+
 
   const exitFullscreen = useCallback(async () => {
     const clearPseudo = () => {
@@ -1425,13 +1464,14 @@ export function useYouTubePlayer(containerId: string) {
 
     clearPseudo();
     setState((s) => ({ ...s, isFullscreen: false }));
+    syncPlayerLayout();
 
     try {
       if (screen.orientation && (screen.orientation as any).unlock) {
         (screen.orientation as any).unlock();
       }
     } catch {}
-  }, []);
+  }, [syncPlayerLayout]);
 
   // Track fullscreen state
   useEffect(() => {
@@ -1453,12 +1493,22 @@ export function useYouTubePlayer(containerId: string) {
       trackMetric('fullscreen', 'change', { isFs });
       // Idempotent update — avoid re-rendering (and remounting overlay) when value is unchanged.
       setState((s) => (s.isFullscreen === isFs ? s : { ...s, isFullscreen: isFs }));
+      // Re-mede o iframe: sem isso o YouTube mantém o tamanho anterior e o
+      // vídeo aparece preto/cortado ao entrar ou sair da tela cheia (mobile).
+      syncPlayerLayout();
     };
+    // Rotação de tela / mudança de viewport em tela cheia também exige re-medição.
+    const handleViewportChange = () => syncPlayerLayout();
     document.addEventListener("fullscreenchange", handleFsChange);
     document.addEventListener("webkitfullscreenchange", handleFsChange);
+    window.addEventListener("orientationchange", handleViewportChange);
+    try { (screen as any)?.orientation?.addEventListener?.("change", handleViewportChange); } catch {}
+
     return () => {
       document.removeEventListener("fullscreenchange", handleFsChange);
       document.removeEventListener("webkitfullscreenchange", handleFsChange);
+      window.removeEventListener("orientationchange", handleViewportChange);
+      try { (screen as any)?.orientation?.removeEventListener?.("change", handleViewportChange); } catch {}
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
       if (pseudoFullscreenRef.current) {
@@ -1466,7 +1516,8 @@ export function useYouTubePlayer(containerId: string) {
       }
       pseudoFullscreenRef.current = null;
     };
-  }, []);
+  }, [syncPlayerLayout]);
+
 
   const requestAirPlay = useCallback(async (mode: 'audio' | 'video') => {
     try {
