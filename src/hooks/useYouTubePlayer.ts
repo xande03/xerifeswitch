@@ -1168,7 +1168,29 @@ export function useYouTubePlayer(containerId: string) {
     requestWakeLock();
     playerRef.current?.playVideo?.();
     applyVolumeToPlayer(targetVolumeRef.current);
+
+    // Em segundo plano / tela bloqueada o iframe pode ignorar o primeiro
+    // playVideo() (sessão de áudio ainda reativando). Tentamos novamente.
+    if (document.visibilityState === 'hidden') {
+      [200, 600, 1200].forEach((delay) => {
+        window.setTimeout(() => {
+          if (!shouldBePlayingRef.current || userPausedRef.current) return;
+          try {
+            const st = playerRef.current?.getPlayerState?.();
+            const YTStates = window.YT?.PlayerState;
+            if (!YTStates || (st !== YTStates.PLAYING && st !== YTStates.BUFFERING)) {
+              ensureSilentAudio().play().catch(() => {});
+              ensureProxyAudio().play().catch(() => {});
+              resumeAudioContext();
+              playerRef.current?.playVideo?.();
+              applyVolumeToPlayer(targetVolumeRef.current);
+            }
+          } catch {}
+        }, delay);
+      });
+    }
   }, [applyVolumeToPlayer, clearUserPausedFlag]);
+
 
   const pause = useCallback(() => {
     trackMetric('pause', 'player', { hidden: document.visibilityState === 'hidden' });
