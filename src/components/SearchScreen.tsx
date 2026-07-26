@@ -34,6 +34,17 @@ const GENRES = [
   { label: "Pagode", gradient: "from-lime-500 to-green-600" },
 ];
 
+const MOOD_CHIPS = [
+  { label: "Energia", query: "músicas animadas para energia" },
+  { label: "Treino", query: "playlist treino academia" },
+  { label: "Foco", query: "música para foco concentração" },
+  { label: "Relax", query: "músicas relaxantes acústicas" },
+  { label: "Sertanejo", query: "sertanejo 2025" },
+  { label: "Pagode", query: "pagode romântico" },
+  { label: "Festa", query: "festa hits para dançar" },
+];
+
+
 const FILTERS: { id: MusicFilter; label: string }[] = [
   { id: "songs", label: "Músicas" },
   { id: "all", label: "Tudo" },
@@ -235,6 +246,21 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
           </div>
         )}
       </form>
+
+      {/* Mood chips — atalhos de humor / estilo */}
+      <HorizontalScroll className="flex gap-2">
+        {MOOD_CHIPS.map((chip) => (
+          <button
+            key={chip.label}
+            type="button"
+            onClick={() => handleInput(chip.query)}
+            className="flex-shrink-0 px-4 py-1.5 rounded-full bg-secondary/70 hover:bg-primary/20 hover:text-primary border border-border/40 text-sm font-medium text-foreground whitespace-nowrap transition-colors active:scale-95"
+          >
+            {chip.label}
+          </button>
+        ))}
+      </HorizontalScroll>
+
 
       {/* Filter chips — visible when there's a query */}
       {query.length >= 2 && (
