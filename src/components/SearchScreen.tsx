@@ -34,6 +34,17 @@ const GENRES = [
   { label: "Pagode", gradient: "from-lime-500 to-green-600" },
 ];
 
+const MOOD_CHIPS = [
+  { label: "Energia", query: "músicas animadas para energia" },
+  { label: "Treino", query: "playlist treino academia" },
+  { label: "Foco", query: "música para foco concentração" },
+  { label: "Relax", query: "músicas relaxantes acústicas" },
+  { label: "Sertanejo", query: "sertanejo 2025" },
+  { label: "Pagode", query: "pagode romântico" },
+  { label: "Festa", query: "festa hits para dançar" },
+];
+
+
 const FILTERS: { id: MusicFilter; label: string }[] = [
   { id: "songs", label: "Músicas" },
   { id: "all", label: "Tudo" },
