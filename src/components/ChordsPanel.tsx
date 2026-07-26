@@ -244,7 +244,12 @@ const ChordsPanel = ({
   const externalUrl = data?.url || cifraClubFallbackUrl(artist, title);
 
   return (
-    <div className={`flex flex-col min-h-0 ${className}`}>
+    <div
+      data-chords-theme={panelTheme}
+      className={`flex flex-col min-h-0 bg-background text-foreground ${
+        panelTheme === "light" ? "chords-scope-light" : "chords-scope-dark"
+      } ${className}`}
+    >
       {resizable && (
         <div
           role="separator"
