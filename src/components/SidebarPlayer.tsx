@@ -158,7 +158,8 @@ const SidebarPlayer = ({
           { icon: Download, label: "Baixar música", onClick: onDownload, active: false, toggle: false },
           { icon: Share2, label: "Compartilhar", onClick: onShare, active: false, toggle: false },
         ]
-          .filter((b): b is { icon: typeof Mic2; label: string; onClick?: () => void; active: boolean; toggle: boolean } => !!b && !!b.onClick)
+          .filter((b) => !!b && !!b.onClick)
+          .map((b) => b as { icon: typeof Mic2; label: string; onClick: () => void; active: boolean; toggle: boolean })
           .map((b) => {
             const done = flash === b.label;
             return (
