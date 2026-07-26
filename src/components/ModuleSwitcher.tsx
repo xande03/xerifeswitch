@@ -137,10 +137,11 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
               <button
+                ref={triggerRef}
                 aria-label="Alternar entre Music, Vídeos e Podcasts"
                 aria-haspopup="dialog"
                 aria-expanded={open}
-                className="relative inline-flex items-center justify-center w-9 h-9 rounded-full border transition-colors"
+                className="relative inline-flex items-center justify-center w-9 h-9 rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 style={{
                   color: activeTones.fg,
                   backgroundColor: open ? activeTones.bgHover : activeTones.bg,
@@ -159,9 +160,22 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
         align="center"
         sideOffset={12}
         collisionPadding={12}
+        aria-label="Alternar sessão"
         onPointerDownOutside={() => setOpen(false)}
-        onEscapeKeyDown={() => setOpen(false)}
-        className="z-50 w-[min(20rem,calc(100vw-24px))] sm:w-80 p-2.5 sm:p-2 rounded-2xl border border-border/70 bg-popover/95 backdrop-blur-xl shadow-2xl ring-1 ring-foreground/5 origin-top will-change-transform data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:duration-300 data-[state=closed]:duration-150 data-[state=open]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[state=closed]:ease-[cubic-bezier(0.4,0,1,1)] data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-3 data-[state=closed]:slide-out-to-top-1 motion-reduce:transition-none motion-reduce:animate-none motion-reduce:data-[state=open]:animate-none motion-reduce:data-[state=closed]:animate-none"
+        onEscapeKeyDown={() => {
+          setOpen(false);
+          window.setTimeout(() => triggerRef.current?.focus(), 0);
+        }}
+        onCloseAutoFocus={(e) => {
+          e.preventDefault();
+          triggerRef.current?.focus();
+        }}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          const idx = Math.max(0, MODULE_IDS.indexOf(active));
+          (itemRefs.current[idx] ?? itemRefs.current[0])?.focus();
+        }}
+        className="z-50 w-[min(20rem,calc(100vw-20px))] sm:w-80 max-h-[calc(100dvh-5rem)] overflow-y-auto p-2.5 sm:p-2 rounded-2xl border border-border/70 bg-popover/95 backdrop-blur-xl shadow-2xl ring-1 ring-foreground/5 origin-top will-change-transform data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:duration-300 data-[state=closed]:duration-150 data-[state=open]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[state=closed]:ease-[cubic-bezier(0.4,0,1,1)] data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-3 data-[state=closed]:slide-out-to-top-1 motion-reduce:transition-none motion-reduce:animate-none motion-reduce:data-[state=open]:animate-none motion-reduce:data-[state=closed]:animate-none"
         style={{
           boxShadow:
             "0 20px 50px -18px hsl(var(--foreground) / 0.35), 0 8px 22px -14px hsl(var(--foreground) / 0.22), 0 0 0 1px hsl(var(--border) / 0.6), inset 0 1px 0 hsl(var(--foreground) / 0.05)",
@@ -195,18 +209,26 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
             Atual
           </span>
         </div>
-        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-          {(Object.keys(MODULE_LABEL) as SwitchableModule[]).map((id, idx) => {
+        <div
+          role="group"
+          aria-label="Sessões disponíveis"
+          onKeyDown={handleGridKeyDown}
+          className="grid grid-cols-3 gap-1.5 sm:gap-2"
+        >
+          {MODULE_IDS.map((id, idx) => {
             const Icon = MODULE_ICON[id];
             const tones = getModuleTones(MODULE_COLOR[id], isLight);
             const isActive = id === active;
             return (
               <button
                 key={id}
+                ref={(el) => {
+                  itemRefs.current[idx] = el;
+                }}
                 onClick={() => handle(id)}
                 aria-pressed={isActive}
                 aria-current={isActive ? "true" : undefined}
-        className="group relative flex flex-col items-center justify-center gap-1.5 px-1.5 py-3 rounded-xl transition-all duration-200 ease-out hover:bg-muted/60 active:scale-[0.97] focus:outline-none focus-visible:ring-2 animate-enter motion-reduce:transition-none motion-reduce:animate-none motion-reduce:active:scale-100"
+                className="group relative flex flex-col items-center justify-center gap-1.5 px-1.5 py-3 min-h-[4.25rem] rounded-xl transition-all duration-200 ease-out hover:bg-muted/60 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover animate-enter motion-reduce:transition-none motion-reduce:animate-none motion-reduce:active:scale-100"
                 style={{
                   boxShadow: isActive ? `inset 0 0 0 1px ${tones.ring}` : "none",
                   backgroundColor: isActive ? tones.bg : "transparent",
