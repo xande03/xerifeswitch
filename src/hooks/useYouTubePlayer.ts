@@ -1507,6 +1507,8 @@ export function useYouTubePlayer(containerId: string) {
     return () => {
       document.removeEventListener("fullscreenchange", handleFsChange);
       document.removeEventListener("webkitfullscreenchange", handleFsChange);
+      window.removeEventListener("orientationchange", handleViewportChange);
+      try { (screen as any)?.orientation?.removeEventListener?.("change", handleViewportChange); } catch {}
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
       if (pseudoFullscreenRef.current) {
@@ -1514,7 +1516,8 @@ export function useYouTubePlayer(containerId: string) {
       }
       pseudoFullscreenRef.current = null;
     };
-  }, []);
+  }, [syncPlayerLayout]);
+
 
   const requestAirPlay = useCallback(async (mode: 'audio' | 'video') => {
     try {
