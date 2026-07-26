@@ -8,8 +8,9 @@ import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { mockSongs, Song, sortByVotes } from "@/data/mockSongs";
+import { getCycleId } from "@/lib/refreshCycle";
 import { saveSong, getAllSavedSongs, StoredSong, getSong } from "@/lib/indexedDB";
-import { getDeviceId, getVotedSongs, addVotedSong, removeVotedSong, saveQueueState, getQueueState, saveCurrentSong, getCurrentSongId, saveVolume, getVolume, addToHistory, getHistory, clearHistory, type HistoryEntry, getFavoritesMetadata, saveFavoriteMetadata, removeFavoriteMetadata, getPlaylists, savePlaylist, deletePlaylist, addSongToPlaylist, Playlist, saveMediaType, getMediaType } from "@/lib/localStorage";
+import { getDeviceId, getVotedSongs, addVotedSong, removeVotedSong, saveQueueState, getQueueState, saveCurrentSong, getCurrentSongId, saveVolume, getVolume, addToHistory, getHistory, clearHistory, type HistoryEntry, getFavoritesMetadata, saveFavoriteMetadata, removeFavoriteMetadata, getPlaylists, savePlaylist, deletePlaylist, addSongToPlaylist, Playlist, saveMediaType, getMediaType, getSearchHistory } from "@/lib/localStorage";
 import { useYouTubePlayer } from "@/hooks/useYouTubePlayer";
 import { useNativeCapabilities } from "@/hooks/useNativeCapabilities";
 import { useTrendingMusic } from "@/hooks/useTrendingMusic";
@@ -1438,6 +1439,13 @@ const Index = () => {
     return false;
   });
 
+  // Termos pesquisados no módulo "Explorar" (localStorage) — usados para que o
+  // conteúdo do Início reflita o interesse recente do usuário.
+  const searchedTerms = getSearchHistory()
+    .slice(0, 12)
+    .map(e => (e.q || "").trim().toLowerCase())
+    .filter(q => q.length >= 3);
+
   // "Ouvir novamente": already-heard tracks, rotated per session so the
   // ordering varies between reloads while still coming from real history.
   const listenAgainSongs: Song[] = (() => {
@@ -1451,9 +1459,9 @@ const Index = () => {
         album: e.album, cover: e.cover, duration: e.duration, votes: 0, isDownloaded: false,
       }));
     if (base.length === 0) return [];
-    // Deterministic shuffle seeded by session so it's stable within a session
-    // but rotates on next reload.
-    const seed = listenAgainSeed.current;
+    // Embaralhamento determinístico ancorado no ciclo de 5 dias: a ordem
+    // permanece estável durante o ciclo e só rotaciona quando ele vira.
+    const seed = getCycleId();
     const arr = [...base];
     for (let i = arr.length - 1; i > 0; i--) {
       const x = Math.sin(seed + i) * 10000;
@@ -1461,8 +1469,16 @@ const Index = () => {
       const j = Math.floor(r * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
     }
-    return arr;
+    // Prioriza o que combina com o que foi pesquisado no módulo "Explorar".
+    const terms = searchedTerms;
+    if (terms.length === 0) return arr;
+    const matches = (s: Song) => {
+      const hay = `${s.title} ${s.artist} ${s.album}`.toLowerCase();
+      return terms.some(t => hay.includes(t));
+    };
+    return [...arr.filter(matches), ...arr.filter(s => !matches(s))];
   })();
+
 
   const personalizedSongs = (() => {
     const seen = new Set<string>();
@@ -1501,7 +1517,13 @@ const Index = () => {
       seen.add(k);
       merged.push(s);
     }
-    return merged;
+    // Sobe o que combina com as buscas feitas no módulo "Explorar".
+    if (searchedTerms.length === 0) return merged;
+    const matchesSearch = (s: Song) => {
+      const hay = `${s.title} ${s.artist} ${s.album}`.toLowerCase();
+      return searchedTerms.some(t => hay.includes(t));
+    };
+    return [...merged.filter(matchesSearch), ...merged.filter(s => !matchesSearch(s))];
   })();
 
   // Trending data: use real YouTube trending if available, fallback to mock

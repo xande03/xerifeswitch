@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import type { Song } from "@/data/mockSongs";
 import { createFunctionHeadersWithIp, createFunctionUrl, getBackendConfig } from "@/lib/backendConfig";
+import { CYCLE_MS, getCycleId, isSameCycle } from "@/lib/refreshCycle";
 
-const TRENDING_CACHE_KEY = "demus_trending_cache_v2";
-// Stale-while-revalidate: fresh window vs absolute max age.
-const FRESH_MS = 60 * 60 * 1000;             // 1h fresh
-const MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;  // 3d hard cap
+const TRENDING_CACHE_KEY = "demus_trending_cache_v3";
+// O Top 10 é congelado dentro da janela de 5 dias (mesmo ciclo das sugestões).
+const MAX_AGE_MS = CYCLE_MS;
 
 // One-time cleanup of old cache that may contain stale fallback songs
 try { localStorage.removeItem("demus_trending_cache"); } catch {}
@@ -22,6 +22,7 @@ function getCachedTrending(): CachedTrending | null {
     const cached: CachedTrending = JSON.parse(raw);
     if (!cached.songs?.length) return null;
     if (Date.now() - cached.ts > MAX_AGE_MS) return null;
+    if (!isSameCycle(cached.ts)) return null; // virou o ciclo de 5 dias
     return cached;
   } catch {
     return null;
@@ -126,10 +127,9 @@ export function useTrendingMusic() {
     const load = async () => {
       const cached = getCachedTrending();
       if (cached) {
+        // Dentro do ciclo de 5 dias o Top 10 permanece estável — sem revalidar.
         setTrendingSongs(cached.songs);
         setIsLoading(false);
-        // Always revalidate on app open so new releases surface in near real-time
-        refresh(false);
       } else {
         await refresh(true);
       }
@@ -137,13 +137,14 @@ export function useTrendingMusic() {
 
     load();
 
-    const onFocus = () => refresh(false);
+    // Só recarrega quando o ciclo de 5 dias virou.
+    const onFocus = () => { if (!getCachedTrending()) refresh(false); };
     const onVisibility = () => { if (document.visibilityState === "visible") onFocus(); };
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
 
     // Periodic revalidation while tab remains open
-    const intervalId = setInterval(() => refresh(false), FRESH_MS);
+    const intervalId = setInterval(() => { if (!getCachedTrending()) refresh(false); }, 60 * 60 * 1000);
 
     return () => {
       cancelled = true;
