@@ -129,12 +129,12 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
       </TooltipProvider>
 
       <PopoverContent
-        align="end"
+        align="center"
         sideOffset={12}
         collisionPadding={12}
         onPointerDownOutside={() => setOpen(false)}
         onEscapeKeyDown={() => setOpen(false)}
-        className="z-50 w-[min(18rem,calc(100vw-24px))] sm:w-64 p-2.5 sm:p-2 rounded-2xl border border-border/70 bg-popover/95 backdrop-blur-xl shadow-2xl ring-1 ring-foreground/5 origin-top-right data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-2 data-[state=closed]:slide-out-to-top-2 motion-reduce:transition-none motion-reduce:animate-none motion-reduce:data-[state=open]:animate-none motion-reduce:data-[state=closed]:animate-none"
+        className="z-50 w-[min(20rem,calc(100vw-24px))] sm:w-80 p-2.5 sm:p-2 rounded-2xl border border-border/70 bg-popover/95 backdrop-blur-xl shadow-2xl ring-1 ring-foreground/5 origin-top data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-2 data-[state=closed]:slide-out-to-top-2 motion-reduce:transition-none motion-reduce:animate-none motion-reduce:data-[state=open]:animate-none motion-reduce:data-[state=closed]:animate-none"
         style={{
           boxShadow:
             "0 20px 50px -18px hsl(var(--foreground) / 0.35), 0 8px 22px -14px hsl(var(--foreground) / 0.22), 0 0 0 1px hsl(var(--border) / 0.6), inset 0 1px 0 hsl(var(--foreground) / 0.05)",
@@ -168,7 +168,7 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
             Atual
           </span>
         </div>
-        <div className="flex flex-col gap-1.5 sm:gap-1">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
           {(Object.keys(MODULE_LABEL) as SwitchableModule[]).map((id, idx) => {
             const Icon = MODULE_ICON[id];
             const tones = getModuleTones(MODULE_COLOR[id], isLight);
@@ -179,7 +179,7 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
                 onClick={() => handle(id)}
                 aria-pressed={isActive}
                 aria-current={isActive ? "true" : undefined}
-                className="group relative flex items-center gap-3 px-2.5 py-2.5 sm:py-2 rounded-xl text-left transition-all duration-200 ease-out hover:bg-muted/60 hover:translate-x-0.5 active:scale-[0.98] focus:outline-none focus-visible:ring-2 animate-fade-in motion-reduce:transition-none motion-reduce:animate-none motion-reduce:hover:translate-x-0 motion-reduce:active:scale-100"
+                className="group relative flex flex-col items-center justify-center gap-1.5 px-1.5 py-3 rounded-xl transition-all duration-200 ease-out hover:bg-muted/60 active:scale-[0.97] focus:outline-none focus-visible:ring-2 animate-fade-in motion-reduce:transition-none motion-reduce:animate-none motion-reduce:active:scale-100"
                 style={{
                   boxShadow: isActive ? `inset 0 0 0 1px ${tones.ring}` : "none",
                   backgroundColor: isActive ? tones.bg : "transparent",
@@ -189,39 +189,25 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
               >
                 {isActive && (
                   <span
-                    aria-hidden
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full"
-                    style={{ backgroundColor: tones.fg }}
-                  />
+                    aria-label="Módulo ativo"
+                    className="absolute top-1 right-1 inline-flex items-center justify-center w-4 h-4 rounded-full"
+                    style={{ color: tones.fg, backgroundColor: tones.bgActive }}
+                  >
+                    <Check size={10} strokeWidth={3} />
+                  </span>
                 )}
                 <span
-                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-transform duration-200 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-xl transition-transform duration-200 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
                   style={{ color: tones.fg, backgroundColor: tones.bg }}
                 >
-                  <Icon size={16} strokeWidth={2.2} />
+                  <Icon size={18} strokeWidth={2.2} />
                 </span>
-                <span className="flex-1 min-w-0">
-                  <span
-                    className="block text-[13px] font-semibold leading-tight"
-                    style={{ color: isActive ? tones.fg : undefined }}
-                  >
-                    Xerife {MODULE_LABEL[id]}
-                  </span>
-                  <span className="block text-[11px] text-muted-foreground">
-                    {id === "music" && "Faixas, álbuns e artistas"}
-                    {id === "video" && "Videoclipes e canais"}
-                    {id === "podcast" && "Programas e episódios"}
-                  </span>
+                <span
+                  className="text-[11px] font-semibold leading-tight text-center"
+                  style={{ color: isActive ? tones.fg : undefined }}
+                >
+                  {MODULE_LABEL[id]}
                 </span>
-                {isActive && (
-                  <span
-                    aria-label="Módulo ativo"
-                    className="inline-flex items-center justify-center w-5 h-5 rounded-full"
-                    style={{ color: tones.fg, backgroundColor: tones.bg }}
-                  >
-                    <Check size={12} strokeWidth={3} />
-                  </span>
-                )}
               </button>
             );
           })}
