@@ -445,6 +445,7 @@ html, body {
 
 #yt-fullscreen-container:fullscreen #yt-player iframe,
 #yt-fullscreen-container:-webkit-full-screen #yt-player iframe,
+#yt-fullscreen-container.app-fullscreen #yt-player iframe,
 .pseudo-fullscreen #yt-player iframe,
 .pseudo-fullscreen iframe {
   position: absolute !important;
