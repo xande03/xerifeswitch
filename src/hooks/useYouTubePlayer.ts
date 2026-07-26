@@ -548,12 +548,24 @@ export function useYouTubePlayer(containerId: string) {
       return;
     }
 
+    // Player parado sem que o usuário tenha pausado (suspensão do sistema em
+    // background): retoma em vez de assumir estado pausado.
+    if (shouldBePlayingRef.current && !isEnded) {
+      ensureSilentAudio().play().catch(() => {});
+      ensureProxyAudio().play().catch(() => {});
+      resumeAudioContext();
+      try { player?.playVideo?.(); } catch {}
+      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: true, isEnded: false }));
+      return;
+    }
+
     shouldBePlayingRef.current = false; setShouldBePlayingGlobal(false);
     silentAudio?.pause();
     ensureProxyAudio().pause();
     releaseWakeLock();
     setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: false, isEnded: isEnded }));
   }, [checkUserPausedFlag]);
+
 
   // Capture first user gesture for iOS audio unlock
   useEffect(() => {
@@ -720,58 +732,70 @@ export function useYouTubePlayer(containerId: string) {
               shouldBePlaying: shouldBePlayingRef.current,
             });
 
-            // ── CRITICAL: Handle PAUSED state ──
+            // ── Handle PAUSED state ──
             if (paused) {
               const timeSincePause = Date.now() - pauseTimestampRef.current;
-              
-              // If page is hidden, NEVER treat as user pause
-              // The MediaSession API will handle lock screen controls
+
+              // Página oculta (tela bloqueada / app em segundo plano):
+              // se NÃO foi o usuário que pausou, o iOS/Android suspendeu a mídia.
+              // Precisamos reanimar a sessão de áudio e retomar o player,
+              // garantindo continuidade da reprodução.
               if (isHidden) {
-                console.info('[YT] Paused while hidden - ignoring (MediaSession will handle)');
-                // Don't update state, don't mark as user pause
+                if (!userPausedRef.current && !checkUserPausedFlag() && shouldBePlayingRef.current) {
+                  console.info('[YT] Pausa do sistema em background — retomando');
+                  try { ensureSilentAudio().play().catch(() => {}); } catch {}
+                  try { ensureProxyAudio().play().catch(() => {}); } catch {}
+                  resumeAudioContext();
+                  window.setTimeout(() => {
+                    if (
+                      shouldBePlayingRef.current &&
+                      !userPausedRef.current &&
+                      !checkUserPausedFlag()
+                    ) {
+                      try { playerRef.current?.playVideo?.(); } catch {}
+                    }
+                  }, 120);
+                } else {
+                  console.info('[YT] Pausa em background solicitada pelo usuário — mantendo pausado');
+                }
                 return;
               }
-              
-              // If page is visible and we just called pause() (within 500ms), it's legitimate
+
+              // Página visível e acabamos de chamar pause() (dentro de 500ms): legítimo
               if (timeSincePause < 500 && userPausedRef.current) {
                 console.info('[YT] Paused while visible - legitimate user pause');
                 setState((s) => ({ ...s, isPlaying: false, isEnded: false }));
                 return;
               }
-              
-              // If we're supposed to be playing and user hasn't paused, this is a system pause
-              if (shouldBePlayingRef.current && !userPausedRef.current && timeSincePause > 1000) {
-                console.info('[YT] System pause detected - will auto-resume');
-                // Don't mark as user pause, will auto-resume
-              }
             }
 
-            // ── CRITICAL: Handle PLAYING state ──
+            // ── Handle PLAYING state ──
             if (playing) {
-              // If user has explicitly paused, ALWAYS suppress and re-pause
+              // Só suprime se o usuário pausou há muito pouco tempo (proteção
+              // contra o autoplay do iframe imediatamente após um pause).
               if (userPausedRef.current) {
                 const timeSincePause = Date.now() - pauseTimestampRef.current;
-                // Only suppress if pause was recent (within 10 seconds)
-                if (timeSincePause < 10000) {
-                  console.info('[YT] Suppressing play - user has paused recently');
+                if (timeSincePause < 1200) {
+                  console.info('[YT] Suppressing play - pause acabou de acontecer');
                   playerRef.current?.pauseVideo?.();
                   setState((s) => ({ ...s, isPlaying: false, isEnded: false, duration: playerRef.current?.getDuration?.() || s.duration }));
                   return;
-                } else {
-                  // If it's been more than 10 seconds, user probably wants to play now
-                  console.info('[YT] Clearing old pause flag - been too long');
-                  userPausedRef.current = false;
                 }
+                console.info('[YT] Limpando flag de pausa antiga — play permitido');
+                userPausedRef.current = false;
+                clearUserPausedFlag();
               }
 
               shouldBePlayingRef.current = true; setShouldBePlayingGlobal(true);
               errorCountRef.current = 0;
               ensureSilentAudio().play().catch(() => {});
+              ensureProxyAudio().play().catch(() => {});
               resumeAudioContext();
               applyVolumeToPlayer(targetVolumeRef.current);
               // Notify listeners (quality-loading cleanup, etc.) that playback resumed.
               try { window.dispatchEvent(new CustomEvent('demus:playing')); } catch {}
             }
+
 
             // REMOVED: Auto-resume logic for system pauses
             // User must explicitly play if they want to resume
@@ -818,14 +842,22 @@ export function useYouTubePlayer(containerId: string) {
     // When silent audio is interrupted (phone call, Siri, other app),
     // the browser fires pause/play events on audio elements.
     const handleInterruption = () => {
-      // CRITICAL FIX: Don't treat background interruptions as user pause
-      // The MediaSession API will handle lock screen controls properly
+      // Não tratamos interrupções de background como pausa do usuário.
       if (shouldBePlayingRef.current && !userPausedRef.current) {
         hasAudioFocus = false;
         focusLossTime = Date.now();
-        console.info('[AudioFocus] Lost — pausing silently (not marking as user pause)');
+        console.info('[AudioFocus] Lost — reanimando sessão de áudio silenciosa');
+        // Reanima o elemento silencioso para não perder a sessão de áudio
+        // (do contrário o iOS encerra a reprodução em background).
+        window.setTimeout(() => {
+          if (shouldBePlayingRef.current && !userPausedRef.current) {
+            try { ensureSilentAudio().play().catch(() => {}); } catch {}
+            resumeAudioContext();
+          }
+        }, 150);
       }
     };
+
 
     const handleFocusRegain = () => {
       // CRITICAL: NEVER auto-resume, even if we think we should be playing
@@ -862,10 +894,18 @@ export function useYouTubePlayer(containerId: string) {
 
 
       if (document.visibilityState === 'hidden' && shouldBePlayingRef.current && !userPausedRef.current) {
-        // Keep audio session alive but do NOT force-resume the YT player.
+        // Mantém a sessão de áudio viva E garante que o player continue tocando.
         const audio = ensureSilentAudio();
         audio.play().catch(() => {});
+        ensureProxyAudio().play().catch(() => {});
         resumeAudioContext();
+
+        // O iOS/Android costuma suspender o iframe ao sair do app: reanimamos
+        // o player logo após a transição para background.
+        window.setTimeout(() => {
+          if (!shouldBePlayingRef.current || userPausedRef.current || checkUserPausedFlag()) return;
+          try { playerRef.current?.playVideo?.(); } catch {}
+        }, 250);
 
         try {
           navigator.serviceWorker?.controller?.postMessage({
@@ -874,11 +914,12 @@ export function useYouTubePlayer(containerId: string) {
           });
         } catch {}
 
-        // Heartbeat: ONLY keeps silent audio alive. Never calls playVideo().
+        // Heartbeat: mantém áudio silencioso vivo e retoma o player se o
+        // sistema o tiver pausado sem ação do usuário.
         if (!bgIntervalRef.current) {
           const heartbeatInterval = browserRef.current === 'safari' ? 2000 : 3000;
           bgIntervalRef.current = setInterval(() => {
-            if (userPausedRef.current || !shouldBePlayingRef.current) {
+            if (userPausedRef.current || !shouldBePlayingRef.current || checkUserPausedFlag()) {
               clearInterval(bgIntervalRef.current);
               bgIntervalRef.current = undefined;
               return;
@@ -888,6 +929,19 @@ export function useYouTubePlayer(containerId: string) {
             const pa = ensureProxyAudio();
             if (pa.paused) pa.play().catch(() => {});
             resumeAudioContext();
+            // Se o player não está tocando, mas deveria, retoma.
+            try {
+              const st = playerRef.current?.getPlayerState?.();
+              const YTStates = window.YT?.PlayerState;
+              if (
+                YTStates &&
+                st !== YTStates.PLAYING &&
+                st !== YTStates.BUFFERING &&
+                st !== YTStates.ENDED
+              ) {
+                playerRef.current?.playVideo?.();
+              }
+            } catch {}
             try {
               navigator.serviceWorker?.controller?.postMessage({ type: 'HEARTBEAT' });
               localStorage.setItem('__bg_ts', Date.now().toString());
@@ -895,6 +949,7 @@ export function useYouTubePlayer(containerId: string) {
           }, heartbeatInterval);
         }
       } else if (document.visibilityState === 'visible') {
+
         if (bgIntervalRef.current) {
           clearInterval(bgIntervalRef.current);
           bgIntervalRef.current = undefined;
@@ -1125,7 +1180,29 @@ export function useYouTubePlayer(containerId: string) {
     requestWakeLock();
     playerRef.current?.playVideo?.();
     applyVolumeToPlayer(targetVolumeRef.current);
+
+    // Em segundo plano / tela bloqueada o iframe pode ignorar o primeiro
+    // playVideo() (sessão de áudio ainda reativando). Tentamos novamente.
+    if (document.visibilityState === 'hidden') {
+      [200, 600, 1200].forEach((delay) => {
+        window.setTimeout(() => {
+          if (!shouldBePlayingRef.current || userPausedRef.current) return;
+          try {
+            const st = playerRef.current?.getPlayerState?.();
+            const YTStates = window.YT?.PlayerState;
+            if (!YTStates || (st !== YTStates.PLAYING && st !== YTStates.BUFFERING)) {
+              ensureSilentAudio().play().catch(() => {});
+              ensureProxyAudio().play().catch(() => {});
+              resumeAudioContext();
+              playerRef.current?.playVideo?.();
+              applyVolumeToPlayer(targetVolumeRef.current);
+            }
+          } catch {}
+        }, delay);
+      });
+    }
   }, [applyVolumeToPlayer, clearUserPausedFlag]);
+
 
   const pause = useCallback(() => {
     trackMetric('pause', 'player', { hidden: document.visibilityState === 'hidden' });

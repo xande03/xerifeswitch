@@ -31,19 +31,6 @@ interface UseMediaSessionProps {
 
 const SEEK_STEP_SECONDS = 10;
 
-const DEFAULT_PLAY_SUPPRESSION_MS = 2500;
-const IOS_PLAY_SUPPRESSION_MS = 5000;
-
-function getPlaySuppressionMs(): number {
-  if (typeof navigator === 'undefined') return DEFAULT_PLAY_SUPPRESSION_MS;
-
-  const ua = navigator.userAgent.toLowerCase();
-  const isAppleMobile =
-    /iphone|ipad|ipod/.test(ua) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-  return isAppleMobile ? IOS_PLAY_SUPPRESSION_MS : DEFAULT_PLAY_SUPPRESSION_MS;
-}
 
 export function useMediaSession({
   song,
@@ -71,7 +58,7 @@ export function useMediaSession({
   const mediaTypeRef = useRef(mediaType);
   const isPlayingRef = useRef(isPlaying);
   const pauseActionTimestampRef = useRef(0);
-  const playSuppressionMsRef = useRef(getPlaySuppressionMs());
+  
   const nativeDurationKey = Math.floor(duration || 0);
 
   useEffect(() => {
@@ -338,26 +325,22 @@ export function useMediaSession({
 
     const registerAll = () => {
       trySet('play', () => {
-        const timeSincePause = Date.now() - pauseActionTimestampRef.current;
-        if (
-          pauseActionTimestampRef.current > 0 &&
-          timeSincePause < playSuppressionMsRef.current
-        ) {
-          syncPlaybackState('paused');
-          if (proxyAudioRef.current && !proxyAudioRef.current.paused) {
-            suppressProxyEvents();
-            proxyAudioRef.current.pause();
-          }
-          return;
-        }
+        // O comando de play vindo do OS (tela bloqueada / Control Center) é
+        // sempre uma ação explícita do usuário: nunca deve ser suprimido.
         console.info('[MediaSession] Play action triggered by OS');
+        pauseActionTimestampRef.current = 0;
         syncPlaybackState('playing');
-        onPlayRef.current();
         if (proxyAudioRef.current?.paused) {
           suppressProxyEvents();
           proxyAudioRef.current.play().catch(() => {});
         }
+        onPlayRef.current();
+        // Reforço: alguns iframes só retomam após a sessão de áudio reativar.
+        setTimeout(() => {
+          if (!isPlayingRef.current) onPlayRef.current();
+        }, 250);
       });
+
 
       trySet('pause', () => {
         pauseActionTimestampRef.current = Date.now();
