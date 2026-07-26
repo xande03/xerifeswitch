@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 import { Music, MonitorPlay, Headphones, Repeat2, Check } from "lucide-react";
 import {
   Popover,
@@ -39,15 +39,21 @@ interface Props {
   onSelect: (m: SwitchableModule) => void;
 }
 
+const MODULE_IDS = Object.keys(MODULE_LABEL) as SwitchableModule[];
+
 const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props) {
   const [open, setOpen] = useState(false);
   const [transitionTo, setTransitionTo] = useState<SwitchableModule | null>(null);
   const { isLight } = useTheme();
   const activeTones = getModuleTones(MODULE_COLOR[active], isLight);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const handle = useCallback(
     (m: SwitchableModule) => {
       setOpen(false);
+      // Devolve o foco ao gatilho ao fechar via seleção.
+      window.setTimeout(() => triggerRef.current?.focus(), 0);
       if (m === active) return;
       setTransitionTo(m);
       window.setTimeout(() => onSelect(m), 220);
@@ -55,6 +61,27 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
     },
     [onSelect, active],
   );
+
+  // Navegação por teclado entre os 3 botões (setas, Home/End).
+  const handleGridKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      const keys = ["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp", "Home", "End"];
+      if (!keys.includes(e.key)) return;
+      e.preventDefault();
+      const items = itemRefs.current.filter(Boolean) as HTMLButtonElement[];
+      if (!items.length) return;
+      const current = items.findIndex((el) => el === document.activeElement);
+      let next = current < 0 ? 0 : current;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (next + 1) % items.length;
+      else if (e.key === "ArrowLeft" || e.key === "ArrowUp")
+        next = (next - 1 + items.length) % items.length;
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = items.length - 1;
+      items[next]?.focus();
+    },
+    [],
+  );
+
 
   const TransitionIcon = transitionTo ? MODULE_ICON[transitionTo] : Music;
   const transitionTones = getModuleTones(
