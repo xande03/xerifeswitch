@@ -1601,17 +1601,13 @@ const Index = () => {
               onVolumeChange={setVolumeState}
               isShuffled={isShuffled}
               onShuffle={handleShuffle}
-              activeModule={podcastMode ? "podcast" : homeMode === "video" ? "video" : "music"}
-              onSelectModule={(m) => {
-                if (m === "podcast") {
-                  setPodcastMode(true);
-                  setActiveTab("podcast");
-                } else {
-                  setPodcastMode(false);
-                  setHomeMode(m);
-                  setActiveTab("home");
-                }
-              }}
+              isLiked={votedSongs.has(currentSong.id)}
+              onLike={() => handleVote(currentSong)}
+              onLyrics={() => { setPlayerMode("lyrics"); setExpanded(true); }}
+              onVideo={() => { setPlayerMode("video"); setExpanded(true); }}
+              onDownload={() => handleDownload(currentSong)}
+              onShare={() => handleShare(currentSong)}
+
 
             />
           }

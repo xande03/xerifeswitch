@@ -1,17 +1,8 @@
-import { Play, Pause, SkipBack, SkipForward, Volume2, Music, MonitorPlay, Headphones } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, Music, Heart, Mic2, Video, Download, Share2 } from "lucide-react";
 import { Song, formatDuration } from "@/data/mockSongs";
 import { hdThumbnail } from "@/lib/utils";
 import SeekBar from "@/components/SeekBar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { MODULE_COLOR, MODULE_LABEL, type SwitchableModule } from "@/components/ModuleSwitcher";
-import { getModuleTones } from "@/lib/moduleTones";
-import { useTheme } from "@/hooks/useTheme";
-
-const MODULE_ICON: Record<SwitchableModule, typeof Music> = {
-  music: Music,
-  video: MonitorPlay,
-  podcast: Headphones,
-};
 
 interface SidebarPlayerProps {
   song?: Song | null;
@@ -28,8 +19,12 @@ interface SidebarPlayerProps {
   isShuffled?: boolean;
   onShuffle?: () => void;
   collapsed?: boolean;
-  activeModule?: SwitchableModule;
-  onSelectModule?: (m: SwitchableModule) => void;
+  isLiked?: boolean;
+  onLike?: () => void;
+  onLyrics?: () => void;
+  onVideo?: () => void;
+  onDownload?: () => void;
+  onShare?: () => void;
 }
 
 
@@ -46,11 +41,14 @@ const SidebarPlayer = ({
   onSeek,
   onVolumeChange,
   collapsed = false,
-  activeModule,
-  onSelectModule,
+  isLiked = false,
+  onLike,
+  onLyrics,
+  onVideo,
+  onDownload,
+  onShare,
 }: SidebarPlayerProps) => {
   const progress = duration > 0 ? currentTime / duration : 0;
-  const { isLight } = useTheme();
 
 
   if (!song) return null;
@@ -100,43 +98,43 @@ const SidebarPlayer = ({
         <p className="text-[11px] text-muted-foreground truncate">{song.artist}</p>
       </div>
 
-      {/* Pílula de módulos da sessão */}
-      {activeModule && (
-        <div
-          role="group"
-          aria-label="Alternar sessão"
-          className="flex items-center justify-between gap-1 p-1 rounded-full border border-border bg-secondary/70"
-        >
-          {(Object.keys(MODULE_LABEL) as SwitchableModule[]).map((id) => {
-            const Icon = MODULE_ICON[id];
-            const tones = getModuleTones(MODULE_COLOR[id], isLight);
-            const isActive = id === activeModule;
-            return (
-              <Tooltip key={id} delayDuration={200}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => onSelectModule?.(id)}
-                    aria-label={`Xerife ${MODULE_LABEL[id]}`}
-                    aria-pressed={isActive}
-                    className="flex-1 h-8 rounded-full flex items-center justify-center transition-all active:scale-95"
-                    style={{
-                      color: tones.fg,
-                      backgroundColor: isActive ? tones.bg : "transparent",
-                      boxShadow: isActive ? `inset 0 0 0 1px ${tones.ring}` : "none",
-                      opacity: isActive ? 1 : 0.62,
-                    }}
-                  >
-                    <Icon size={15} strokeWidth={2.2} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs font-semibold">
-                  Xerife {MODULE_LABEL[id]}
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </div>
-      )}
+      {/* Pílula de ações */}
+      <div className="flex items-center justify-center gap-1 bg-card/40 backdrop-blur-xl border border-border rounded-2xl p-1 shadow-lg mx-auto w-fit">
+        <Tooltip delayDuration={200}>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onLike}
+              aria-label={isLiked ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+              aria-pressed={isLiked}
+              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-90 ${
+                isLiked ? "bg-primary text-primary-foreground" : "bg-secondary/40 text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`}
+            >
+              <Heart size={15} fill={isLiked ? "currentColor" : "none"} strokeWidth={isLiked ? 0 : 2.4} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs font-semibold">Favorito</TooltipContent>
+        </Tooltip>
+        {[
+          { icon: Mic2, label: "Letra", onClick: onLyrics },
+          { icon: Video, label: "Vídeo", onClick: onVideo },
+          { icon: Download, label: "Baixar música", onClick: onDownload },
+          { icon: Share2, label: "Compartilhar", onClick: onShare },
+        ].filter((b) => !!b.onClick).map((b) => (
+          <Tooltip key={b.label} delayDuration={200}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={b.onClick}
+                aria-label={b.label}
+                className="w-8 h-8 rounded-xl flex items-center justify-center bg-secondary/30 text-muted-foreground hover:bg-primary/20 hover:text-primary transition-all active:scale-90"
+              >
+                <b.icon size={15} strokeWidth={2.2} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs font-semibold">{b.label}</TooltipContent>
+          </Tooltip>
+        ))}
+      </div>
 
 
       {/* Slider de reprodução */}
