@@ -1560,7 +1560,7 @@ const Index = () => {
     { label: "Foco", query: "música para foco concentração" },
     { label: "Relax", query: "músicas relaxantes acústicas" },
     { label: "Sertanejo", query: "sertanejo 2025" },
-    { label: "Pagode", query: "pagode романти" .replace("романти", "romântico") },
+    { label: "Pagode", query: "pagode romântico" },
     { label: "Festa", query: "festa hits para dançar" },
   ];
 
