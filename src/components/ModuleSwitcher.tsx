@@ -247,9 +247,11 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
             );
           })}
         </div>
-      </PopoverContent>
-    </Popover>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
     </>
+
   );
 });
 
