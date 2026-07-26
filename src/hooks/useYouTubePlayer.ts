@@ -1339,6 +1339,7 @@ export function useYouTubePlayer(containerId: string) {
    * resulta em um retângulo preto "sem conteúdo". Aqui zeramos transformações
    * residuais (pinch-zoom), forçamos 100%/100% e pedimos um resize ao player.
    */
+  const syncingLayoutRef = useRef(false);
   const syncPlayerLayout = useCallback(() => {
     const apply = () => {
       const holder = document.getElementById('yt-player') as HTMLElement | null;
@@ -1359,12 +1360,18 @@ export function useYouTubePlayer(containerId: string) {
         iframe.style.height = '100%';
         try { playerRef.current?.setSize?.(w, h); } catch {}
       }
+      // Guarda contra loop: o resize sintético abaixo não deve reentrar no sync.
+      syncingLayoutRef.current = true;
       try { window.dispatchEvent(new Event('resize')); } catch {}
+      window.setTimeout(() => { syncingLayoutRef.current = false; }, 0);
     };
     requestAnimationFrame(apply);
     window.setTimeout(apply, 120);
     window.setTimeout(apply, 450);
+    // iOS reporta as novas dimensões só depois que a animação de rotação termina.
+    window.setTimeout(apply, 900);
   }, []);
+
 
   const requestFullscreen = useCallback(async (preferredTarget?: HTMLElement | null) => {
 
