@@ -8,8 +8,9 @@ import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { mockSongs, Song, sortByVotes } from "@/data/mockSongs";
+import { getCycleId } from "@/lib/refreshCycle";
 import { saveSong, getAllSavedSongs, StoredSong, getSong } from "@/lib/indexedDB";
-import { getDeviceId, getVotedSongs, addVotedSong, removeVotedSong, saveQueueState, getQueueState, saveCurrentSong, getCurrentSongId, saveVolume, getVolume, addToHistory, getHistory, clearHistory, type HistoryEntry, getFavoritesMetadata, saveFavoriteMetadata, removeFavoriteMetadata, getPlaylists, savePlaylist, deletePlaylist, addSongToPlaylist, Playlist, saveMediaType, getMediaType } from "@/lib/localStorage";
+import { getDeviceId, getVotedSongs, addVotedSong, removeVotedSong, saveQueueState, getQueueState, saveCurrentSong, getCurrentSongId, saveVolume, getVolume, addToHistory, getHistory, clearHistory, type HistoryEntry, getFavoritesMetadata, saveFavoriteMetadata, removeFavoriteMetadata, getPlaylists, savePlaylist, deletePlaylist, addSongToPlaylist, Playlist, saveMediaType, getMediaType, getSearchHistory } from "@/lib/localStorage";
 import { useYouTubePlayer } from "@/hooks/useYouTubePlayer";
 import { useNativeCapabilities } from "@/hooks/useNativeCapabilities";
 import { useTrendingMusic } from "@/hooks/useTrendingMusic";
@@ -1437,6 +1438,13 @@ const Index = () => {
     if (!h.type && (!!h.album || !!h.youtubeId)) return true;
     return false;
   });
+
+  // Termos pesquisados no módulo "Explorar" (localStorage) — usados para que o
+  // conteúdo do Início reflita o interesse recente do usuário.
+  const searchedTerms = getSearchHistory()
+    .slice(0, 12)
+    .map(e => (e.q || "").trim().toLowerCase())
+    .filter(q => q.length >= 3);
 
   // "Ouvir novamente": already-heard tracks, rotated per session so the
   // ordering varies between reloads while still coming from real history.
