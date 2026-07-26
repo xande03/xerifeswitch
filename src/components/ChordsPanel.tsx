@@ -413,6 +413,16 @@ const ChordsPanel = ({
           )}
 
           <button
+            onClick={() => setPanelTheme((t) => (t === "light" ? "dark" : "light"))}
+            className="ml-auto w-8 h-8 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center"
+            title={panelTheme === "light" ? "Tema escuro da cifra" : "Tema claro da cifra"}
+            aria-label="Alternar tema claro/escuro da cifra"
+            aria-pressed={panelTheme === "light"}
+          >
+            {panelTheme === "light" ? <Moon size={14} /> : <Sun size={14} />}
+          </button>
+
+          <button
             onClick={handleCopy}
             className="ml-auto w-8 h-8 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center"
             title="Copiar"
