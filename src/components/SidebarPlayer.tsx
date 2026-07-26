@@ -1,8 +1,17 @@
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, VolumeX, Maximize2, Music } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, Music, MonitorPlay, Headphones } from "lucide-react";
 import { Song, formatDuration } from "@/data/mockSongs";
 import { hdThumbnail } from "@/lib/utils";
 import SeekBar from "@/components/SeekBar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { MODULE_COLOR, MODULE_LABEL, type SwitchableModule } from "@/components/ModuleSwitcher";
+import { getModuleTones } from "@/lib/moduleTones";
+import { useTheme } from "@/hooks/useTheme";
+
+const MODULE_ICON: Record<SwitchableModule, typeof Music> = {
+  music: Music,
+  video: MonitorPlay,
+  podcast: Headphones,
+};
 
 interface SidebarPlayerProps {
   song?: Song | null;
@@ -19,37 +28,10 @@ interface SidebarPlayerProps {
   isShuffled?: boolean;
   onShuffle?: () => void;
   collapsed?: boolean;
+  activeModule?: SwitchableModule;
+  onSelectModule?: (m: SwitchableModule) => void;
 }
 
-const PillButton = ({
-  label,
-  active,
-  onClick,
-  children,
-}: {
-  label: string;
-  active?: boolean;
-  onClick?: () => void;
-  children: React.ReactNode;
-}) => (
-  <Tooltip delayDuration={200}>
-    <TooltipTrigger asChild>
-      <button
-        onClick={onClick}
-        aria-label={label}
-        aria-pressed={active}
-        className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors active:scale-90 ${
-          active
-            ? "bg-primary/20 text-primary"
-            : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
-        }`}
-      >
-        {children}
-      </button>
-    </TooltipTrigger>
-    <TooltipContent side="top" className="text-xs font-semibold">{label}</TooltipContent>
-  </Tooltip>
-);
 
 const SidebarPlayer = ({
   song,
@@ -63,11 +45,13 @@ const SidebarPlayer = ({
   onExpand,
   onSeek,
   onVolumeChange,
-  isShuffled,
-  onShuffle,
   collapsed = false,
+  activeModule,
+  onSelectModule,
 }: SidebarPlayerProps) => {
   const progress = duration > 0 ? currentTime / duration : 0;
+  const { isLight } = useTheme();
+
 
   if (!song) return null;
 
@@ -116,24 +100,44 @@ const SidebarPlayer = ({
         <p className="text-[11px] text-muted-foreground truncate">{song.artist}</p>
       </div>
 
-      {/* Pílula de ações */}
-      <div className="flex items-center justify-between gap-0.5 p-1 rounded-full border border-border bg-secondary/70">
-        <PillButton label="Aleatório" active={isShuffled} onClick={onShuffle}>
-          <Shuffle size={15} />
-        </PillButton>
-        <PillButton label="Repetir">
-          <Repeat size={15} />
-        </PillButton>
-        <PillButton
-          label={volume === 0 ? "Ativar som" : "Silenciar"}
-          onClick={() => onVolumeChange(volume > 0 ? 0 : 70)}
+      {/* Pílula de módulos da sessão */}
+      {activeModule && (
+        <div
+          role="group"
+          aria-label="Alternar sessão"
+          className="flex items-center justify-between gap-1 p-1 rounded-full border border-border bg-secondary/70"
         >
-          {volume === 0 ? <VolumeX size={15} /> : <Volume2 size={15} />}
-        </PillButton>
-        <PillButton label="Expandir" onClick={onExpand}>
-          <Maximize2 size={15} />
-        </PillButton>
-      </div>
+          {(Object.keys(MODULE_LABEL) as SwitchableModule[]).map((id) => {
+            const Icon = MODULE_ICON[id];
+            const tones = getModuleTones(MODULE_COLOR[id], isLight);
+            const isActive = id === activeModule;
+            return (
+              <Tooltip key={id} delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onSelectModule?.(id)}
+                    aria-label={`Xerife ${MODULE_LABEL[id]}`}
+                    aria-pressed={isActive}
+                    className="flex-1 h-8 rounded-full flex items-center justify-center transition-all active:scale-95"
+                    style={{
+                      color: tones.fg,
+                      backgroundColor: isActive ? tones.bg : "transparent",
+                      boxShadow: isActive ? `inset 0 0 0 1px ${tones.ring}` : "none",
+                      opacity: isActive ? 1 : 0.62,
+                    }}
+                  >
+                    <Icon size={15} strokeWidth={2.2} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs font-semibold">
+                  Xerife {MODULE_LABEL[id]}
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+      )}
+
 
       {/* Slider de reprodução */}
       <div className="space-y-1">
