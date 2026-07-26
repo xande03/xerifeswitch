@@ -310,17 +310,17 @@ const ChordsPanel = ({
           </div>
         )}
 
-        {data?.key && (
+        {originalKey && (
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary text-foreground text-xs font-semibold">
               <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Tom original</span>
-              <span className="text-sm font-bold">{data.key}</span>
+              <span className="text-sm font-bold">{originalKey}</span>
             </div>
             <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
               semitones === 0 ? "bg-muted text-muted-foreground" : "bg-primary/15 text-primary"
             }`}>
               <span className="text-[10px] uppercase tracking-wide opacity-80">Tom atual</span>
-              <span className="text-sm font-bold">{transposedKey ?? data.key}</span>
+              <span className="text-sm font-bold">{transposedKey ?? originalKey}</span>
               {semitones !== 0 && (
                 <span className="text-[10px] font-normal opacity-80">
                   ({semitones > 0 ? `+${semitones}` : semitones} semitom{Math.abs(semitones) > 1 ? "s" : ""})
