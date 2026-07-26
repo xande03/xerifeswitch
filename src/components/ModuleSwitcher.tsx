@@ -1,10 +1,6 @@
 import { memo, useCallback, useRef, useState } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Music, MonitorPlay, Headphones, Repeat2, Check } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
