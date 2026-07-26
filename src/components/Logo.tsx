@@ -14,7 +14,7 @@ interface LogoProps {
   colorTo?: string;
 }
 
-const Logo = ({ className, size = 40, showText = false, style, tooltipLabel = "Xerife — Music, Video e Podcast", ariaLabel = "Logo do Xerife", colorFrom = "#22c55e", colorTo = "#166534" }: LogoProps) => {
+const Logo = ({ className, size = 40, showText = false, style, tooltipLabel = "Xerife — Music, Video e Podcast", ariaLabel = "Logo do Xerife", colorFrom = "#60a5fa", colorTo = "#1e3a8a" }: LogoProps) => {
   // Um id único por render evita colisão entre múltiplas logos com cores diferentes.
   const uid = `logo-${colorFrom.replace('#','')}-${colorTo.replace('#','')}`;
   const gradId = `${uid}-star`;

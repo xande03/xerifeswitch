@@ -1949,7 +1949,7 @@ const Index = () => {
             className="flex items-center gap-2.5 sm:gap-3 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-lg"
             aria-label={`Ir para o início de Xerife ${MODULE_LABEL[currentModule]}`}
           >
-            <Logo size={40} colorFrom={mc.from} colorTo={mc.to} tooltipLabel={`Xerife ${MODULE_LABEL[currentModule]}`} />
+            <Logo size={40} colorFrom="#60a5fa" colorTo="#1e3a8a" tooltipLabel={`Xerife ${MODULE_LABEL[currentModule]}`} />
             <span className={`font-display font-black text-[22px] sm:text-[26px] lg:text-[28px] tracking-tight leading-none ${mc.text}`}>
               {MODULE_LABEL[currentModule]}
             </span>
