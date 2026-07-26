@@ -338,26 +338,22 @@ export function useMediaSession({
 
     const registerAll = () => {
       trySet('play', () => {
-        const timeSincePause = Date.now() - pauseActionTimestampRef.current;
-        if (
-          pauseActionTimestampRef.current > 0 &&
-          timeSincePause < playSuppressionMsRef.current
-        ) {
-          syncPlaybackState('paused');
-          if (proxyAudioRef.current && !proxyAudioRef.current.paused) {
-            suppressProxyEvents();
-            proxyAudioRef.current.pause();
-          }
-          return;
-        }
+        // O comando de play vindo do OS (tela bloqueada / Control Center) é
+        // sempre uma ação explícita do usuário: nunca deve ser suprimido.
         console.info('[MediaSession] Play action triggered by OS');
+        pauseActionTimestampRef.current = 0;
         syncPlaybackState('playing');
-        onPlayRef.current();
         if (proxyAudioRef.current?.paused) {
           suppressProxyEvents();
           proxyAudioRef.current.play().catch(() => {});
         }
+        onPlayRef.current();
+        // Reforço: alguns iframes só retomam após a sessão de áudio reativar.
+        setTimeout(() => {
+          if (!isPlayingRef.current) onPlayRef.current();
+        }, 250);
       });
+
 
       trySet('pause', () => {
         pauseActionTimestampRef.current = Date.now();
