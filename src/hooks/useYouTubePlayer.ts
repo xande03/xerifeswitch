@@ -1430,11 +1430,13 @@ export function useYouTubePlayer(containerId: string) {
       } catch {
         // orientation lock not supported
       }
+      syncPlayerLayout();
     } catch (err) {
       console.warn("Fullscreen request failed:", err);
       enterPseudoFullscreen();
     }
-  }, []);
+  }, [syncPlayerLayout]);
+
 
   const exitFullscreen = useCallback(async () => {
     const clearPseudo = () => {
