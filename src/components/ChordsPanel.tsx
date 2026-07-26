@@ -207,10 +207,11 @@ const ChordsPanel = ({
   }, [autoScroll, scrollSpeed]);
 
   const transposed = useMemo(() => (data ? transposeChords(data.chords, semitones) : ""), [data, semitones]);
+  const originalKey = useMemo(() => (data ? data.key || guessKey(data.chords) : null), [data]);
   const transposedKey = useMemo(() => {
-    if (!data?.key) return null;
-    return transposeChords(data.key, semitones);
-  }, [data?.key, semitones]);
+    if (!originalKey) return null;
+    return transposeChords(originalKey, semitones);
+  }, [originalKey, semitones]);
 
   const rendered = useMemo(() => {
     if (!transposed) return null;
