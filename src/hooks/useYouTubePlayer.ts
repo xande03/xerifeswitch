@@ -1332,7 +1332,42 @@ export function useYouTubePlayer(containerId: string) {
     }
   }, [state.videoId]);
 
+  /**
+   * Força o iframe do YouTube a re-medir o próprio layout.
+   * Em iOS/Android, ao entrar ou sair de tela cheia o iframe mantém a largura/
+   * altura antigas (atributos width/height definidos pela IFrame API), o que
+   * resulta em um retângulo preto "sem conteúdo". Aqui zeramos transformações
+   * residuais (pinch-zoom), forçamos 100%/100% e pedimos um resize ao player.
+   */
+  const syncPlayerLayout = useCallback(() => {
+    const apply = () => {
+      const holder = document.getElementById('yt-player') as HTMLElement | null;
+      if (holder) {
+        // Remove transform residual do pinch-zoom: ele pode deslocar/ocultar o vídeo.
+        holder.style.transform = '';
+        holder.style.transformOrigin = '';
+      }
+      const iframe = (playerRef.current?.getIframe?.() as HTMLIFrameElement | null)
+        || (holder?.querySelector('iframe') as HTMLIFrameElement | null);
+      if (iframe) {
+        const box = (iframe.parentElement || holder)?.getBoundingClientRect();
+        const w = Math.max(1, Math.round(box?.width || 0));
+        const h = Math.max(1, Math.round(box?.height || 0));
+        iframe.setAttribute('width', String(w));
+        iframe.setAttribute('height', String(h));
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        try { playerRef.current?.setSize?.(w, h); } catch {}
+      }
+      try { window.dispatchEvent(new Event('resize')); } catch {}
+    };
+    requestAnimationFrame(apply);
+    window.setTimeout(apply, 120);
+    window.setTimeout(apply, 450);
+  }, []);
+
   const requestFullscreen = useCallback(async (preferredTarget?: HTMLElement | null) => {
+
     const videoContainer = document.getElementById('yt-fullscreen-container') as HTMLElement | null;
     const offlinePlayer = document.getElementById('offline-player') as HTMLVideoElement | null;
 
