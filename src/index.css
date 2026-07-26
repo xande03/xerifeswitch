@@ -422,10 +422,13 @@ html, body {
   position: relative !important;
   inset: auto !important;
   flex: 0 0 auto !important;
-  aspect-ratio: 16 / 9 !important;
-  /* Letterbox exato: escolhe o eixo limitante sem nunca cortar o vídeo. */
+  /* Letterbox exato: largura E altura explícitas (sem depender de
+     aspect-ratio + height:auto, que pode colapsar para 0 no Safari/iOS
+     dentro de um flex container). */
   width: min(100cqw, calc(100cqh * 16 / 9)) !important;
-  height: auto !important;
+  height: min(100cqh, calc(100cqw * 9 / 16)) !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
   max-width: 100% !important;
   max-height: 100% !important;
   margin: 0 auto !important;
@@ -433,6 +436,7 @@ html, body {
   border-radius: 0 !important;
   z-index: 0 !important;
   background: black !important;
+  overflow: hidden !important;
 }
 /* Fallback para navegadores sem container queries de tamanho */
 @supports not (container-type: size) {
@@ -444,9 +448,13 @@ html, body {
       calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)),
       calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 16 / 9)
     ) !important;
-    height: auto !important;
+    height: min(
+      calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)),
+      calc((100vw - env(safe-area-inset-left) - env(safe-area-inset-right)) * 9 / 16)
+    ) !important;
   }
 }
+
 
 
 #yt-fullscreen-container:fullscreen #yt-player iframe,
