@@ -31,19 +31,6 @@ interface UseMediaSessionProps {
 
 const SEEK_STEP_SECONDS = 10;
 
-const DEFAULT_PLAY_SUPPRESSION_MS = 2500;
-const IOS_PLAY_SUPPRESSION_MS = 5000;
-
-function getPlaySuppressionMs(): number {
-  if (typeof navigator === 'undefined') return DEFAULT_PLAY_SUPPRESSION_MS;
-
-  const ua = navigator.userAgent.toLowerCase();
-  const isAppleMobile =
-    /iphone|ipad|ipod/.test(ua) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-  return isAppleMobile ? IOS_PLAY_SUPPRESSION_MS : DEFAULT_PLAY_SUPPRESSION_MS;
-}
 
 export function useMediaSession({
   song,
