@@ -16,21 +16,31 @@ const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
         phase === "fade" ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
     >
-      {/* Gradient background */}
+      {/* Gradient background — tons azuis, sutis no claro e mais vivos no escuro */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] rounded-full bg-primary/10 blur-[100px] animate-pulse" />
-        <div className="absolute bottom-1/4 left-1/3 w-[200px] h-[200px] rounded-full bg-primary/5 blur-[80px] animate-pulse" style={{ animationDelay: "0.5s" }} />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] rounded-full bg-[hsl(217_91%_60%/0.08)] dark:bg-[hsl(217_91%_60%/0.16)] blur-[100px] animate-pulse" />
+        <div className="absolute bottom-1/4 left-1/3 w-[200px] h-[200px] rounded-full bg-[hsl(217_91%_60%/0.05)] dark:bg-[hsl(217_91%_60%/0.1)] blur-[80px] animate-pulse" style={{ animationDelay: "0.5s" }} />
       </div>
 
       {/* Logo */}
       <div className="relative flex flex-col items-center gap-8 animate-splash-logo">
+        {/* No tema claro usamos um azul mais escuro (contraste AA sobre fundo claro);
+            no escuro, um azul mais luminoso com glow. */}
         <Logo
           size={240}
-          colorFrom="#3b82f6"
-          colorTo="#1e3a8a"
-          className="drop-shadow-[0_0_50px_rgba(59,130,246,0.35)] transform transition-all duration-1000"
+          colorFrom="#1d4ed8"
+          colorTo="#172554"
+          className="dark:hidden drop-shadow-[0_0_40px_rgba(29,78,216,0.25)] transform transition-all duration-1000"
           style={{ transform: 'rotateY(15deg) rotateX(5deg)' }}
         />
+        <Logo
+          size={240}
+          colorFrom="#60a5fa"
+          colorTo="#1e40af"
+          className="hidden dark:flex drop-shadow-[0_0_50px_rgba(96,165,250,0.4)] transform transition-all duration-1000"
+          style={{ transform: 'rotateY(15deg) rotateX(5deg)' }}
+        />
+
         <div className="flex flex-col items-center gap-3">
           <h1 className="text-4xl font-display font-bold text-foreground tracking-tight text-glow">Xerife Switch</h1>
           <p className="text-[10px] text-muted-foreground tracking-[0.35em] uppercase opacity-80">Multi-Streaming</p>
