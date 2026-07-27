@@ -134,7 +134,7 @@ const Index = () => {
       }
       if (tab === "library") {
         setActiveTab("home");
-        window.dispatchEvent(new CustomEvent("xerife:podcast-nav", { detail: { target: "favorites" } }));
+        window.dispatchEvent(new CustomEvent("xerife:podcast-nav", { detail: { target: "liked" } }));
         return;
       }
       if (tab === "libraryhub") {
@@ -2737,13 +2737,19 @@ const Index = () => {
                   setPodcastMode(false);
                   setHomeMode(mod);
                 }
+                const podNav = (target: string) => {
+                  setActiveTab("podcast");
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent("xerife:podcast-nav", { detail: { target } }));
+                  }, 0);
+                };
                 switch (id) {
                   case "downloads":
                     if (mod === "podcast") setActiveTab("podcast");
                     else setActiveTab("offline");
                     break;
                   case "liked":
-                    if (mod === "podcast") setActiveTab("podcast");
+                    if (mod === "podcast") podNav("liked");
                     else setActiveTab("library");
                     break;
                   case "watchlater":
@@ -2751,13 +2757,15 @@ const Index = () => {
                     setActiveTab("library");
                     break;
                   case "playlists":
-                    setActiveTab("playlists");
+                    if (mod === "podcast") podNav("queue");
+                    else setActiveTab("playlists");
                     break;
                   case "podcasts":
-                    setActiveTab("podcast");
+                    podNav("subscriptions");
                     break;
                   case "history":
-                    setActiveTab("history");
+                    if (mod === "podcast") podNav("history");
+                    else setActiveTab("history");
                     break;
                 }
               }}

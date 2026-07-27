@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import HorizontalScroll from "./HorizontalScroll";
-import { Search, Play, Pause, Clock, X, ChevronRight, ChevronDown, Headphones, Radio, Bell, BellOff, Gauge, RotateCcw, ListMusic, SkipForward, Plus, Trash2, Calendar, Mic, ArrowLeft, Bookmark, MoreVertical, Download, LayoutGrid, List, Rows3, Eye, Palette, Video, Star, Sparkles, Compass } from "lucide-react";
+import { Search, Play, Pause, Clock, X, ChevronRight, ChevronDown, Headphones, Radio, Bell, BellOff, Gauge, RotateCcw, ListMusic, SkipForward, Plus, Trash2, Calendar, Mic, ArrowLeft, Bookmark, MoreVertical, Download, LayoutGrid, List, Rows3, Eye, Palette, Video, Star, Sparkles, Compass, Heart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { searchYouTubeGeneral, searchYouTubeGeneralPage, loadMoreYouTubeGeneral, type VideoResult } from "@/lib/youtubeGeneralSearch";
 import { getSearchSuggestions } from "@/lib/youtubeSearch";
@@ -71,7 +71,7 @@ const PODCAST_CATEGORIES = [
 
 const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
-type PodcastTab = "explore" | "subscriptions" | "history" | "queue";
+type PodcastTab = "home" | "explore" | "subscriptions" | "liked" | "history" | "queue";
 type EpisodeFilter = "recent" | "inProgress" | "unlistened";
 type PodcastViewMode = "list" | "grid" | "large";
 
@@ -203,7 +203,7 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
   const [isDraggingSeek, setIsDraggingSeek] = useState(false);
   const [dragTime, setDragTime] = useState(0);
   const seekRef = useRef<HTMLDivElement>(null);
-  const [tab, setTab] = useState<PodcastTab>("explore");
+  const [tab, setTab] = useState<PodcastTab>("home");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<VideoResult[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -404,7 +404,7 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
 
 
   useEffect(() => {
-    if (tab === "explore" && !channelEpisodes) {
+    if ((tab === "explore" || tab === "home") && !channelEpisodes) {
       const cat = PODCAST_CATEGORIES.find(c => c.label === activeCategory);
       if (cat && !hasSearched) fetchCategory(cat);
     }
@@ -423,7 +423,7 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
         setSearchResults([]);
         setHasSearched(false);
         setShowSuggestions(false);
-        setTab("explore");
+        setTab("home");
         try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
       } else if (target === "explore") {
         setChannelEpisodes(null);
@@ -436,9 +436,15 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
             } catch {}
           }, 50);
         }
-      } else if (target === "favorites") {
+      } else if (target === "liked" || target === "favorites") {
+        setChannelEpisodes(null);
+        setTab("liked");
+      } else if (target === "subscriptions") {
         setChannelEpisodes(null);
         setTab("subscriptions");
+      } else if (target === "queue") {
+        setChannelEpisodes(null);
+        setTab("queue");
       } else if (target === "history") {
         setChannelEpisodes(null);
         setTab("history");
@@ -499,9 +505,10 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
 
   useEffect(() => {
     const refresh = () => setFavEpisodes(getFavoriteEpisodes());
+    refresh();
     window.addEventListener("xerife:podcast-favs-updated", refresh);
     return () => window.removeEventListener("xerife:podcast-favs-updated", refresh);
-  }, []);
+  }, [tab]);
 
   const handleToggleFavEpisode = (ep: VideoResult) => {
     toggleFavoriteEpisode({
@@ -1144,8 +1151,8 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
           )}
         </button>
         <button onClick={(e) => { e.stopPropagation(); handleToggleFavEpisode(ep); }}
-          className="p-2 sm:p-1.5 rounded-lg sm:opacity-0 sm:group-hover:opacity-100 hover:bg-accent active:bg-accent transition-all flex-shrink-0" title={isFavoriteEpisode(`yt-${ep.videoId}`) ? "Desfavoritar" : "Favoritar"}>
-          <Star size={16} className={`sm:w-[14px] sm:h-[14px] ${isFavoriteEpisode(`yt-${ep.videoId}`) ? "text-primary fill-primary" : "text-muted-foreground"}`} />
+          className="p-2 sm:p-1.5 rounded-lg sm:opacity-0 sm:group-hover:opacity-100 hover:bg-accent active:bg-accent transition-all flex-shrink-0" title={isFavoriteEpisode(`yt-${ep.videoId}`) ? "Remover das curtidas" : "Curtir episódio"}>
+          <Heart size={16} className={`sm:w-[14px] sm:h-[14px] ${isFavoriteEpisode(`yt-${ep.videoId}`) ? "text-primary fill-primary" : "text-muted-foreground"}`} />
         </button>
         <button onClick={(e) => { e.stopPropagation(); addToQueue(song); }}
           className="p-2 sm:p-1.5 rounded-lg sm:opacity-0 sm:group-hover:opacity-100 hover:bg-accent active:bg-accent transition-all flex-shrink-0" title="Adicionar à fila">
@@ -1263,51 +1270,14 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
         </div>
       </div>
 
-      {/* Tab switcher — podcast-exclusive: radio-dial pill with underline indicator */}
-      <div
-        data-podcast-tabs="1"
-        className="relative flex gap-1 rounded-2xl p-1 overflow-x-auto scrollbar-hide border border-primary/20 bg-[linear-gradient(180deg,hsl(var(--primary)/0.08),hsl(var(--primary)/0.02))]"
-      >
-        {([
-          { id: "explore" as PodcastTab, label: "Explorar", icon: Compass },
-          { id: "subscriptions" as PodcastTab, label: "Favoritos", icon: Star },
-          { id: "queue" as PodcastTab, label: "Fila", icon: ListMusic },
-          { id: "history" as PodcastTab, label: "Histórico", icon: Clock },
-        ]).map(t => {
-          const active = tab === t.id;
-          return (
-            <button key={t.id} onClick={() => { setTab(t.id); if (t.id === "explore") setChannelEpisodes(null); }}
-              className={`relative flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] sm:text-xs font-semibold transition-all whitespace-nowrap ${
-                active
-                  ? "bg-background/80 text-primary shadow-[0_2px_10px_-4px_hsl(var(--primary)/0.4)]"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}>
-              <t.icon size={14} className={`${active ? "" : ""} ${t.id === "subscriptions" && active ? "fill-current" : ""}`} />
-              <span className="hidden xs:inline sm:inline">{t.label}</span>
-              {t.id === "subscriptions" && (subs.length + favEpisodes.length) > 0 && (
-                <span className="bg-primary/25 text-primary text-[9px] px-1.5 rounded-full font-bold">{subs.length + favEpisodes.length}</span>
-              )}
-              {t.id === "queue" && podcastQueue.length > 0 && (
-                <span className="bg-primary/25 text-primary text-[9px] px-1.5 rounded-full font-bold">{podcastQueue.length}</span>
-              )}
-              {active && (
-                <span
-                  aria-hidden
-                  className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-[3px] w-8 rounded-full bg-primary"
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── EXPLORE TAB ── */}
-      {tab === "explore" && (
+      {/* ── HOME / EXPLORE ── (pílula de abas removida: navegação vem do rodapé) */}
+      {(tab === "home" || tab === "explore") && (
         <div className="space-y-4">
           {/* Channel detail view */}
           {channelEpisodes ? renderChannelDetail() : (
             <>
-              {/* Search bar — podcast-exclusive: compass "radar" field with rotating tick marks */}
+              {/* Search bar — só na aba Explorar (bússola do rodapé) */}
+              {tab === "explore" && (
               <div
                 data-podcast-search-field="1"
                 className="relative rounded-2xl p-[1.5px] bg-[conic-gradient(from_0deg,hsl(var(--primary)/0.55),hsl(var(--primary)/0.1),hsl(var(--primary)/0.55))]"
@@ -1360,6 +1330,7 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
                   )}
                 </AnimatePresence>
               </div>
+              )}
 
               {!hasSearched && (() => {
                 // ── Personalização baseada em localStorage (histórico + em progresso) ──
@@ -1400,6 +1371,7 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
                 return (
                 <div className="space-y-6">
                   {/* HERO editorial exclusivo do módulo Podcast */}
+                  {tab === "home" && (
                   <PodcastOnAirHero
                     greetingLabel={daypart.label}
                     greetingIcon={daypart.icon}
@@ -1409,9 +1381,10 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
                     showGradient={onAir?.color}
                     onPlay={onAir ? () => browsePopularPodcast(onAir) : undefined}
                   />
+                  )}
 
-
-                  {/* Categorias — grid editorial (Spotify-style tiles), NÃO chips horizontais */}
+                  {/* Categorias — só na aba Explorar */}
+                  {tab === "explore" && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between px-1">
                       <div className="flex items-center gap-1.5">
@@ -1443,7 +1416,9 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
                     </div>
 
                   </div>
+                  )}
 
+                  {tab === "home" && (<>
                   {inProgress.length > 0 && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-1.5 px-1">
@@ -1602,13 +1577,14 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
 
                     </div>
                   )}
+                  </>)}
                 </div>
                 );
               })()}
 
 
-              {/* Results */}
-              {(isSearching || loadingCategory) ? (
+              {/* Results — apenas na aba Explorar */}
+              {tab === "explore" && ((isSearching || loadingCategory) ? (
                 <div className="space-y-3">
                   {Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="flex gap-3 animate-pulse">
@@ -1896,86 +1872,91 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
                     <p className="text-sm">{hasSearched ? "Nenhum podcast encontrado" : "Carregando podcasts..."}</p>
                   </div>
                 )
-              )}
+              ))}
             </>
           )}
         </div>
       )}
 
-      {/* ── FAVORITES TAB ── */}
+      {/* ── PROGRAMAS FAVORITOS (Biblioteca › Podcasts) ── */}
       {tab === "subscriptions" && (
         <div className="space-y-6">
-          {subs.length === 0 && favEpisodes.length === 0 ? (
+          {subs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-muted-foreground">
               <Star size={40} className="mb-3 opacity-20" />
-              <p className="text-sm font-medium">Sem favoritos ainda</p>
+              <p className="text-sm font-medium">Sem programas favoritos</p>
               <p className="text-[11px] mt-1 opacity-60 text-center max-w-[240px]">
-                Toque na estrela em um podcast ou episódio para fixá-lo aqui
+                Toque na estrela em um podcast para fixá-lo aqui
               </p>
             </div>
           ) : (
-            <>
-              {/* Podcasts favoritos (fixos) */}
-              {subs.length > 0 && (
-                <section className="space-y-3">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 flex items-center gap-1.5">
-                    <Star size={12} className="fill-primary text-primary" /> Podcasts favoritos
-                    <span className="text-muted-foreground/60">· {subs.length}</span>
-                  </h3>
-                  <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-                    {subs.map((show, i) => (
-                      <motion.div key={show.channelId} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.04 }}
-                        className="group flex flex-col items-center text-center space-y-2 cursor-pointer active:scale-95 transition-transform"
-                        onClick={() => { browseChannel(show.name, show.thumbnail); setTab("explore"); }}>
-                        <div className="relative">
-                          <img src={show.thumbnail} alt={show.name}
-                            className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-primary/20 shadow-md group-hover:border-primary/50 transition-all" />
-                          <button onClick={(e) => { e.stopPropagation(); handleToggleSubscribe(show.channelId, show.thumbnail); }}
-                            className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center text-primary shadow-md hover:text-destructive transition-colors"
-                            title="Remover dos favoritos">
-                            <Star size={12} className="fill-current" />
-                          </button>
-                        </div>
-                        <h3 className="text-[11px] sm:text-xs font-semibold text-foreground line-clamp-2 leading-tight w-full px-1">{show.name}</h3>
-                      </motion.div>
-                    ))}
-                  </div>
-                </section>
-              )}
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 flex items-center gap-1.5">
+                <Star size={12} className="fill-primary text-primary" /> Podcasts favoritos
+                <span className="text-muted-foreground/60">· {subs.length}</span>
+              </h3>
+              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                {subs.map((show, i) => (
+                  <motion.div key={show.channelId} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.04 }}
+                    className="group flex flex-col items-center text-center space-y-2 cursor-pointer active:scale-95 transition-transform"
+                    onClick={() => { browseChannel(show.name, show.thumbnail); setTab("explore"); }}>
+                    <div className="relative">
+                      <img src={show.thumbnail} alt={show.name}
+                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-primary/20 shadow-md group-hover:border-primary/50 transition-all" />
+                      <button onClick={(e) => { e.stopPropagation(); handleToggleSubscribe(show.channelId, show.thumbnail); }}
+                        className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center text-primary shadow-md hover:text-destructive transition-colors"
+                        title="Remover dos favoritos">
+                        <Star size={12} className="fill-current" />
+                      </button>
+                    </div>
+                    <h3 className="text-[11px] sm:text-xs font-semibold text-foreground line-clamp-2 leading-tight w-full px-1">{show.name}</h3>
+                  </motion.div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
 
-              {/* Episódios favoritos */}
-              {favEpisodes.length > 0 && (
-                <section className="space-y-2">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 flex items-center gap-1.5">
-                    <Bookmark size={12} className="text-primary" /> Episódios favoritos
-                    <span className="text-muted-foreground/60">· {favEpisodes.length}</span>
-                  </h3>
-                  <div className="space-y-1">
-                    {favEpisodes.map((ep) => {
-                      const isActive = currentPodcastId === ep.episodeId;
-                      const song: Song = { id: ep.episodeId, youtubeId: ep.episodeId.replace("yt-", ""), title: ep.title, artist: ep.channel, album: ep.channel, cover: ep.thumbnail, duration: ep.duration, votes: 0, isDownloaded: false, type: "podcast" };
-                      return (
-                        <div key={ep.episodeId} className="group flex items-center gap-1">
-                          <button onClick={() => onPlayPodcast(song)}
-                            className={`flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${isActive ? "bg-primary/10" : "hover:bg-accent/30"}`}>
-                            <img src={ep.thumbnail} alt="" className="w-14 h-9 rounded-lg object-cover flex-shrink-0" />
-                            <div className="flex-1 text-left min-w-0">
-                              <p className={`text-xs font-medium line-clamp-2 leading-tight ${isActive ? "text-primary" : "text-foreground"}`}>{ep.title}</p>
-                              <p className="text-[10px] text-muted-foreground truncate mt-0.5">{ep.channel} · {formatDur(ep.duration)}</p>
-                            </div>
-                          </button>
-                          <button onClick={() => toggleFavoriteEpisode({ episodeId: ep.episodeId, title: ep.title, channel: ep.channel, thumbnail: ep.thumbnail, duration: ep.duration })}
-                            className="p-2 rounded-lg hover:bg-accent transition-colors flex-shrink-0"
-                            title="Remover dos favoritos">
-                            <Star size={14} className="fill-primary text-primary" />
-                          </button>
-                        </div>
-                      );
-                    })}
+      {/* ── CURTIDAS (coraçãozinho do rodapé) ── */}
+      {tab === "liked" && (
+        <div className="space-y-4">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 flex items-center gap-1.5">
+            <Heart size={12} className="fill-primary text-primary" /> Episódios curtidos
+            {favEpisodes.length > 0 && <span className="text-muted-foreground/60">· {favEpisodes.length}</span>}
+          </h3>
+          {favEpisodes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-muted-foreground">
+              <Heart size={40} className="mb-3 opacity-20" />
+              <p className="text-sm font-medium">Nenhum episódio curtido</p>
+              <p className="text-[11px] mt-1 opacity-60 text-center max-w-[240px]">
+                Toque no coração de um episódio para guardá-lo aqui
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {favEpisodes.map((ep) => {
+                const isActive = currentPodcastId === ep.episodeId;
+                const song: Song = { id: ep.episodeId, youtubeId: ep.episodeId.replace("yt-", ""), title: ep.title, artist: ep.channel, album: ep.channel, cover: ep.thumbnail, duration: ep.duration, votes: 0, isDownloaded: false, type: "podcast" };
+                return (
+                  <div key={ep.episodeId} className="group flex items-center gap-1">
+                    <button onClick={() => onPlayPodcast(song)}
+                      className={`flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${isActive ? "bg-primary/10" : "hover:bg-accent/30"}`}>
+                      <img src={ep.thumbnail} alt="" className="w-14 h-9 rounded-lg object-cover flex-shrink-0" />
+                      <div className="flex-1 text-left min-w-0">
+                        <p className={`text-xs font-medium line-clamp-2 leading-tight ${isActive ? "text-primary" : "text-foreground"}`}>{ep.title}</p>
+                        <p className="text-[10px] text-muted-foreground truncate mt-0.5">{ep.channel} · {formatDur(ep.duration)}</p>
+                      </div>
+                    </button>
+                    <button onClick={() => toggleFavoriteEpisode({ episodeId: ep.episodeId, title: ep.title, channel: ep.channel, thumbnail: ep.thumbnail, duration: ep.duration })}
+                      className="p-2 rounded-lg hover:bg-accent transition-colors flex-shrink-0"
+                      title="Remover das curtidas">
+                      <Heart size={14} className="fill-primary text-primary" />
+                    </button>
                   </div>
-                </section>
-              )}
-            </>
+                );
+              })}
+            </div>
           )}
         </div>
       )}
