@@ -72,6 +72,7 @@ interface NowPlayingViewProps {
   onPreloadClip?: (videoId: string) => void;
   /** videoId atualmente carregado no player (para saber se já estamos no clipe). */
   activeVideoId?: string | null;
+  onNavigateToLibrary?: () => void;
 }
 
 type ToolItem = { icon: any; label: string; onClick: () => void; active?: boolean };
@@ -136,6 +137,7 @@ const NowPlayingView = ({
   onSwapClipAt,
   onPreloadClip,
   activeVideoId,
+  onNavigateToLibrary,
 }: NowPlayingViewProps) => {
   const [mode, setMode] = useState<PlayerMode>(
     initialMode ?? (context === "video" ? "video" : "audio")
@@ -871,6 +873,7 @@ const NowPlayingView = ({
                           isLiked={!!isLiked}
                           onToggleLike={onLike}
                           onAddToPlaylist={onAddToPlaylist ? () => onAddToPlaylist(song) : undefined}
+                          onNavigateToLibrary={onNavigateToLibrary}
                         />
                       </div>
                     )}

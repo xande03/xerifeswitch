@@ -3133,6 +3133,11 @@ const Index = () => {
             initialMode={playerMode}
             activeVideoId={playerState.videoId}
             onPreloadClip={(videoId) => preloadClip(videoId)}
+            onNavigateToLibrary={() => {
+              setExpanded(false);
+              setHomeMode("video");
+              setActiveTab("library");
+            }}
             onSwapClipAt={(video, startSeconds) => {
               // Captura o tempo LIVE do IFrame no instante do swap para
               // eliminar drift entre state React e player real (crítico em

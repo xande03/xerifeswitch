@@ -12,6 +12,7 @@ import {
   Plus,
   Check,
   Loader2,
+  Star,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Song } from "@/data/mockSongs";
@@ -19,6 +20,7 @@ import { hdThumbnail } from "@/lib/utils";
 import VideoComments from "@/components/VideoComments";
 import { fetchVideoInfo, type Comment } from "@/lib/youtubeVideoInfo";
 import { isInWatchLater, addToWatchLater, removeFromWatchLater } from "./VideoHomeScreen";
+import { isFavoriteChannel, toggleFavoriteChannel, FAV_CHANNELS_EVENT } from "@/lib/favoriteChannels";
 
 function detectPipSupport(): boolean {
   if (typeof window === "undefined" || typeof document === "undefined") return false;
@@ -44,6 +46,7 @@ interface VideoInfoBarProps {
   isLiked?: boolean;
   onToggleLike?: () => void;
   onAddToPlaylist?: () => void;
+  onNavigateToLibrary?: () => void;
 }
 
 const VideoInfoBar = ({
@@ -57,7 +60,17 @@ const VideoInfoBar = ({
   isLiked = false,
   onToggleLike,
   onAddToPlaylist,
+  onNavigateToLibrary,
 }: VideoInfoBarProps) => {
+  const [isFav, setIsFav] = useState(false);
+
+  useEffect(() => {
+    const sync = () => setIsFav(isFavoriteChannel({ name: song.artist }));
+    sync();
+    window.addEventListener(FAV_CHANNELS_EVENT, sync);
+    return () => window.removeEventListener(FAV_CHANNELS_EVENT, sync);
+  }, [song.artist]);
+
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
@@ -356,10 +369,21 @@ const VideoInfoBar = ({
           </button>
 
           <button
-            className="flex-shrink-0 px-4 py-2 rounded-full bg-foreground text-background text-[13px] font-semibold hover:opacity-90 transition-opacity"
-            onClick={() => toast.success("Inscrição salva localmente")}
+            className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-semibold transition-all active:scale-95 shadow-lg bg-red-600 hover:bg-red-700 text-white`}
+            onClick={() => {
+              const now = toggleFavoriteChannel({
+                name: song.artist,
+                thumbnail: song.cover || undefined,
+              });
+              setIsFav(now);
+              toast.success(now ? "Canal favoritado" : "Canal removido dos favoritos");
+              if (now && onNavigateToLibrary) {
+                onNavigateToLibrary();
+              }
+            }}
           >
-            Inscrever-se
+            <Star size={14} fill={isFav ? "currentColor" : "none"} />
+            {isFav ? "Inscrito" : "Inscrever-se"}
           </button>
         </div>
 
