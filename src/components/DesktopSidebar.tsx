@@ -75,7 +75,8 @@ const videoTabs: { id: Tab; icon: typeof Home; label: string }[] = [
 const podcastTabs: { id: Tab; icon: typeof Home; label: string }[] = [
   { id: "home", icon: Home, label: "Início" },
   { id: "search", icon: Compass, label: "Explorar" },
-  { id: "library", icon: Heart, label: "Favoritos" },
+  { id: "library", icon: Heart, label: "Curtidas" },
+  { id: "playlists", icon: Star, label: "Favoritos" },
   { id: "libraryhub", icon: Library, label: "Biblioteca" },
   { id: "history", icon: Clock, label: "Histórico" },
 ];
@@ -278,6 +279,7 @@ const DesktopSidebar = ({
               <button
                 onClick={() => onChange(id)}
                 aria-label={label}
+                style={active === id && podcastMode ? { color: "hsl(var(--module-accent))", backgroundColor: "hsl(var(--module-accent) / 0.15)" } : undefined}
                 className={`w-full flex flex-col lg:flex-row items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2.5 lg:py-2 rounded-2xl lg:rounded-xl text-[10px] lg:text-[12.5px] font-semibold transition-all duration-200 group relative ${
                   active === id
                     ? "bg-primary/15 text-primary shadow-sm shadow-primary/5"
@@ -286,9 +288,11 @@ const DesktopSidebar = ({
               >
 
                 {active === id && (
-                  <div className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-primary rounded-r-full" />
+                  <div className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-primary rounded-r-full" style={podcastMode ? { backgroundColor: "hsl(var(--module-accent))" } : undefined} />
                 )}
-                <div className={`relative flex items-center justify-center w-8 h-8 lg:w-7 lg:h-7 rounded-xl transition-all duration-200 ${
+                <div
+                  style={active === id && podcastMode ? { color: "hsl(var(--module-accent))", backgroundColor: "hsl(var(--module-accent) / 0.2)" } : undefined}
+                  className={`relative flex items-center justify-center w-8 h-8 lg:w-7 lg:h-7 rounded-xl transition-all duration-200 ${
                   active === id
                     ? "bg-primary/20 text-primary scale-105"
                     : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80 group-hover:bg-sidebar-accent group-hover:scale-105"
@@ -303,6 +307,7 @@ const DesktopSidebar = ({
                     <span
                       key={likedCount}
                       className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center animate-scale-in shadow-sm"
+                      style={podcastMode ? { backgroundColor: "hsl(var(--module-accent))", color: "hsl(var(--module-accent-foreground))" } : undefined}
                       aria-label={`${likedCount} curtidos`}
                     >
                       {likedCount > 99 ? "99+" : likedCount}
@@ -312,7 +317,7 @@ const DesktopSidebar = ({
                 </div>
                 <span className="lg:block transition-all font-medium" data-sidebar-fullonly>{label}</span>
                 {active === id && (
-                  <div className="hidden lg:block ml-auto w-2 h-2 rounded-full bg-primary animate-pulse" data-sidebar-fullonly />
+                  <div className="hidden lg:block ml-auto w-2 h-2 rounded-full bg-primary animate-pulse" style={podcastMode ? { backgroundColor: "hsl(var(--module-accent))" } : undefined} data-sidebar-fullonly />
                 )}
               </button>
             </TooltipTrigger>
