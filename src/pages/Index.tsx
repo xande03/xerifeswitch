@@ -159,6 +159,11 @@ const Index = () => {
         window.dispatchEvent(new CustomEvent("xerife:podcast-nav", { detail: { target: "liked" } }));
         return;
       }
+      if (tab === "playlists") {
+        setActiveTab("home");
+        window.dispatchEvent(new CustomEvent("xerife:podcast-nav", { detail: { target: "subscriptions" } }));
+        return;
+      }
       if (tab === "libraryhub") {
         setActiveTab("libraryhub");
         return;
@@ -169,6 +174,7 @@ const Index = () => {
         return;
       }
     }
+
     if (tab === "home" && activeTab === "home") {
       setChannelView(null);
       setArtistView(null);
