@@ -410,6 +410,14 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
     }
   }, [activeCategory, fetchCategory, hasSearched, tab, channelEpisodes]);
 
+  // Mantém o rodapé/sidebar sincronizado (destaque lilás) com a sub-tela atual,
+  // inclusive ao voltar de uma página de canal/episódio para a lista.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("xerife:podcast-tab", { detail: { tab } }));
+  }, [tab, channelEpisodes]);
+
+
+
   // Bottom-nav bridge: while in Podcast mode, the shell dispatches
   // `xerife:podcast-nav` with a sub-tab id so Início/Explorar/Favoritos map
   // onto internal Podcast screens without changing route/module.
