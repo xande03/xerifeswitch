@@ -1877,80 +1877,85 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
         </div>
       )}
 
-      {/* ── FAVORITES TAB ── */}
+      {/* ── PROGRAMAS FAVORITOS (Biblioteca › Podcasts) ── */}
       {tab === "subscriptions" && (
         <div className="space-y-6">
-          {subs.length === 0 && favEpisodes.length === 0 ? (
+          {subs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-muted-foreground">
               <Star size={40} className="mb-3 opacity-20" />
-              <p className="text-sm font-medium">Sem favoritos ainda</p>
+              <p className="text-sm font-medium">Sem programas favoritos</p>
               <p className="text-[11px] mt-1 opacity-60 text-center max-w-[240px]">
-                Toque na estrela em um podcast ou episódio para fixá-lo aqui
+                Toque na estrela em um podcast para fixá-lo aqui
               </p>
             </div>
           ) : (
-            <>
-              {/* Podcasts favoritos (fixos) */}
-              {subs.length > 0 && (
-                <section className="space-y-3">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 flex items-center gap-1.5">
-                    <Star size={12} className="fill-primary text-primary" /> Podcasts favoritos
-                    <span className="text-muted-foreground/60">· {subs.length}</span>
-                  </h3>
-                  <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-                    {subs.map((show, i) => (
-                      <motion.div key={show.channelId} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.04 }}
-                        className="group flex flex-col items-center text-center space-y-2 cursor-pointer active:scale-95 transition-transform"
-                        onClick={() => { browseChannel(show.name, show.thumbnail); setTab("explore"); }}>
-                        <div className="relative">
-                          <img src={show.thumbnail} alt={show.name}
-                            className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-primary/20 shadow-md group-hover:border-primary/50 transition-all" />
-                          <button onClick={(e) => { e.stopPropagation(); handleToggleSubscribe(show.channelId, show.thumbnail); }}
-                            className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center text-primary shadow-md hover:text-destructive transition-colors"
-                            title="Remover dos favoritos">
-                            <Star size={12} className="fill-current" />
-                          </button>
-                        </div>
-                        <h3 className="text-[11px] sm:text-xs font-semibold text-foreground line-clamp-2 leading-tight w-full px-1">{show.name}</h3>
-                      </motion.div>
-                    ))}
-                  </div>
-                </section>
-              )}
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 flex items-center gap-1.5">
+                <Star size={12} className="fill-primary text-primary" /> Podcasts favoritos
+                <span className="text-muted-foreground/60">· {subs.length}</span>
+              </h3>
+              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                {subs.map((show, i) => (
+                  <motion.div key={show.channelId} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.04 }}
+                    className="group flex flex-col items-center text-center space-y-2 cursor-pointer active:scale-95 transition-transform"
+                    onClick={() => { browseChannel(show.name, show.thumbnail); setTab("explore"); }}>
+                    <div className="relative">
+                      <img src={show.thumbnail} alt={show.name}
+                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-primary/20 shadow-md group-hover:border-primary/50 transition-all" />
+                      <button onClick={(e) => { e.stopPropagation(); handleToggleSubscribe(show.channelId, show.thumbnail); }}
+                        className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center text-primary shadow-md hover:text-destructive transition-colors"
+                        title="Remover dos favoritos">
+                        <Star size={12} className="fill-current" />
+                      </button>
+                    </div>
+                    <h3 className="text-[11px] sm:text-xs font-semibold text-foreground line-clamp-2 leading-tight w-full px-1">{show.name}</h3>
+                  </motion.div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
 
-              {/* Episódios favoritos */}
-              {favEpisodes.length > 0 && (
-                <section className="space-y-2">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 flex items-center gap-1.5">
-                    <Bookmark size={12} className="text-primary" /> Episódios favoritos
-                    <span className="text-muted-foreground/60">· {favEpisodes.length}</span>
-                  </h3>
-                  <div className="space-y-1">
-                    {favEpisodes.map((ep) => {
-                      const isActive = currentPodcastId === ep.episodeId;
-                      const song: Song = { id: ep.episodeId, youtubeId: ep.episodeId.replace("yt-", ""), title: ep.title, artist: ep.channel, album: ep.channel, cover: ep.thumbnail, duration: ep.duration, votes: 0, isDownloaded: false, type: "podcast" };
-                      return (
-                        <div key={ep.episodeId} className="group flex items-center gap-1">
-                          <button onClick={() => onPlayPodcast(song)}
-                            className={`flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${isActive ? "bg-primary/10" : "hover:bg-accent/30"}`}>
-                            <img src={ep.thumbnail} alt="" className="w-14 h-9 rounded-lg object-cover flex-shrink-0" />
-                            <div className="flex-1 text-left min-w-0">
-                              <p className={`text-xs font-medium line-clamp-2 leading-tight ${isActive ? "text-primary" : "text-foreground"}`}>{ep.title}</p>
-                              <p className="text-[10px] text-muted-foreground truncate mt-0.5">{ep.channel} · {formatDur(ep.duration)}</p>
-                            </div>
-                          </button>
-                          <button onClick={() => toggleFavoriteEpisode({ episodeId: ep.episodeId, title: ep.title, channel: ep.channel, thumbnail: ep.thumbnail, duration: ep.duration })}
-                            className="p-2 rounded-lg hover:bg-accent transition-colors flex-shrink-0"
-                            title="Remover dos favoritos">
-                            <Star size={14} className="fill-primary text-primary" />
-                          </button>
-                        </div>
-                      );
-                    })}
+      {/* ── CURTIDAS (coraçãozinho do rodapé) ── */}
+      {tab === "liked" && (
+        <div className="space-y-4">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 flex items-center gap-1.5">
+            <Heart size={12} className="fill-primary text-primary" /> Episódios curtidos
+            {favEpisodes.length > 0 && <span className="text-muted-foreground/60">· {favEpisodes.length}</span>}
+          </h3>
+          {favEpisodes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-muted-foreground">
+              <Heart size={40} className="mb-3 opacity-20" />
+              <p className="text-sm font-medium">Nenhum episódio curtido</p>
+              <p className="text-[11px] mt-1 opacity-60 text-center max-w-[240px]">
+                Toque no coração de um episódio para guardá-lo aqui
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {favEpisodes.map((ep) => {
+                const isActive = currentPodcastId === ep.episodeId;
+                const song: Song = { id: ep.episodeId, youtubeId: ep.episodeId.replace("yt-", ""), title: ep.title, artist: ep.channel, album: ep.channel, cover: ep.thumbnail, duration: ep.duration, votes: 0, isDownloaded: false, type: "podcast" };
+                return (
+                  <div key={ep.episodeId} className="group flex items-center gap-1">
+                    <button onClick={() => onPlayPodcast(song)}
+                      className={`flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${isActive ? "bg-primary/10" : "hover:bg-accent/30"}`}>
+                      <img src={ep.thumbnail} alt="" className="w-14 h-9 rounded-lg object-cover flex-shrink-0" />
+                      <div className="flex-1 text-left min-w-0">
+                        <p className={`text-xs font-medium line-clamp-2 leading-tight ${isActive ? "text-primary" : "text-foreground"}`}>{ep.title}</p>
+                        <p className="text-[10px] text-muted-foreground truncate mt-0.5">{ep.channel} · {formatDur(ep.duration)}</p>
+                      </div>
+                    </button>
+                    <button onClick={() => toggleFavoriteEpisode({ episodeId: ep.episodeId, title: ep.title, channel: ep.channel, thumbnail: ep.thumbnail, duration: ep.duration })}
+                      className="p-2 rounded-lg hover:bg-accent transition-colors flex-shrink-0"
+                      title="Remover das curtidas">
+                      <Heart size={14} className="fill-primary text-primary" />
+                    </button>
                   </div>
-                </section>
-              )}
-            </>
+                );
+              })}
+            </div>
           )}
         </div>
       )}
