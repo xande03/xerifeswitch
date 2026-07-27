@@ -70,22 +70,28 @@ const BottomNav = ({ active, onChange, homeMode = "music", podcastMode = false }
       >
         {tabs.map(({ id, icon: Icon, label }) => {
           const showBadge = id === "library" && likedCount > 0;
+          const isActive = active === id;
+          const activeStyle = isActive && podcastMode
+            ? { color: "hsl(var(--module-accent))" }
+            : undefined;
           return (
             <button
               key={id}
               onClick={() => onChange(id)}
+              style={activeStyle}
               className={`flex flex-col items-center gap-1 px-3 sm:px-4 py-1 transition-all min-w-[64px] ${
-                active === id
+                isActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <span className="relative">
-                <Icon size={22} strokeWidth={active === id ? 2.2 : 1.5} />
+                <Icon size={22} strokeWidth={isActive ? 2.2 : 1.5} />
                 {showBadge && (
                   <span
                     key={likedCount}
                     className="absolute -top-1.5 -right-2 min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center animate-scale-in shadow-sm"
+                    style={podcastMode ? { backgroundColor: "hsl(var(--module-accent))", color: "hsl(var(--module-accent-foreground))" } : undefined}
                     aria-label={`${likedCount} curtidos`}
                   >
                     {likedCount > 99 ? "99+" : likedCount}
@@ -96,6 +102,7 @@ const BottomNav = ({ active, onChange, homeMode = "music", podcastMode = false }
             </button>
           );
         })}
+
       </div>
     </nav>
   );
