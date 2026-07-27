@@ -99,6 +99,23 @@ const ChannelProfile = ({ channelName, channelId, channelUrl, channelThumbnail, 
   const [resolvedChannelId, setResolvedChannelId] = useState<string | null>(null);
   const effectiveChannelId = channelId || resolvedChannelId || undefined;
 
+  // ── Avatar do canal ──
+  // A prop pode chegar vazia (busca, cards antigos, cache). Resolvemos com
+  // fallback: prop → thumbnail de canal vindo dos vídeos → busca dedicada.
+  const [fetchedAvatar, setFetchedAvatar] = useState<string>("");
+  const [avatarBroken, setAvatarBroken] = useState(false);
+  useEffect(() => { setFetchedAvatar(""); setAvatarBroken(false); }, [channelName, channelId]);
+
+  // ── Favoritar canal ──
+  const [isFav, setIsFav] = useState(false);
+  useEffect(() => {
+    const sync = () => setIsFav(isFavoriteChannel({ channelId: effectiveChannelId, name: channelName }));
+    sync();
+    window.addEventListener(FAV_CHANNELS_EVENT, sync);
+    return () => window.removeEventListener(FAV_CHANNELS_EVENT, sync);
+  }, [channelName, effectiveChannelId]);
+
+
   // Paginação: primeira página vem via auto-refresh; carregamos as demais aqui
   const [extraVideos, setExtraVideos] = useState<VideoResult[]>([]);
   const [continuation, setContinuation] = useState<string | null>(null);
