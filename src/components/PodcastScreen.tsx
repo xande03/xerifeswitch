@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import HorizontalScroll from "./HorizontalScroll";
-import { Search, Play, Pause, Clock, X, ChevronRight, ChevronDown, Headphones, Radio, Bell, BellOff, Gauge, RotateCcw, ListMusic, SkipForward, Plus, Trash2, Calendar, Mic, ArrowLeft, Bookmark, MoreVertical, Download, LayoutGrid, List, Rows3, Eye, Palette, Video, Star, Sparkles, Compass } from "lucide-react";
+import { Search, Play, Pause, Clock, X, ChevronRight, ChevronDown, Headphones, Radio, Bell, BellOff, Gauge, RotateCcw, ListMusic, SkipForward, Plus, Trash2, Calendar, Mic, ArrowLeft, Bookmark, MoreVertical, Download, LayoutGrid, List, Rows3, Eye, Palette, Video, Star, Sparkles, Compass, Heart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { searchYouTubeGeneral, searchYouTubeGeneralPage, loadMoreYouTubeGeneral, type VideoResult } from "@/lib/youtubeGeneralSearch";
 import { getSearchSuggestions } from "@/lib/youtubeSearch";
@@ -71,7 +71,7 @@ const PODCAST_CATEGORIES = [
 
 const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
-type PodcastTab = "explore" | "subscriptions" | "history" | "queue";
+type PodcastTab = "home" | "explore" | "subscriptions" | "liked" | "history" | "queue";
 type EpisodeFilter = "recent" | "inProgress" | "unlistened";
 type PodcastViewMode = "list" | "grid" | "large";
 
@@ -203,7 +203,7 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
   const [isDraggingSeek, setIsDraggingSeek] = useState(false);
   const [dragTime, setDragTime] = useState(0);
   const seekRef = useRef<HTMLDivElement>(null);
-  const [tab, setTab] = useState<PodcastTab>("explore");
+  const [tab, setTab] = useState<PodcastTab>("home");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<VideoResult[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -404,7 +404,7 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
 
 
   useEffect(() => {
-    if (tab === "explore" && !channelEpisodes) {
+    if ((tab === "explore" || tab === "home") && !channelEpisodes) {
       const cat = PODCAST_CATEGORIES.find(c => c.label === activeCategory);
       if (cat && !hasSearched) fetchCategory(cat);
     }
@@ -423,7 +423,7 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
         setSearchResults([]);
         setHasSearched(false);
         setShowSuggestions(false);
-        setTab("explore");
+        setTab("home");
         try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
       } else if (target === "explore") {
         setChannelEpisodes(null);
@@ -436,9 +436,15 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
             } catch {}
           }, 50);
         }
-      } else if (target === "favorites") {
+      } else if (target === "liked" || target === "favorites") {
+        setChannelEpisodes(null);
+        setTab("liked");
+      } else if (target === "subscriptions") {
         setChannelEpisodes(null);
         setTab("subscriptions");
+      } else if (target === "queue") {
+        setChannelEpisodes(null);
+        setTab("queue");
       } else if (target === "history") {
         setChannelEpisodes(null);
         setTab("history");
@@ -1144,8 +1150,8 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
           )}
         </button>
         <button onClick={(e) => { e.stopPropagation(); handleToggleFavEpisode(ep); }}
-          className="p-2 sm:p-1.5 rounded-lg sm:opacity-0 sm:group-hover:opacity-100 hover:bg-accent active:bg-accent transition-all flex-shrink-0" title={isFavoriteEpisode(`yt-${ep.videoId}`) ? "Desfavoritar" : "Favoritar"}>
-          <Star size={16} className={`sm:w-[14px] sm:h-[14px] ${isFavoriteEpisode(`yt-${ep.videoId}`) ? "text-primary fill-primary" : "text-muted-foreground"}`} />
+          className="p-2 sm:p-1.5 rounded-lg sm:opacity-0 sm:group-hover:opacity-100 hover:bg-accent active:bg-accent transition-all flex-shrink-0" title={isFavoriteEpisode(`yt-${ep.videoId}`) ? "Remover das curtidas" : "Curtir episódio"}>
+          <Heart size={16} className={`sm:w-[14px] sm:h-[14px] ${isFavoriteEpisode(`yt-${ep.videoId}`) ? "text-primary fill-primary" : "text-muted-foreground"}`} />
         </button>
         <button onClick={(e) => { e.stopPropagation(); addToQueue(song); }}
           className="p-2 sm:p-1.5 rounded-lg sm:opacity-0 sm:group-hover:opacity-100 hover:bg-accent active:bg-accent transition-all flex-shrink-0" title="Adicionar à fila">
