@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { Home, Search, Heart, Download, Settings, Compass, MonitorPlay, Clock, ListMusic, Music, Sun, Moon, Palette, Cast, X, ZoomIn, Plus, Minus, Sparkles, User, LogOut, LogIn, SlidersHorizontal, Podcast, ChevronDown, Library, Headphones, ChevronLeft, ChevronRight, ThumbsUp } from "lucide-react";
+import { Home, Search, Heart, Download, Settings, Compass, MonitorPlay, Clock, ListMusic, Music, Sun, Moon, Palette, Cast, X, ZoomIn, Plus, Minus, Sparkles, User, LogOut, LogIn, SlidersHorizontal, Podcast, ChevronDown, Library, Headphones, ChevronLeft, ChevronRight, ThumbsUp, Star } from "lucide-react";
 import { getFavoritesMetadata } from "@/lib/localStorage";
+import { getFavoriteEpisodes } from "@/lib/podcastStorage";
 
 import Logo from "@/components/Logo";
 import AppHeartbeatStatus from "@/components/AppHeartbeatStatus";
@@ -198,6 +199,10 @@ const DesktopSidebar = ({
   useEffect(() => {
     const recompute = () => {
       try {
+        if (activeType === "podcast") {
+          setLikedCount(getFavoriteEpisodes().length);
+          return;
+        }
         const favs = getFavoritesMetadata();
         setLikedCount(favs.filter((f: any) => (f?.type ?? "music") === activeType).length);
       } catch {}
@@ -206,9 +211,11 @@ const DesktopSidebar = ({
     const h = () => recompute();
     window.addEventListener("storage", h);
     window.addEventListener("demus:favorites-updated", h);
+    window.addEventListener("xerife:podcast-favs-updated", h);
     return () => {
       window.removeEventListener("storage", h);
       window.removeEventListener("demus:favorites-updated", h);
+      window.removeEventListener("xerife:podcast-favs-updated", h);
     };
   }, [activeType]);
 
