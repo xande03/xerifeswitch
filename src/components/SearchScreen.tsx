@@ -247,19 +247,22 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
         )}
       </form>
 
-      {/* Mood chips — atalhos de humor / estilo */}
-      <HorizontalScroll className="flex gap-2">
-        {MOOD_CHIPS.map((chip) => (
-          <button
-            key={chip.label}
-            type="button"
-            onClick={() => handleInput(chip.query)}
-            className="flex-shrink-0 px-4 py-1.5 rounded-full bg-secondary/70 hover:bg-primary/20 hover:text-primary border border-border/40 text-sm font-medium text-foreground whitespace-nowrap transition-colors active:scale-95"
-          >
-            {chip.label}
-          </button>
-        ))}
-      </HorizontalScroll>
+      {/* Mood chips — apenas antes de haver busca ativa */}
+      {query.trim().length < 2 && (
+        <HorizontalScroll className="flex gap-2">
+          {MOOD_CHIPS.map((chip) => (
+            <button
+              key={chip.label}
+              type="button"
+              onClick={() => handleInput(chip.query)}
+              className="flex-shrink-0 px-4 py-1.5 rounded-full bg-secondary/70 hover:bg-primary/20 hover:text-primary border border-border/40 text-sm font-medium text-foreground whitespace-nowrap transition-colors active:scale-95"
+            >
+              {chip.label}
+            </button>
+          ))}
+        </HorizontalScroll>
+      )}
+
 
 
       {/* Filter chips — visible when there's a query */}
