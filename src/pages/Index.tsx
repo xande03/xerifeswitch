@@ -1961,15 +1961,24 @@ const Index = () => {
           };
           const mc = moduleColors[currentModule];
           const handleSwitch = (m: SwitchableModule) => {
+            // Ao alternar de sessão, sempre entrar no "Início" da sessão escolhida,
+            // limpando sub-telas (artista, canal, playlist aberta, etc.).
+            setChannelView(null);
+            setArtistView(null);
+            setOpenPlaylistId(null);
+            setShowAllDestaques(false);
+            setShowAllListenAgain(false);
             if (m === "podcast") {
               setPodcastMode(true);
               setActiveTab("podcast");
+              window.dispatchEvent(new CustomEvent("xerife:podcast-nav", { detail: { target: "home" } }));
             } else {
               setPodcastMode(false);
               setHomeMode(m);
               setActiveTab("home");
             }
           };
+
           return (
         <header
           className="relative flex items-center gap-3 sm:gap-4 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 lg:py-5 flex-shrink-0 bg-background"
