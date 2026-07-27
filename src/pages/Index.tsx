@@ -136,6 +136,9 @@ const Index = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [podcastMode]);
 
+  // Aba realçada no rodapé/sidebar: em Podcasts espelha a sub-tela interna.
+  const navActiveTab: Tab = podcastMode && activeTab === "home" ? podcastNavTab : activeTab;
+
   // Handles bottom-nav / sidebar clicks while respecting the current module.
   // In podcast mode, Início / Buscar / Favoritos are routed inside the
   // PodcastScreen via `xerife:podcast-nav`, while Biblioteca opens the hub
@@ -1618,7 +1621,7 @@ const Index = () => {
       <div className={`flex bg-background overflow-hidden h-screen ${reducedMotionActive ? 'force-reduced-motion' : ''}`} style={{ height: '100dvh' }} data-theme={colorTheme}>
         {/* Desktop Sidebar */}
         <DesktopSidebar
-          active={activeTab}
+          active={navActiveTab}
           onChange={handleNavChange}
           homeMode={homeMode}
           podcastMode={podcastMode}
@@ -3016,7 +3019,7 @@ const Index = () => {
                 />
               )}
               <BottomNav
-                active={activeTab}
+                active={navActiveTab}
                 onChange={handleNavChange}
                 homeMode={homeMode}
                 podcastMode={podcastMode}
@@ -3030,7 +3033,7 @@ const Index = () => {
         {expanded && (
           <div className="md:hidden" ref={mobileFooterRef}>
             <BottomNav
-              active={activeTab}
+              active={navActiveTab}
               onChange={handleNavChange}
               homeMode={homeMode}
               podcastMode={podcastMode}
