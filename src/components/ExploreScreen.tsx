@@ -59,8 +59,12 @@ const groupByChannel = (videos: VideoResult[]) => {
     if (!groups[key]) {
       groups[key] = { channel: v.channel, channelId: v.channelId, channelUrl: v.channelUrl, thumbnail: v.channelThumbnail, videos: [] };
     }
+    // Alguns itens da API vêm sem o avatar do canal — completa com o primeiro
+    // vídeo do grupo que tiver a foto, garantindo que a logo sempre apareça.
+    if (!groups[key].thumbnail && v.channelThumbnail) groups[key].thumbnail = v.channelThumbnail;
     groups[key].videos.push(v);
   });
+
   const arr = Object.values(groups).filter((g) => g.videos.length >= 1);
   for (const g of arr) {
     g.videos.sort((a, b) => ageMinutes(a.publishedTime) - ageMinutes(b.publishedTime));

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Search, Wifi, WifiOff, ChevronRight, ChevronDown, Music, TrendingUp, Play, Pause, SkipBack, SkipForward, User, Clock, Sparkles, Plus, Sun, Moon, Flame, Headphones, Disc3, Zap, MonitorPlay, Heart, ListMusic, Bookmark, Trash2, Maximize2, Minimize2, ArrowLeft, Captions, CaptionsOff, Home, RefreshCw } from "lucide-react";
+import { Search, Wifi, WifiOff, ChevronRight, ChevronDown, Music, TrendingUp, Play, Pause, SkipBack, SkipForward, User, Clock, Sparkles, Plus, Sun, Moon, Flame, Headphones, Disc3, Zap, MonitorPlay, Heart, ListMusic, Bookmark, Trash2, Maximize2, Minimize2, ArrowLeft, Captions, CaptionsOff, Home, RefreshCw, Star } from "lucide-react";
 import SeekBar from "@/components/SeekBar";
 import { formatDuration } from "@/data/mockSongs";
 import { useReducedMotionTest } from "@/hooks/useReducedMotionTest";
@@ -42,6 +42,7 @@ import VideoHomeScreen, { getWatchLater, removeFromWatchLater } from "@/componen
 import HubHomeScreen from "@/components/HubHomeScreen";
 import { useModuleMode } from "@/hooks/useModuleMode";
 import ChannelProfile from "@/components/ChannelProfile";
+import { getFavoriteChannels, removeFavoriteChannel, FAV_CHANNELS_EVENT } from "@/lib/favoriteChannels";
 import ArtistProfile from "@/components/ArtistProfile";
 import BottomNav from "@/components/BottomNav";
 import DesktopSidebar from "@/components/DesktopSidebar";
@@ -93,9 +94,11 @@ const Index = () => {
   useEffect(() => {
     const bump = () => setWatchLaterVersion((v) => v + 1);
     window.addEventListener("demus:watchlater-updated", bump);
+    window.addEventListener(FAV_CHANNELS_EVENT, bump);
     window.addEventListener("storage", bump);
     return () => {
       window.removeEventListener("demus:watchlater-updated", bump);
+      window.removeEventListener(FAV_CHANNELS_EVENT, bump);
       window.removeEventListener("storage", bump);
     };
   }, []);
@@ -2612,6 +2615,52 @@ const Index = () => {
                 {homeMode === "video" ? "Biblioteca" : "Favoritos"}
               </h1>
 
+              {/* ── Canais favoritos (somente vídeos) ── */}
+              {homeMode === "video" && (() => {
+                const favChannels = getFavoriteChannels();
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Star size={16} className="text-primary" />
+                      <h2 className="text-sm font-semibold text-foreground">Favoritos</h2>
+                      <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full">{favChannels.length}</span>
+                    </div>
+                    {favChannels.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-muted-foreground opacity-40">
+                        <Star size={40} strokeWidth={1} />
+                        <p className="mt-2 text-sm font-medium">Nenhum canal favoritado</p>
+                        <p className="text-xs">Abra um canal e toque em “Favoritar”.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {favChannels.map((c) => (
+                          <div key={c.channelId || c.name} className="flex items-center gap-3 p-2 rounded-xl border border-border/60 bg-card/40">
+                            <button
+                              onClick={() => setChannelView({ name: c.name, thumbnail: c.thumbnail, channelId: c.channelId, channelUrl: c.channelUrl })}
+                              className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                            >
+                              {c.thumbnail ? (
+                                <img src={c.thumbnail} alt="" referrerPolicy="no-referrer" className="w-11 h-11 rounded-full object-cover bg-muted" />
+                              ) : (
+                                <span className="w-11 h-11 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center">{c.name.charAt(0)}</span>
+                              )}
+                              <span className="text-sm font-medium text-foreground truncate">{c.name}</span>
+                            </button>
+                            <button
+                              onClick={() => { removeFavoriteChannel(c); setRecentHistory([...recentHistory]); }}
+                              className="p-1.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                              title="Remover dos favoritos"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* ── Watch Later section (video mode only) ── */}
               {homeMode === "video" && (() => {
                 const watchLaterList = getWatchLater();
@@ -2795,6 +2844,7 @@ const Index = () => {
                     else setActiveTab("library");
                     break;
                   case "watchlater":
+                  case "favchannels":
                     setHomeMode("video");
                     setActiveTab("library");
                     break;

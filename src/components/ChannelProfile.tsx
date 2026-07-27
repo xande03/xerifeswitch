@@ -1,6 +1,8 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
-import { ArrowLeft, Loader2, Play, ListVideo, Info, Users, Radio, Flame, Zap, Clock, Film } from "lucide-react";
+import { ArrowLeft, Loader2, Play, ListVideo, Info, Users, Radio, Flame, Zap, Clock, Film, Heart } from "lucide-react";
 import { searchYouTubeGeneral, searchYouTubeGeneralPage, loadMoreYouTubeGeneral, type VideoResult } from "@/lib/youtubeGeneralSearch";
+import { isFavoriteChannel, toggleFavoriteChannel, FAV_CHANNELS_EVENT } from "@/lib/favoriteChannels";
+
 
 // Persist pagination state per channel so reload retomes onde parou.
 const CHANNEL_PAG_KEY = (name: string, channelId?: string) => `channel_pag:${(channelId || name).toLowerCase().trim()}`;
@@ -96,6 +98,23 @@ const ChannelProfile = ({ channelName, channelId, channelUrl, channelThumbnail, 
   const { toast } = useToast();
   const [resolvedChannelId, setResolvedChannelId] = useState<string | null>(null);
   const effectiveChannelId = channelId || resolvedChannelId || undefined;
+
+  // ── Avatar do canal ──
+  // A prop pode chegar vazia (busca, cards antigos, cache). Resolvemos com
+  // fallback: prop → thumbnail de canal vindo dos vídeos → busca dedicada.
+  const [fetchedAvatar, setFetchedAvatar] = useState<string>("");
+  const [avatarBroken, setAvatarBroken] = useState(false);
+  useEffect(() => { setFetchedAvatar(""); setAvatarBroken(false); }, [channelName, channelId]);
+
+  // ── Favoritar canal ──
+  const [isFav, setIsFav] = useState(false);
+  useEffect(() => {
+    const sync = () => setIsFav(isFavoriteChannel({ channelId: effectiveChannelId, name: channelName }));
+    sync();
+    window.addEventListener(FAV_CHANNELS_EVENT, sync);
+    return () => window.removeEventListener(FAV_CHANNELS_EVENT, sync);
+  }, [channelName, effectiveChannelId]);
+
 
   // Paginação: primeira página vem via auto-refresh; carregamos as demais aqui
   const [extraVideos, setExtraVideos] = useState<VideoResult[]>([]);
@@ -301,6 +320,32 @@ const ChannelProfile = ({ channelName, channelId, channelUrl, channelThumbnail, 
     return unique.sort((a, b) => ageMinutes(a.publishedTime) - ageMinutes(b.publishedTime));
   }, [videos, cachedVideos, extraVideos, channelName, effectiveChannelId, channelUrl]);
 
+  // Avatar efetivo: prop → thumbnail de canal presente nos vídeos → busca.
+  const avatarFromVideos = useMemo(() => {
+    const hit = sortedVideos.find((v) => v.channelThumbnail?.startsWith("http"));
+    return hit?.channelThumbnail || "";
+  }, [sortedVideos]);
+
+  const avatarSrc = (!avatarBroken && channelThumbnail?.startsWith("http") ? channelThumbnail : "")
+    || avatarFromVideos
+    || fetchedAvatar;
+
+  useEffect(() => {
+    if (avatarSrc) return;
+    let alive = true;
+    (async () => {
+      try {
+        const res = await searchYouTubeGeneral(channelName, { limit: 10 });
+        const target = normalizeChannelName(channelName);
+        const hit = res.find((v) => v.channelThumbnail?.startsWith("http") && normalizeChannelName(v.channel) === target)
+          || res.find((v) => v.channelThumbnail?.startsWith("http"));
+        if (alive && hit?.channelThumbnail) setFetchedAvatar(hit.channelThumbnail);
+      } catch {}
+    })();
+    return () => { alive = false; };
+  }, [avatarSrc, channelName]);
+
+
   // Scroll independente por aba (Vídeos, Shorts, Ao vivo, Populares, Playlists, Sobre).
   // Salva a posição ao sair da aba atual e restaura ao entrar em outra.
   const prevTabRef = useRef<ChannelTab>(activeTab);
@@ -476,13 +521,21 @@ const ChannelProfile = ({ channelName, channelId, channelUrl, channelThumbnail, 
         {/* Profile Info Card Overlay */}
         <div className="absolute -bottom-16 left-0 right-0 px-4 sm:px-8 lg:px-12 flex flex-col sm:flex-row items-end gap-4 sm:gap-6">
           <div className="relative group flex-shrink-0">
-             {channelThumbnail ? (
-               <img src={hdThumbnail(channelThumbnail)} alt={channelName} className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl object-cover ring-4 ring-background shadow-2xl" />
+             {avatarSrc ? (
+               <img
+                 src={hdThumbnail(avatarSrc)}
+                 alt={`Foto do canal ${channelName}`}
+                 loading="eager"
+                 referrerPolicy="no-referrer"
+                 onError={() => setAvatarBroken(true)}
+                 className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl object-cover bg-secondary ring-4 ring-background shadow-2xl"
+               />
              ) : (
                <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl bg-secondary flex items-center justify-center text-primary text-3xl font-bold ring-4 ring-background shadow-2xl">
                  {channelName.charAt(0)}
                </div>
              )}
+
              <div className="absolute inset-0 rounded-3xl bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
           </div>
           <div className="flex-1 pb-2 sm:pb-4 text-center sm:text-left">
@@ -503,10 +556,34 @@ const ChannelProfile = ({ channelName, channelId, channelUrl, channelThumbnail, 
             </div>
           </div>
           <div className="pb-2 sm:pb-4 flex-shrink-0">
-             <button className="px-8 py-2.5 rounded-full bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-all active:scale-95 shadow-lg shadow-primary/20">
-               Inscrever-se
+             <button
+               onClick={() => {
+                 const now = toggleFavoriteChannel({
+                   channelId: effectiveChannelId,
+                   name: channelName,
+                   thumbnail: avatarSrc || undefined,
+                   channelUrl,
+                 });
+                 setIsFav(now);
+                 toast({
+                   title: now ? "Canal favoritado" : "Canal removido dos favoritos",
+                   description: now
+                     ? `Novidades de ${channelName} vão aparecer no início do Xerife Videos.`
+                     : `${channelName} não aparecerá mais em Favoritos.`,
+                 });
+               }}
+               aria-pressed={isFav}
+               className={`flex items-center gap-2 px-7 py-2.5 rounded-full font-bold transition-all active:scale-95 shadow-lg ${
+                 isFav
+                   ? "bg-secondary text-foreground border border-border hover:bg-secondary/70"
+                   : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20"
+               }`}
+             >
+               <Heart size={16} fill={isFav ? "currentColor" : "none"} />
+               {isFav ? "Favoritado" : "Favoritar"}
              </button>
           </div>
+
         </div>
       </div>
 
@@ -794,8 +871,9 @@ const ChannelProfile = ({ channelName, channelId, channelUrl, channelThumbnail, 
           <div className="max-w-3xl mx-auto py-4">
             <div className="bg-card/40 border border-border/40 rounded-3xl p-6 sm:p-10 space-y-8 backdrop-blur-sm">
               <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
-                {channelThumbnail ? (
-                  <img src={hdThumbnail(channelThumbnail)} alt={channelName} className="w-20 h-20 rounded-2xl object-cover ring-2 ring-primary/20" />
+                {avatarSrc ? (
+                  <img src={hdThumbnail(avatarSrc)} alt={`Foto do canal ${channelName}`} referrerPolicy="no-referrer" onError={() => setAvatarBroken(true)} className="w-20 h-20 rounded-2xl object-cover bg-secondary ring-2 ring-primary/20" />
+
                 ) : (
                   <div className="w-20 h-20 rounded-2xl bg-primary/20 flex items-center justify-center text-primary text-2xl font-bold">
                     {channelName.charAt(0)}
