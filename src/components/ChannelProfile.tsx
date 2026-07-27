@@ -1,6 +1,8 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
-import { ArrowLeft, Loader2, Play, ListVideo, Info, Users, Radio, Flame, Zap, Clock, Film } from "lucide-react";
+import { ArrowLeft, Loader2, Play, ListVideo, Info, Users, Radio, Flame, Zap, Clock, Film, Heart } from "lucide-react";
 import { searchYouTubeGeneral, searchYouTubeGeneralPage, loadMoreYouTubeGeneral, type VideoResult } from "@/lib/youtubeGeneralSearch";
+import { isFavoriteChannel, toggleFavoriteChannel, FAV_CHANNELS_EVENT } from "@/lib/favoriteChannels";
+
 
 // Persist pagination state per channel so reload retomes onde parou.
 const CHANNEL_PAG_KEY = (name: string, channelId?: string) => `channel_pag:${(channelId || name).toLowerCase().trim()}`;
