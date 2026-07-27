@@ -104,22 +104,33 @@ const Index = () => {
   // então guardamos aqui qual ícone deve ficar aceso em lilás.
   const [podcastNavTab, setPodcastNavTab] = useState<Tab>("home");
   useEffect(() => {
+    const map: Record<string, Tab> = {
+      home: "home",
+      explore: "search",
+      liked: "library",
+      favorites: "library",
+      subscriptions: "playlists",
+      history: "history",
+      queue: "playlists",
+    };
     const onNav = (e: Event) => {
       const target = (e as CustomEvent<{ target?: string }>).detail?.target;
-      const map: Record<string, Tab> = {
-        home: "home",
-        explore: "search",
-        liked: "library",
-        favorites: "library",
-        subscriptions: "playlists",
-        history: "history",
-        queue: "playlists",
-      };
       if (target && map[target]) setPodcastNavTab(map[target]);
     };
+    // Emitido pelo PodcastScreen sempre que a sub-tela muda (inclusive ao
+    // voltar de uma página de canal), garantindo o destaque lilás correto.
+    const onTab = (e: Event) => {
+      const t = (e as CustomEvent<{ tab?: string }>).detail?.tab;
+      if (t && map[t]) setPodcastNavTab(map[t]);
+    };
     window.addEventListener("xerife:podcast-nav", onNav as EventListener);
-    return () => window.removeEventListener("xerife:podcast-nav", onNav as EventListener);
+    window.addEventListener("xerife:podcast-tab", onTab as EventListener);
+    return () => {
+      window.removeEventListener("xerife:podcast-nav", onNav as EventListener);
+      window.removeEventListener("xerife:podcast-tab", onTab as EventListener);
+    };
   }, []);
+
   // Persist activeTab
   useEffect(() => {
     try { localStorage.setItem('demus-active-tab', activeTab); } catch {}
