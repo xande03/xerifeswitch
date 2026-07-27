@@ -2165,6 +2165,11 @@ const Index = () => {
                     setExpanded(true);
                     setTimeout(() => requestFullscreen(), 500);
                   }}
+                  onNavigateToLibrary={() => {
+                    setChannelView(null);
+                    setHomeMode("video");
+                    setActiveTab("library");
+                  }}
                 />
               ) : artistView ? (
                 <motion.div

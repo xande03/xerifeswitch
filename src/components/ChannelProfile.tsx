@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "react";
-import { ArrowLeft, Loader2, Play, ListVideo, Info, Users, Radio, Flame, Zap, Clock, Film, Heart } from "lucide-react";
+import { ArrowLeft, Loader2, Play, ListVideo, Info, Users, Radio, Flame, Zap, Clock, Film, Star } from "lucide-react";
 import { searchYouTubeGeneral, searchYouTubeGeneralPage, loadMoreYouTubeGeneral, type VideoResult } from "@/lib/youtubeGeneralSearch";
 import { isFavoriteChannel, toggleFavoriteChannel, FAV_CHANNELS_EVENT } from "@/lib/favoriteChannels";
 
@@ -54,6 +54,7 @@ interface ChannelProfileProps {
   onBack: () => void;
   onPlayVideo: (video: VideoResult) => void;
   onFullscreenVideo?: (video: VideoResult) => void;
+  onNavigateToLibrary?: () => void;
 }
 
 type ChannelTab = "videos" | "shorts" | "live" | "playlists" | "popular" | "about";
@@ -93,7 +94,7 @@ const normalizeChannelName = (s: string) =>
 
 const extractChannelId = (s?: string) => (s || "").trim().match(/UC[\w-]{20,}/)?.[0] || "";
 
-const ChannelProfile = ({ channelName, channelId, channelUrl, channelThumbnail, onBack, onPlayVideo, onFullscreenVideo }: ChannelProfileProps) => {
+const ChannelProfile = ({ channelName, channelId, channelUrl, channelThumbnail, onBack, onPlayVideo, onFullscreenVideo, onNavigateToLibrary }: ChannelProfileProps) => {
   const [activeTab, setActiveTab] = useState<ChannelTab>("videos");
   const { toast } = useToast();
   const [resolvedChannelId, setResolvedChannelId] = useState<string | null>(null);
@@ -571,6 +572,9 @@ const ChannelProfile = ({ channelName, channelId, channelUrl, channelThumbnail, 
                      ? `Novidades de ${channelName} vão aparecer no início do Xerife Videos.`
                      : `${channelName} não aparecerá mais em Favoritos.`,
                  });
+                 if (now && onNavigateToLibrary) {
+                   onNavigateToLibrary();
+                 }
                }}
                aria-pressed={isFav}
                className={`flex items-center gap-2 px-7 py-2.5 rounded-full font-bold transition-all active:scale-95 shadow-lg ${
@@ -579,7 +583,7 @@ const ChannelProfile = ({ channelName, channelId, channelUrl, channelThumbnail, 
                    : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20"
                }`}
              >
-               <Heart size={16} fill={isFav ? "currentColor" : "none"} />
+               <Star size={16} fill={isFav ? "currentColor" : "none"} />
                {isFav ? "Favoritado" : "Favoritar"}
              </button>
           </div>
