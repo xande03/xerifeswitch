@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Home, Search, Heart, Compass, ThumbsUp, Library } from "lucide-react";
 import { getFavoritesMetadata } from "@/lib/localStorage";
+import { getFavoriteEpisodes } from "@/lib/podcastStorage";
 
 type Tab = "home" | "search" | "library" | "offline" | "profile" | "history" | "playlists" | "podcast" | "libraryhub";
 type HomeMode = "hub" | "music" | "video";
@@ -43,6 +44,10 @@ const BottomNav = ({ active, onChange, homeMode = "music", podcastMode = false }
   useEffect(() => {
     const recompute = () => {
       try {
+        if (activeType === "podcast") {
+          setLikedCount(getFavoriteEpisodes().length);
+          return;
+        }
         const favs = getFavoritesMetadata();
         const n = favs.filter((f: any) => (f?.type ?? "music") === activeType).length;
         setLikedCount(n);
@@ -52,9 +57,11 @@ const BottomNav = ({ active, onChange, homeMode = "music", podcastMode = false }
     const handler = () => recompute();
     window.addEventListener("storage", handler);
     window.addEventListener("demus:favorites-updated", handler);
+    window.addEventListener("xerife:podcast-favs-updated", handler);
     return () => {
       window.removeEventListener("storage", handler);
       window.removeEventListener("demus:favorites-updated", handler);
+      window.removeEventListener("xerife:podcast-favs-updated", handler);
     };
   }, [activeType]);
 

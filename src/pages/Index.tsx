@@ -99,10 +99,32 @@ const Index = () => {
       window.removeEventListener("storage", bump);
     };
   }, []);
+  // Aba visual do rodapé/sidebar enquanto estamos no módulo Podcasts.
+  // O PodcastScreen troca de sub-tela internamente (activeTab continua "home"),
+  // então guardamos aqui qual ícone deve ficar aceso em lilás.
+  const [podcastNavTab, setPodcastNavTab] = useState<Tab>("home");
+  useEffect(() => {
+    const onNav = (e: Event) => {
+      const target = (e as CustomEvent<{ target?: string }>).detail?.target;
+      const map: Record<string, Tab> = {
+        home: "home",
+        explore: "search",
+        liked: "library",
+        favorites: "library",
+        subscriptions: "playlists",
+        history: "history",
+        queue: "playlists",
+      };
+      if (target && map[target]) setPodcastNavTab(map[target]);
+    };
+    window.addEventListener("xerife:podcast-nav", onNav as EventListener);
+    return () => window.removeEventListener("xerife:podcast-nav", onNav as EventListener);
+  }, []);
   // Persist activeTab
   useEffect(() => {
     try { localStorage.setItem('demus-active-tab', activeTab); } catch {}
   }, [activeTab]);
+
   // Ativa podcastMode quando a aba Podcast for selecionada diretamente
   useEffect(() => {
     if (activeTab === "podcast" && !podcastMode) setPodcastMode(true);
@@ -113,6 +135,9 @@ const Index = () => {
     if (!podcastMode && activeTab === "podcast") setActiveTab("home");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [podcastMode]);
+
+  // Aba realçada no rodapé/sidebar: em Podcasts espelha a sub-tela interna.
+  const navActiveTab: Tab = podcastMode && activeTab === "home" ? podcastNavTab : activeTab;
 
   // Handles bottom-nav / sidebar clicks while respecting the current module.
   // In podcast mode, Início / Buscar / Favoritos are routed inside the
@@ -137,6 +162,11 @@ const Index = () => {
         window.dispatchEvent(new CustomEvent("xerife:podcast-nav", { detail: { target: "liked" } }));
         return;
       }
+      if (tab === "playlists") {
+        setActiveTab("home");
+        window.dispatchEvent(new CustomEvent("xerife:podcast-nav", { detail: { target: "subscriptions" } }));
+        return;
+      }
       if (tab === "libraryhub") {
         setActiveTab("libraryhub");
         return;
@@ -147,6 +177,7 @@ const Index = () => {
         return;
       }
     }
+
     if (tab === "home" && activeTab === "home") {
       setChannelView(null);
       setArtistView(null);
@@ -1590,7 +1621,7 @@ const Index = () => {
       <div className={`flex bg-background overflow-hidden h-screen ${reducedMotionActive ? 'force-reduced-motion' : ''}`} style={{ height: '100dvh' }} data-theme={colorTheme}>
         {/* Desktop Sidebar */}
         <DesktopSidebar
-          active={activeTab}
+          active={navActiveTab}
           onChange={handleNavChange}
           homeMode={homeMode}
           podcastMode={podcastMode}
@@ -2988,7 +3019,7 @@ const Index = () => {
                 />
               )}
               <BottomNav
-                active={activeTab}
+                active={navActiveTab}
                 onChange={handleNavChange}
                 homeMode={homeMode}
                 podcastMode={podcastMode}
@@ -3002,7 +3033,7 @@ const Index = () => {
         {expanded && (
           <div className="md:hidden" ref={mobileFooterRef}>
             <BottomNav
-              active={activeTab}
+              active={navActiveTab}
               onChange={handleNavChange}
               homeMode={homeMode}
               podcastMode={podcastMode}
