@@ -320,6 +320,32 @@ const ChannelProfile = ({ channelName, channelId, channelUrl, channelThumbnail, 
     return unique.sort((a, b) => ageMinutes(a.publishedTime) - ageMinutes(b.publishedTime));
   }, [videos, cachedVideos, extraVideos, channelName, effectiveChannelId, channelUrl]);
 
+  // Avatar efetivo: prop → thumbnail de canal presente nos vídeos → busca.
+  const avatarFromVideos = useMemo(() => {
+    const hit = sortedVideos.find((v) => v.channelThumbnail?.startsWith("http"));
+    return hit?.channelThumbnail || "";
+  }, [sortedVideos]);
+
+  const avatarSrc = (!avatarBroken && channelThumbnail?.startsWith("http") ? channelThumbnail : "")
+    || avatarFromVideos
+    || fetchedAvatar;
+
+  useEffect(() => {
+    if (avatarSrc) return;
+    let alive = true;
+    (async () => {
+      try {
+        const res = await searchYouTubeGeneral(channelName, { limit: 10 });
+        const target = normalizeChannelName(channelName);
+        const hit = res.find((v) => v.channelThumbnail?.startsWith("http") && normalizeChannelName(v.channel) === target)
+          || res.find((v) => v.channelThumbnail?.startsWith("http"));
+        if (alive && hit?.channelThumbnail) setFetchedAvatar(hit.channelThumbnail);
+      } catch {}
+    })();
+    return () => { alive = false; };
+  }, [avatarSrc, channelName]);
+
+
   // Scroll independente por aba (Vídeos, Shorts, Ao vivo, Populares, Playlists, Sobre).
   // Salva a posição ao sair da aba atual e restaura ao entrar em outra.
   const prevTabRef = useRef<ChannelTab>(activeTab);
