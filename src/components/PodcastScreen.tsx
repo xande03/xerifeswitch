@@ -1269,46 +1269,8 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
         </div>
       </div>
 
-      {/* Tab switcher — podcast-exclusive: radio-dial pill with underline indicator */}
-      <div
-        data-podcast-tabs="1"
-        className="relative flex gap-1 rounded-2xl p-1 overflow-x-auto scrollbar-hide border border-primary/20 bg-[linear-gradient(180deg,hsl(var(--primary)/0.08),hsl(var(--primary)/0.02))]"
-      >
-        {([
-          { id: "explore" as PodcastTab, label: "Explorar", icon: Compass },
-          { id: "subscriptions" as PodcastTab, label: "Favoritos", icon: Star },
-          { id: "queue" as PodcastTab, label: "Fila", icon: ListMusic },
-          { id: "history" as PodcastTab, label: "Histórico", icon: Clock },
-        ]).map(t => {
-          const active = tab === t.id;
-          return (
-            <button key={t.id} onClick={() => { setTab(t.id); if (t.id === "explore") setChannelEpisodes(null); }}
-              className={`relative flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] sm:text-xs font-semibold transition-all whitespace-nowrap ${
-                active
-                  ? "bg-background/80 text-primary shadow-[0_2px_10px_-4px_hsl(var(--primary)/0.4)]"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}>
-              <t.icon size={14} className={`${active ? "" : ""} ${t.id === "subscriptions" && active ? "fill-current" : ""}`} />
-              <span className="hidden xs:inline sm:inline">{t.label}</span>
-              {t.id === "subscriptions" && (subs.length + favEpisodes.length) > 0 && (
-                <span className="bg-primary/25 text-primary text-[9px] px-1.5 rounded-full font-bold">{subs.length + favEpisodes.length}</span>
-              )}
-              {t.id === "queue" && podcastQueue.length > 0 && (
-                <span className="bg-primary/25 text-primary text-[9px] px-1.5 rounded-full font-bold">{podcastQueue.length}</span>
-              )}
-              {active && (
-                <span
-                  aria-hidden
-                  className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-[3px] w-8 rounded-full bg-primary"
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── EXPLORE TAB ── */}
-      {tab === "explore" && (
+      {/* ── HOME / EXPLORE ── (pílula de abas removida: navegação vem do rodapé) */}
+      {(tab === "home" || tab === "explore") && (
         <div className="space-y-4">
           {/* Channel detail view */}
           {channelEpisodes ? renderChannelDetail() : (
