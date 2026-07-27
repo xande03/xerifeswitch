@@ -1576,13 +1576,14 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
 
                     </div>
                   )}
+                  </>)}
                 </div>
                 );
               })()}
 
 
-              {/* Results */}
-              {(isSearching || loadingCategory) ? (
+              {/* Results — apenas na aba Explorar */}
+              {tab === "explore" && ((isSearching || loadingCategory) ? (
                 <div className="space-y-3">
                   {Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="flex gap-3 animate-pulse">
