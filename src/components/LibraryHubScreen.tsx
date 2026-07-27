@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
-import { Download, Heart, Bookmark, ListMusic, Clock, Headphones, Music, MonitorPlay, Library, ChevronRight } from "lucide-react";
+import { Download, Heart, Bookmark, ListMusic, Clock, Headphones, Music, MonitorPlay, Library, ChevronRight, Star } from "lucide-react";
 import { getFavoritesMetadata, getHistory, getPlaylists } from "@/lib/localStorage";
 import { getWatchLater } from "@/components/VideoHomeScreen";
 import { getFavoriteEpisodes } from "@/lib/podcastStorage";
 import { getAllSavedSongs } from "@/lib/indexedDB";
+import { getFavoriteChannels, FAV_CHANNELS_EVENT } from "@/lib/favoriteChannels";
 
 export type LibraryFilter = "music" | "podcast" | "video";
-export type LibraryToolId = "downloads" | "liked" | "watchlater" | "playlists" | "podcasts" | "history";
+export type LibraryToolId = "downloads" | "liked" | "watchlater" | "playlists" | "podcasts" | "history" | "favchannels";
+
 
 interface LibraryHubScreenProps {
   homeMode?: "hub" | "music" | "video";
