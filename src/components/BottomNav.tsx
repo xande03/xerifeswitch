@@ -29,7 +29,7 @@ const videoTabs: { id: Tab; icon: typeof Home; label: string }[] = [
 const podcastTabs: { id: Tab; icon: typeof Home; label: string }[] = [
   { id: "home", icon: Home, label: "Início" },
   { id: "search", icon: Compass, label: "Explorar" },
-  { id: "library", icon: Heart, label: "Favoritos" },
+  { id: "library", icon: Heart, label: "Curtidas" },
   { id: "libraryhub", icon: Library, label: "Biblioteca" },
 ];
 

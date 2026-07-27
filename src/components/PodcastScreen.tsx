@@ -505,9 +505,10 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
 
   useEffect(() => {
     const refresh = () => setFavEpisodes(getFavoriteEpisodes());
+    refresh();
     window.addEventListener("xerife:podcast-favs-updated", refresh);
     return () => window.removeEventListener("xerife:podcast-favs-updated", refresh);
-  }, []);
+  }, [tab]);
 
   const handleToggleFavEpisode = (ep: VideoResult) => {
     toggleFavoriteEpisode({

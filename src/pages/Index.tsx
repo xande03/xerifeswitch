@@ -134,7 +134,7 @@ const Index = () => {
       }
       if (tab === "library") {
         setActiveTab("home");
-        window.dispatchEvent(new CustomEvent("xerife:podcast-nav", { detail: { target: "favorites" } }));
+        window.dispatchEvent(new CustomEvent("xerife:podcast-nav", { detail: { target: "liked" } }));
         return;
       }
       if (tab === "libraryhub") {
