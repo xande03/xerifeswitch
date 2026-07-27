@@ -1415,7 +1415,9 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
                     </div>
 
                   </div>
+                  )}
 
+                  {tab === "home" && (<>
                   {inProgress.length > 0 && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-1.5 px-1">
