@@ -99,10 +99,32 @@ const Index = () => {
       window.removeEventListener("storage", bump);
     };
   }, []);
+  // Aba visual do rodapé/sidebar enquanto estamos no módulo Podcasts.
+  // O PodcastScreen troca de sub-tela internamente (activeTab continua "home"),
+  // então guardamos aqui qual ícone deve ficar aceso em lilás.
+  const [podcastNavTab, setPodcastNavTab] = useState<Tab>("home");
+  useEffect(() => {
+    const onNav = (e: Event) => {
+      const target = (e as CustomEvent<{ target?: string }>).detail?.target;
+      const map: Record<string, Tab> = {
+        home: "home",
+        explore: "search",
+        liked: "library",
+        favorites: "library",
+        subscriptions: "playlists",
+        history: "history",
+        queue: "playlists",
+      };
+      if (target && map[target]) setPodcastNavTab(map[target]);
+    };
+    window.addEventListener("xerife:podcast-nav", onNav as EventListener);
+    return () => window.removeEventListener("xerife:podcast-nav", onNav as EventListener);
+  }, []);
   // Persist activeTab
   useEffect(() => {
     try { localStorage.setItem('demus-active-tab', activeTab); } catch {}
   }, [activeTab]);
+
   // Ativa podcastMode quando a aba Podcast for selecionada diretamente
   useEffect(() => {
     if (activeTab === "podcast" && !podcastMode) setPodcastMode(true);
