@@ -556,10 +556,34 @@ const ChannelProfile = ({ channelName, channelId, channelUrl, channelThumbnail, 
             </div>
           </div>
           <div className="pb-2 sm:pb-4 flex-shrink-0">
-             <button className="px-8 py-2.5 rounded-full bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-all active:scale-95 shadow-lg shadow-primary/20">
-               Inscrever-se
+             <button
+               onClick={() => {
+                 const now = toggleFavoriteChannel({
+                   channelId: effectiveChannelId,
+                   name: channelName,
+                   thumbnail: avatarSrc || undefined,
+                   channelUrl,
+                 });
+                 setIsFav(now);
+                 toast({
+                   title: now ? "Canal favoritado" : "Canal removido dos favoritos",
+                   description: now
+                     ? `Novidades de ${channelName} vão aparecer no início do Xerife Videos.`
+                     : `${channelName} não aparecerá mais em Favoritos.`,
+                 });
+               }}
+               aria-pressed={isFav}
+               className={`flex items-center gap-2 px-7 py-2.5 rounded-full font-bold transition-all active:scale-95 shadow-lg ${
+                 isFav
+                   ? "bg-secondary text-foreground border border-border hover:bg-secondary/70"
+                   : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20"
+               }`}
+             >
+               <Heart size={16} fill={isFav ? "currentColor" : "none"} />
+               {isFav ? "Favoritado" : "Favoritar"}
              </button>
           </div>
+
         </div>
       </div>
 
