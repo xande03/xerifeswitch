@@ -521,13 +521,21 @@ const ChannelProfile = ({ channelName, channelId, channelUrl, channelThumbnail, 
         {/* Profile Info Card Overlay */}
         <div className="absolute -bottom-16 left-0 right-0 px-4 sm:px-8 lg:px-12 flex flex-col sm:flex-row items-end gap-4 sm:gap-6">
           <div className="relative group flex-shrink-0">
-             {channelThumbnail ? (
-               <img src={hdThumbnail(channelThumbnail)} alt={channelName} className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl object-cover ring-4 ring-background shadow-2xl" />
+             {avatarSrc ? (
+               <img
+                 src={hdThumbnail(avatarSrc)}
+                 alt={`Foto do canal ${channelName}`}
+                 loading="eager"
+                 referrerPolicy="no-referrer"
+                 onError={() => setAvatarBroken(true)}
+                 className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl object-cover bg-secondary ring-4 ring-background shadow-2xl"
+               />
              ) : (
                <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl bg-secondary flex items-center justify-center text-primary text-3xl font-bold ring-4 ring-background shadow-2xl">
                  {channelName.charAt(0)}
                </div>
              )}
+
              <div className="absolute inset-0 rounded-3xl bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
           </div>
           <div className="flex-1 pb-2 sm:pb-4 text-center sm:text-left">
