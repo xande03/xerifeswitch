@@ -871,8 +871,9 @@ const ChannelProfile = ({ channelName, channelId, channelUrl, channelThumbnail, 
           <div className="max-w-3xl mx-auto py-4">
             <div className="bg-card/40 border border-border/40 rounded-3xl p-6 sm:p-10 space-y-8 backdrop-blur-sm">
               <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
-                {channelThumbnail ? (
-                  <img src={hdThumbnail(channelThumbnail)} alt={channelName} className="w-20 h-20 rounded-2xl object-cover ring-2 ring-primary/20" />
+                {avatarSrc ? (
+                  <img src={hdThumbnail(avatarSrc)} alt={`Foto do canal ${channelName}`} referrerPolicy="no-referrer" onError={() => setAvatarBroken(true)} className="w-20 h-20 rounded-2xl object-cover bg-secondary ring-2 ring-primary/20" />
+
                 ) : (
                   <div className="w-20 h-20 rounded-2xl bg-primary/20 flex items-center justify-center text-primary text-2xl font-bold">
                     {channelName.charAt(0)}
