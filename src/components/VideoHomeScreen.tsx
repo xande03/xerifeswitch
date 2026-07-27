@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import HorizontalScroll from "./HorizontalScroll";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Sparkles, Play, TrendingUp, RefreshCw, Film, BookmarkPlus, Bookmark, X, Flame, Search, Compass, ChevronUp, ChevronDown } from "lucide-react";
+import { Clock, Sparkles, Play, TrendingUp, RefreshCw, Film, BookmarkPlus, Bookmark, X, Flame, Search, Compass, ChevronUp, ChevronDown, Star } from "lucide-react";
 import { VIDEO_CATEGORIES, type VideoCategory } from "./VideoCategorySelector";
 import { searchYouTubeGeneral, searchYouTubeGeneralPage, loadMoreYouTubeGeneral, type VideoResult } from "@/lib/youtubeGeneralSearch";
 import { getSearchSuggestions } from "@/lib/youtubeSearch";
@@ -16,6 +16,7 @@ import RefreshSkeleton from "./RefreshSkeleton";
 import { useAutoRefreshChannel } from "@/hooks/useAutoRefreshChannel";
 import NewContentBadge from "./NewContentBadge";
 import { useToast } from "@/hooks/use-toast";
+import { getFavoriteChannels, FAV_CHANNELS_EVENT, type FavoriteChannel } from "@/lib/favoriteChannels";
 
 interface VideoHomeScreenProps {
   onPlayVideo: (video: VideoResult) => void;
@@ -168,6 +169,55 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
   const { toast } = useToast();
 
   // History setup FIRST - before any hooks that depend on it
+  // ── Canais favoritos: novidades dos criadores favoritados ──
+  const [favChannels, setFavChannels] = useState<FavoriteChannel[]>(() => getFavoriteChannels());
+  const [favVideos, setFavVideos] = useState<VideoResult[]>([]);
+  const [loadingFav, setLoadingFav] = useState(false);
+
+  useEffect(() => {
+    const sync = () => setFavChannels(getFavoriteChannels());
+    window.addEventListener(FAV_CHANNELS_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(FAV_CHANNELS_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (favChannels.length === 0) { setFavVideos([]); return; }
+    let cancelled = false;
+    setLoadingFav(true);
+    (async () => {
+      const picked = favChannels.slice(0, 5);
+      const lists = await Promise.all(
+        picked.map((c) =>
+          searchYouTubeGeneral(c.name, {
+            limit: 12,
+            sortByDate: true,
+            channelId: c.channelId,
+            channelName: c.name,
+          }).catch(() => [] as VideoResult[])
+        )
+      );
+      if (cancelled) return;
+      const seen = new Set<string>();
+      const merged: VideoResult[] = [];
+      // Intercala os canais para nenhum criador dominar a seção.
+      for (let i = 0; i < 6; i++) {
+        for (const list of lists) {
+          const v = list[i];
+          if (!v || seen.has(v.videoId)) continue;
+          seen.add(v.videoId);
+          merged.push(v);
+        }
+      }
+      setFavVideos(merged.slice(0, 18));
+      setLoadingFav(false);
+    })();
+    return () => { cancelled = true; };
+  }, [favChannels]);
+
   const [historyTick, setHistoryTick] = useState(0);
   const history = useMemo(() => {
     try {
@@ -215,6 +265,9 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
     const topSearches = recentSearches.slice(0, 4);
     queries.push(...topSearches);
 
+    // Canais favoritados entram como sementes fortes das recomendações.
+    for (const c of favChannels.slice(0, 3)) queries.push(c.name);
+
     if (history.length > 0) {
       // Rank channels by watch frequency instead of just recency.
       const channelCount = new Map<string, number>();
@@ -257,7 +310,7 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
 
     if (deduped.length === 0) deduped.push("vídeos recomendados Brasil");
     return deduped.slice(0, 10);
-  }, [history, recentSearches]);
+  }, [history, recentSearches, favChannels]);
 
 
   // History change listener
@@ -599,6 +652,55 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
           </div>
         )}
       </motion.section>
+
+      {/* Novidades dos canais favoritos */}
+      {favChannels.length > 0 && (
+        <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="space-y-3">
+          <div className="flex items-center gap-2 px-4">
+            <Star size={14} className="text-primary" />
+            <h2 className="text-sm font-semibold text-foreground">Dos seus canais favoritos</h2>
+            <span className="text-[10px] text-muted-foreground/70 hidden sm:inline">novidades e recomendações</span>
+          </div>
+
+          <HorizontalScroll className="flex gap-2 px-4">
+            {favChannels.map((c) => (
+              <button
+                key={(c.channelId || c.name)}
+                onClick={() => onChannelClick?.(c.name, c.thumbnail, c.channelId, c.channelUrl)}
+                className="flex-shrink-0 flex items-center gap-2 pl-1 pr-3 py-1 rounded-full bg-secondary/60 border border-border hover:border-primary/40 transition-colors"
+              >
+                {c.thumbnail ? (
+                  <img src={c.thumbnail} alt="" referrerPolicy="no-referrer" className="w-7 h-7 rounded-full object-cover bg-muted" />
+                ) : (
+                  <span className="w-7 h-7 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">{c.name.charAt(0)}</span>
+                )}
+                <span className="text-xs font-medium text-foreground max-w-[9rem] truncate">{c.name}</span>
+              </button>
+            ))}
+          </HorizontalScroll>
+
+          {loadingFav && favVideos.length === 0 ? (
+            <div className="flex items-center gap-2 px-4 text-xs text-muted-foreground">
+              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              Buscando novidades dos seus favoritos...
+            </div>
+          ) : favVideos.length > 0 ? (
+            <div className="grid gap-y-6 gap-x-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 px-0 sm:px-4">
+              {favVideos.map((video) => (
+                <VideoCard
+                  key={`fav-${video.videoId}`}
+                  video={video}
+                  onPlay={onPlayVideo}
+                  onChannelClick={onChannelClick}
+                  onFullscreen={onFullscreenVideo}
+                  onAddToPlaylist={onAddToPlaylist}
+                  viewMode="grid"
+                />
+              ))}
+            </div>
+          ) : null}
+        </motion.section>
+      )}
 
       {/* Personalized Recommendations */}
       <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="space-y-3">
