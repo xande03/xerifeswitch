@@ -1275,7 +1275,8 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
           {/* Channel detail view */}
           {channelEpisodes ? renderChannelDetail() : (
             <>
-              {/* Search bar — podcast-exclusive: compass "radar" field with rotating tick marks */}
+              {/* Search bar — só na aba Explorar (bússola do rodapé) */}
+              {tab === "explore" && (
               <div
                 data-podcast-search-field="1"
                 className="relative rounded-2xl p-[1.5px] bg-[conic-gradient(from_0deg,hsl(var(--primary)/0.55),hsl(var(--primary)/0.1),hsl(var(--primary)/0.55))]"
@@ -1328,6 +1329,7 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
                   )}
                 </AnimatePresence>
               </div>
+              )}
 
               {!hasSearched && (() => {
                 // ── Personalização baseada em localStorage (histórico + em progresso) ──
@@ -1368,6 +1370,7 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
                 return (
                 <div className="space-y-6">
                   {/* HERO editorial exclusivo do módulo Podcast */}
+                  {tab === "home" && (
                   <PodcastOnAirHero
                     greetingLabel={daypart.label}
                     greetingIcon={daypart.icon}
@@ -1377,9 +1380,10 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
                     showGradient={onAir?.color}
                     onPlay={onAir ? () => browsePopularPodcast(onAir) : undefined}
                   />
+                  )}
 
-
-                  {/* Categorias — grid editorial (Spotify-style tiles), NÃO chips horizontais */}
+                  {/* Categorias — só na aba Explorar */}
+                  {tab === "explore" && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between px-1">
                       <div className="flex items-center gap-1.5">
