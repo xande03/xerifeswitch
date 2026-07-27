@@ -1871,7 +1871,7 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
                     <p className="text-sm">{hasSearched ? "Nenhum podcast encontrado" : "Carregando podcasts..."}</p>
                   </div>
                 )
-              )}
+              ))}
             </>
           )}
         </div>
