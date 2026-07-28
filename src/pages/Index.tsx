@@ -53,6 +53,7 @@ import SidebarPlayer from "@/components/SidebarPlayer";
 
 import SplashScreen from "@/components/SplashScreen";
 import FullscreenOverlay from "@/components/FullscreenOverlay";
+import { getPlaybackRate, savePosition, getPosition, getPreMuteVolume, savePreMuteVolume, saveMuted } from "@/lib/playerSession";
 import HeaderMenu from "@/components/HeaderMenu";
 import { DownloadModal } from "@/components/DownloadModal";
 import { ShareModal } from "@/components/ShareModal";
