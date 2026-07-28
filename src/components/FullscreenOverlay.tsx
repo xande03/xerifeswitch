@@ -102,6 +102,40 @@ const FullscreenOverlay = ({
     try { window.dispatchEvent(new CustomEvent("demus:set-rate", { detail: rate })); } catch {}
   };
 
+  // Estado de PiP + disponibilidade de AirPlay (WebKit)
+  useEffect(() => {
+    const onEnter = () => setPipActive(true);
+    const onLeave = () => setPipActive(false);
+    const onPresentation = (e: Event) => {
+      const mode = (e.target as any)?.webkitPresentationMode;
+      setPipActive(mode === "picture-in-picture");
+    };
+    document.addEventListener("enterpictureinpicture", onEnter, true);
+    document.addEventListener("leavepictureinpicture", onLeave, true);
+    document.addEventListener("webkitpresentationmodechanged", onPresentation, true);
+
+    // AirPlay: escuta a disponibilidade de alvos de reprodução em qualquer
+    // elemento de mídia da página (proxy de áudio / vídeo).
+    const media = Array.from(document.querySelectorAll("video, audio")) as HTMLMediaElement[];
+    const onTargets = (e: Event) => {
+      setAirplayAvailable((e as any).availability === "available");
+    };
+    media.forEach((m) => {
+      try { m.addEventListener("webkitplaybacktargetavailabilitychanged", onTargets as EventListener); } catch {}
+    });
+
+    return () => {
+      document.removeEventListener("enterpictureinpicture", onEnter, true);
+      document.removeEventListener("leavepictureinpicture", onLeave, true);
+      document.removeEventListener("webkitpresentationmodechanged", onPresentation, true);
+      media.forEach((m) => {
+        try { m.removeEventListener("webkitplaybacktargetavailabilitychanged", onTargets as EventListener); } catch {}
+      });
+    };
+  }, []);
+
+
+
 
   // ── Quality selector (persisted; mirrors VideoInfoBar) ──
   const QUALITY_OPTIONS: { value: string; label: string }[] = [
