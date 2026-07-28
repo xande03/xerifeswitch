@@ -20,6 +20,20 @@ export interface VideoInfo {
 const CACHE_KEY = "demus_video_info_cache";
 const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
 
+export function isLikelyTruncatedDescription(description?: string): boolean {
+  const text = (description || "").trim();
+  if (!text) return false;
+  return /(\.\.\.|…|\u2026)\s*$/.test(text);
+}
+
+function normalizeDescription(description?: string): string {
+  return (description || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function getCache(): Record<string, { data: VideoInfo; ts: number }> {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "{}"); } catch { return {}; }
 }
@@ -35,7 +49,12 @@ export async function fetchVideoInfo(videoId: string): Promise<VideoInfo> {
   if (!videoId) return { relatedVideos: [], comments: [], description: "" };
 
   const cache = getCache();
-  if (cache[videoId] && Date.now() - cache[videoId].ts < CACHE_TTL) {
+  const cachedDescription = normalizeDescription(cache[videoId]?.data?.description);
+  if (
+    cache[videoId]
+    && Date.now() - cache[videoId].ts < CACHE_TTL
+    && !isLikelyTruncatedDescription(cachedDescription)
+  ) {
     return cache[videoId].data;
   }
 
@@ -58,7 +77,7 @@ export async function fetchVideoInfo(videoId: string): Promise<VideoInfo> {
     const result: VideoInfo = {
       relatedVideos: data.relatedVideos || [],
       comments: data.comments || [],
-      description: data.description || "",
+      description: normalizeDescription(data.description),
     };
 
     // Only cache if we got actual data
@@ -71,7 +90,9 @@ export async function fetchVideoInfo(videoId: string): Promise<VideoInfo> {
     return result;
   } catch (err) {
     console.warn("Video info fetch failed:", err);
-    return cache[videoId]?.data || { relatedVideos: [], comments: [], description: "" };
+    const fallback = cache[videoId]?.data;
+    if (fallback && !isLikelyTruncatedDescription(fallback.description)) return fallback;
+    return { relatedVideos: fallback?.relatedVideos || [], comments: fallback?.comments || [], description: "" };
   }
 }
 
