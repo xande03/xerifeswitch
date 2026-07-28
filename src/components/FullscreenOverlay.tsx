@@ -683,6 +683,16 @@ const FullscreenOverlay = ({
           >
             <SkipForward size={26} fill="currentColor" />
           </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleMute?.(); resetTimer(); }}
+            className={`p-2 rounded-full active:scale-90 transition-all ${
+              isMuted ? "text-white bg-white/20" : "text-white/90 hover:text-white"
+            }`}
+            aria-label={isMuted ? "Ativar som" : "Silenciar"}
+            title={isMuted ? "Ativar som" : "Silenciar"}
+          >
+            {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+          </button>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-white/70 font-mono w-10 text-right">{formatDuration(currentTime)}</span>
