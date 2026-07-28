@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import HorizontalScroll from "./HorizontalScroll";
-import { Search, Play, Pause, Clock, X, ChevronRight, ChevronDown, Headphones, Radio, Bell, BellOff, Gauge, RotateCcw, ListMusic, SkipForward, Plus, Trash2, Calendar, Mic, ArrowLeft, Bookmark, MoreVertical, Download, LayoutGrid, List, Rows3, Eye, Palette, Video, Star, Sparkles, Compass, Heart } from "lucide-react";
+import { Search, Play, Pause, Clock, X, ChevronRight, ChevronDown, Headphones, Radio, Bell, BellOff, Gauge, RotateCcw, ListMusic, SkipForward, Plus, Trash2, Calendar, Mic, ArrowLeft, Bookmark, MoreVertical, Download, LayoutGrid, List, Rows3, Eye, Palette, Video, Star, Sparkles, Compass, Heart, FileText, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { searchYouTubeGeneral, searchYouTubeGeneralPage, loadMoreYouTubeGeneral, type VideoResult } from "@/lib/youtubeGeneralSearch";
 import { getSearchSuggestions } from "@/lib/youtubeSearch";
@@ -16,6 +16,103 @@ import { useChannelAutoRefresh } from "@/hooks/useAutoRefreshChannel";
 import NewContentBadge from "./NewContentBadge";
 import { PodcastOnAirHero, PodcastGenreTile, PodcastChartRow, PodcastRail } from "./podcast/PodcastExploreParts";
 import { useToast } from "@/hooks/use-toast";
+
+// ── Componente de Descrição de Episódio ──
+interface PodcastEpisodeDescriptionProps {
+  description: string;
+  episodeTitle: string;
+}
+
+const PodcastEpisodeDescription = ({ description, episodeTitle }: PodcastEpisodeDescriptionProps) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showReadMore, setShowReadMore] = useState(false);
+  const descRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    // Verifica se o texto é longo o suficiente para precisar de "Ler mais"
+    if (descRef.current) {
+      const lineHeight = parseInt(getComputedStyle(descRef.current).lineHeight);
+      const maxHeight = lineHeight * 2; // 2 linhas
+      setShowReadMore(descRef.current.scrollHeight > maxHeight);
+    }
+  }, [description]);
+
+  // Função para limpar e formatar a descrição
+  const formatDescription = (desc: string) => {
+    return desc
+      .replace(/\n\n+/g, '\n\n') // Remove múltiplas quebras de linha
+      .replace(/^\s+|\s+$/g, '') // Remove espaços no início/fim
+      .slice(0, 800); // Limita a 800 caracteres
+  };
+
+  const formattedDesc = formatDescription(description);
+  const shortDesc = formattedDesc.slice(0, 120);
+
+  if (!formattedDesc) return null;
+
+  return (
+    <div className="mt-2 pt-2 border-t border-border/30">
+      <div className="flex items-start gap-2">
+        <FileText size={11} className="text-primary mt-0.5 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <AnimatePresence mode="wait">
+            {isExpanded ? (
+              <motion.div
+                key="expanded"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <p className="text-[10px] text-muted-foreground leading-relaxed whitespace-pre-line">
+                  {formattedDesc}
+                </p>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsExpanded(false);
+                  }}
+                  className="flex items-center gap-1 mt-2 text-[9px] text-primary font-medium hover:text-primary/80 transition-colors"
+                >
+                  <ChevronUp size={10} />
+                  Mostrar menos
+                </button>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="collapsed"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <p 
+                  ref={descRef}
+                  className="text-[10px] text-muted-foreground leading-relaxed line-clamp-2"
+                >
+                  {showReadMore ? shortDesc : formattedDesc}
+                  {showReadMore && formattedDesc.length > shortDesc.length && "..."}
+                </p>
+                {showReadMore && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsExpanded(true);
+                    }}
+                    className="flex items-center gap-1 mt-1 text-[9px] text-primary font-medium hover:text-primary/80 transition-colors"
+                  >
+                    <ChevronDown size={10} />
+                    Ler mais
+                  </button>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ── Popular pre-configured podcasts ──
 const POPULAR_PODCASTS = [
@@ -1147,6 +1244,10 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
                 </span>
               )}
             </div>
+            {/* Área de descrição do episódio na lista */}
+            {ep.description && ep.description.trim() && (
+              <PodcastEpisodeDescription description={ep.description} episodeTitle={ep.title} />
+            )}
           </div>
           {isActive && isPlaying && (
             <div className="flex items-end gap-[2px] h-4 flex-shrink-0">
@@ -1784,9 +1885,15 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
                                   </div>
                                 </div>
                               </div>
-                              <p className="text-xs text-muted-foreground/50 leading-relaxed line-clamp-2">
-                                {ep.description || `Ouça este episódio de ${ep.channel} no Xerife Switch — áudio em alta qualidade para a melhor experiência de podcast.`}
-                              </p>
+                              <div className="text-xs text-muted-foreground/70 leading-relaxed">
+                                {ep.description && ep.description.trim() ? (
+                                  <PodcastEpisodeDescription description={ep.description} episodeTitle={ep.title} />
+                                ) : (
+                                  <p className="line-clamp-2">
+                                    Ouça este episódio de {ep.channel} no Xerife Switch — áudio em alta qualidade para a melhor experiência de podcast.
+                                  </p>
+                                )}
+                              </div>
                               <div className="flex items-center gap-2 pt-1">
                                 <button onClick={() => handlePlayEpisode(ep)}
                                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors">
@@ -1866,6 +1973,10 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
                                   <Plus size={13} />
                                 </button>
                               </div>
+                              {/* Área de descrição do episódio */}
+                              {ep.description && ep.description.trim() && (
+                                <PodcastEpisodeDescription description={ep.description} episodeTitle={ep.title} />
+                              )}
                             </div>
                           </motion.div>
                         );

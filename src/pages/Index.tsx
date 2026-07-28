@@ -1778,12 +1778,17 @@ const Index = () => {
             style={
               playerState.isFullscreen
                 ? {
-                    // Letterbox 16:9 centralizado: sem corte em landscape mobile.
-                    // dvw/dvh = viewport dinâmico (sem barra de endereço iOS).
-                    // Sem aspect-ratio explícito para evitar over-constraint.
-                    width: 'min(100dvw, calc(100dvh * 16 / 9))',
-                    height: 'min(100dvh, calc(100dvw * 9 / 16))',
+                    // Letterbox 16:9 centralizado garantindo que todo o conteúdo fique visível
+                    // em landscape mobile sem cortes. Usa viewport dinâmico (dvw/dvh) quando disponível.
+                    // Fallback para vw/vh em navegadores antigos.
+                    // Calcula dimensões respeitando safe-area-inset (notch, dynamic island).
+                    width: 'min(100dvw, 100vw, calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 16 / 9))',
+                    height: 'min(100dvh, 100vh, calc((100dvw - env(safe-area-inset-left) - env(safe-area-inset-right)) * 9 / 16))',
+                    maxWidth: 'calc(100dvw - env(safe-area-inset-left) - env(safe-area-inset-right))',
+                    maxHeight: 'calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
                     margin: 'auto',
+                    aspectRatio: '16 / 9',
+                    objectFit: 'contain',
                   }
                 : undefined
             }
