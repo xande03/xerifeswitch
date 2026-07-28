@@ -1985,6 +1985,9 @@ const Index = () => {
               onPrev={handlePrev}
               onSeek={handleSeek}
               onExit={() => exitFullscreen()}
+              onTogglePiP={() => togglePiP()}
+              onAirPlay={() => requestAirPlay('video')}
+              onSpeedChange={(rate) => setPlaybackRate(rate)}
             />
           )}
         </div>

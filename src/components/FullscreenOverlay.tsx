@@ -1,8 +1,37 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ChevronDown, Play, Pause, SkipBack, SkipForward, ArrowLeft, Settings2, Check, Loader2 } from "lucide-react";
+import { ChevronDown, Play, Pause, SkipBack, SkipForward, ArrowLeft, Settings2, Check, Loader2, X, PictureInPicture2, Airplay, Gauge } from "lucide-react";
 import { track as trackMetric } from "@/lib/playbackMetrics";
 import { Song, formatDuration } from "@/data/mockSongs";
 import SeekBar from "@/components/SeekBar";
+
+/** iOS/WebKit capability detection — usado para imitar o player nativo do iOS. */
+const isWebKitLike = () => {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  const iOS = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && (navigator as any).maxTouchPoints > 1);
+  const safari = /^((?!chrome|android|crios|fxios).)*safari/i.test(ua);
+  return iOS || safari;
+};
+const supportsPiP = () => {
+  if (typeof document === "undefined") return false;
+  const v = document.createElement("video");
+  return (
+    (document as any).pictureInPictureEnabled === true ||
+    typeof (v as any).webkitSetPresentationMode === "function" ||
+    typeof (v as any).requestPictureInPicture === "function"
+  );
+};
+const supportsAirPlay = () => {
+  if (typeof window === "undefined") return false;
+  const v = document.createElement("video");
+  return (
+    typeof (v as any).webkitShowPlaybackTargetPicker === "function" ||
+    typeof (window as any).WebKitPlaybackTargetAvailabilityEvent !== "undefined"
+  );
+};
+
+const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2] as const;
+
 
 const AUTOHIDE_OPTS = [2000, 3500, 5000, 8000] as const;
 const AUTOHIDE_DEFAULT = 3500;
@@ -30,6 +59,12 @@ interface FullscreenOverlayProps {
   onPrev: () => void;
   onSeek: (fraction: number) => void;
   onExit: () => void;
+  /** Picture-in-Picture (WebKit `webkitSetPresentationMode` no iOS) */
+  onTogglePiP?: () => void;
+  /** Espelhar / AirPlay (`webkitShowPlaybackTargetPicker`) */
+  onAirPlay?: () => void;
+  /** Velocidade de reprodução */
+  onSpeedChange?: (rate: number) => void;
 }
 
 const MIN_SCALE = 1;
@@ -38,12 +73,69 @@ const MAX_SCALE = 4;
 const FullscreenOverlay = ({
   song, isPlaying, currentTime, duration, progress,
   onTogglePlay, onNext, onPrev, onSeek, onExit,
+  onTogglePiP, onAirPlay, onSpeedChange,
 }: FullscreenOverlayProps) => {
   const [showControls, setShowControls] = useState(true);
   const [zoom, setZoom] = useState<{ scale: number; x: number; y: number }>({ scale: 1, x: 0, y: 0 });
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const lastTapRef = useRef<number>(0);
   const autoHideMsRef = useRef<number>(readAutoHideMs());
+
+  // ── Capacidades nativas (iOS/WebKit) ──
+  const [caps] = useState(() => ({
+    webkit: isWebKitLike(),
+    pip: supportsPiP(),
+    airplay: supportsAirPlay(),
+  }));
+  const [pipActive, setPipActive] = useState(false);
+  const [airplayAvailable, setAirplayAvailable] = useState(false);
+  const [speed, setSpeed] = useState<number>(() => {
+    try { const n = Number(localStorage.getItem("demus-playback-rate")); return SPEED_OPTIONS.includes(n as any) ? n : 1; } catch { return 1; }
+  });
+  const [speedOpen, setSpeedOpen] = useState(false);
+
+  const applySpeed = (rate: number) => {
+    setSpeed(rate);
+    setSpeedOpen(false);
+    try { localStorage.setItem("demus-playback-rate", String(rate)); } catch {}
+    onSpeedChange?.(rate);
+    try { window.dispatchEvent(new CustomEvent("demus:set-rate", { detail: rate })); } catch {}
+  };
+
+  // Estado de PiP + disponibilidade de AirPlay (WebKit)
+  useEffect(() => {
+    const onEnter = () => setPipActive(true);
+    const onLeave = () => setPipActive(false);
+    const onPresentation = (e: Event) => {
+      const mode = (e.target as any)?.webkitPresentationMode;
+      setPipActive(mode === "picture-in-picture");
+    };
+    document.addEventListener("enterpictureinpicture", onEnter, true);
+    document.addEventListener("leavepictureinpicture", onLeave, true);
+    document.addEventListener("webkitpresentationmodechanged", onPresentation, true);
+
+    // AirPlay: escuta a disponibilidade de alvos de reprodução em qualquer
+    // elemento de mídia da página (proxy de áudio / vídeo).
+    const media = Array.from(document.querySelectorAll("video, audio")) as HTMLMediaElement[];
+    const onTargets = (e: Event) => {
+      setAirplayAvailable((e as any).availability === "available");
+    };
+    media.forEach((m) => {
+      try { m.addEventListener("webkitplaybacktargetavailabilitychanged", onTargets as EventListener); } catch {}
+    });
+
+    return () => {
+      document.removeEventListener("enterpictureinpicture", onEnter, true);
+      document.removeEventListener("leavepictureinpicture", onLeave, true);
+      document.removeEventListener("webkitpresentationmodechanged", onPresentation, true);
+      media.forEach((m) => {
+        try { m.removeEventListener("webkitplaybacktargetavailabilitychanged", onTargets as EventListener); } catch {}
+      });
+    };
+  }, []);
+
+
+
 
   // ── Quality selector (persisted; mirrors VideoInfoBar) ──
   const QUALITY_OPTIONS: { value: string; label: string }[] = [
@@ -388,7 +480,14 @@ const FullscreenOverlay = ({
           paddingRight: "max(1.25rem, env(safe-area-inset-right))",
         }}
       >
-        <div className="w-11" /> {/* spacer for the always-visible button */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onExit(); }}
+          className="w-11 h-11 flex items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
+          aria-label="Fechar tela cheia"
+          title="Fechar"
+        >
+          <X size={24} />
+        </button>
         <div className="flex-1 text-center px-4 min-w-0">
           <p className="text-white text-sm font-medium truncate">{song.title}</p>
           <p className="text-white/60 text-xs truncate">
@@ -396,7 +495,73 @@ const FullscreenOverlay = ({
             <span className="uppercase tracking-wide">{currentQualityLabel}</span>
           </p>
         </div>
-        <div className="relative" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          {/* Velocidade de reprodução */}
+          <div className="relative">
+            <button
+              onClick={(e) => { e.stopPropagation(); setSpeedOpen((v) => !v); setQualityOpen(false); }}
+              className={`h-11 min-w-11 px-2 flex items-center justify-center gap-1 rounded-full transition-all active:scale-90 ${
+                speed !== 1 ? "bg-white/20 text-white" : "text-white/90 hover:text-white hover:bg-white/10"
+              }`}
+              aria-label="Velocidade de reprodução"
+              title={`Velocidade: ${speed}x`}
+            >
+              <Gauge size={20} />
+              <span className="text-[11px] font-semibold tabular-nums">{speed}x</span>
+            </button>
+            {speedOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full mt-2 z-[210] min-w-[140px] rounded-2xl bg-black/85 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden"
+              >
+                <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-white/60 border-b border-white/10">
+                  Velocidade
+                </div>
+                {SPEED_OPTIONS.map((rate) => (
+                  <button
+                    key={rate}
+                    onClick={(e) => { e.stopPropagation(); applySpeed(rate); }}
+                    className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-[13px] transition-colors ${
+                      speed === rate ? "bg-white/15 text-white font-semibold" : "text-white/85 hover:bg-white/10"
+                    }`}
+                  >
+                    <span>{rate === 1 ? "Normal (1x)" : `${rate}x`}</span>
+                    {speed === rate && <Check size={14} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Espelhar / AirPlay (WebKit) */}
+          {(caps.airplay || caps.webkit) && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onAirPlay?.(); resetTimer(); }}
+              className={`w-11 h-11 flex items-center justify-center rounded-full transition-all active:scale-90 ${
+                airplayAvailable ? "text-white bg-white/15" : "text-white/90 hover:text-white hover:bg-white/10"
+              }`}
+              aria-label="Espelhar (AirPlay)"
+              title="Espelhar / AirPlay"
+            >
+              <Airplay size={22} />
+            </button>
+          )}
+
+          {/* Picture-in-Picture */}
+          {(caps.pip || caps.webkit) && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onTogglePiP?.(); resetTimer(); }}
+              className={`w-11 h-11 flex items-center justify-center rounded-full transition-all active:scale-90 ${
+                pipActive ? "text-white bg-white/20" : "text-white/90 hover:text-white hover:bg-white/10"
+              }`}
+              aria-label={pipActive ? "Sair do Picture-in-Picture" : "Picture-in-Picture"}
+              title="Picture-in-Picture"
+            >
+              <PictureInPicture2 size={22} />
+            </button>
+          )}
+
+          <div className="relative">
           <button
             onClick={(e) => { e.stopPropagation(); setQualityOpen((v) => !v); }}
             className="w-11 h-11 flex items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
@@ -441,7 +606,9 @@ const FullscreenOverlay = ({
               })}
             </div>
           )}
+          </div>
         </div>
+
       </div>
 
       {/* Bottom controls — transport + slider colado ao rodapé, respeitando
