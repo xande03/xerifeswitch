@@ -53,9 +53,12 @@ function PodcastDescriptionPanel({
         .replace(/\r\n/g, "\n")
         .replace(/[ \t]+\n/g, "\n")
         .replace(/\n{3,}/g, "\n\n")
+        // Remove reticências finais (evita mostrar "..." indicando corte)
+        .replace(/[\s]*(?:\.{3,}|…|\u2026)+\s*$/g, "")
         .trim(),
     [description]
   );
+
   const hasContent = clean.length > 0;
 
   // Renderiza parágrafos e transforma URLs em links clicáveis, sem quebrar
