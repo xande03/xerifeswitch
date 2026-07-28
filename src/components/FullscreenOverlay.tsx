@@ -59,6 +59,12 @@ interface FullscreenOverlayProps {
   onPrev: () => void;
   onSeek: (fraction: number) => void;
   onExit: () => void;
+  /** Picture-in-Picture (WebKit `webkitSetPresentationMode` no iOS) */
+  onTogglePiP?: () => void;
+  /** Espelhar / AirPlay (`webkitShowPlaybackTargetPicker`) */
+  onAirPlay?: () => void;
+  /** Velocidade de reprodução */
+  onSpeedChange?: (rate: number) => void;
 }
 
 const MIN_SCALE = 1;
@@ -67,12 +73,35 @@ const MAX_SCALE = 4;
 const FullscreenOverlay = ({
   song, isPlaying, currentTime, duration, progress,
   onTogglePlay, onNext, onPrev, onSeek, onExit,
+  onTogglePiP, onAirPlay, onSpeedChange,
 }: FullscreenOverlayProps) => {
   const [showControls, setShowControls] = useState(true);
   const [zoom, setZoom] = useState<{ scale: number; x: number; y: number }>({ scale: 1, x: 0, y: 0 });
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const lastTapRef = useRef<number>(0);
   const autoHideMsRef = useRef<number>(readAutoHideMs());
+
+  // ── Capacidades nativas (iOS/WebKit) ──
+  const [caps] = useState(() => ({
+    webkit: isWebKitLike(),
+    pip: supportsPiP(),
+    airplay: supportsAirPlay(),
+  }));
+  const [pipActive, setPipActive] = useState(false);
+  const [airplayAvailable, setAirplayAvailable] = useState(false);
+  const [speed, setSpeed] = useState<number>(() => {
+    try { const n = Number(localStorage.getItem("demus-playback-rate")); return SPEED_OPTIONS.includes(n as any) ? n : 1; } catch { return 1; }
+  });
+  const [speedOpen, setSpeedOpen] = useState(false);
+
+  const applySpeed = (rate: number) => {
+    setSpeed(rate);
+    setSpeedOpen(false);
+    try { localStorage.setItem("demus-playback-rate", String(rate)); } catch {}
+    onSpeedChange?.(rate);
+    try { window.dispatchEvent(new CustomEvent("demus:set-rate", { detail: rate })); } catch {}
+  };
+
 
   // ── Quality selector (persisted; mirrors VideoInfoBar) ──
   const QUALITY_OPTIONS: { value: string; label: string }[] = [
