@@ -13,7 +13,9 @@ export interface Comment {
 export interface VideoInfo {
   relatedVideos: VideoResult[];
   comments: Comment[];
+  description?: string;
 }
+
 
 const CACHE_KEY = "demus_video_info_cache";
 const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
