@@ -2670,7 +2670,7 @@ const Index = () => {
                               title="Desfavoritar canal"
                               aria-label={`Desfavoritar ${c.name}`}
                             >
-                              <Trash2 size={14} />
+                              <Star size={14} className="fill-current" />
                             </button>
                           </div>
                         ))}
