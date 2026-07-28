@@ -41,12 +41,10 @@ const PodcastEpisodeDescription = ({ description, episodeTitle }: PodcastEpisode
   const formatDescription = (desc: string) => {
     return desc
       .replace(/\n\n+/g, '\n\n') // Remove múltiplas quebras de linha
-      .replace(/^\s+|\s+$/g, '') // Remove espaços no início/fim
-      .slice(0, 800); // Limita a 800 caracteres
+      .replace(/^\s+|\s+$/g, ''); // Remove espaços no início/fim
   };
 
   const formattedDesc = formatDescription(description);
-  const shortDesc = formattedDesc.slice(0, 120);
 
   if (!formattedDesc) return null;
 
@@ -90,8 +88,7 @@ const PodcastEpisodeDescription = ({ description, episodeTitle }: PodcastEpisode
                   ref={descRef}
                   className="text-[10px] text-muted-foreground leading-relaxed line-clamp-2"
                 >
-                  {showReadMore ? shortDesc : formattedDesc}
-                  {showReadMore && formattedDesc.length > shortDesc.length && "..."}
+                  {formattedDesc}
                 </p>
                 {showReadMore && (
                   <button

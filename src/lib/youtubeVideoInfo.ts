@@ -20,6 +20,20 @@ export interface VideoInfo {
 const CACHE_KEY = "demus_video_info_cache";
 const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
 
+export function isLikelyTruncatedDescription(description?: string): boolean {
+  const text = (description || "").trim();
+  if (!text) return false;
+  return /(\.\.\.|…|\u2026)\s*$/.test(text);
+}
+
+function normalizeDescription(description?: string): string {
+  return (description || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function getCache(): Record<string, { data: VideoInfo; ts: number }> {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "{}"); } catch { return {}; }
 }
@@ -31,11 +45,21 @@ function setCache(cache: Record<string, { data: VideoInfo; ts: number }>): void 
   } catch {}
 }
 
-export async function fetchVideoInfo(videoId: string): Promise<VideoInfo> {
+export async function fetchVideoInfo(
+  videoId: string,
+  options: { requireDescription?: boolean } = {}
+): Promise<VideoInfo> {
   if (!videoId) return { relatedVideos: [], comments: [], description: "" };
 
   const cache = getCache();
-  if (cache[videoId] && Date.now() - cache[videoId].ts < CACHE_TTL) {
+  const cachedDescription = normalizeDescription(cache[videoId]?.data?.description);
+  const cachedDescriptionReady = !options.requireDescription || cachedDescription.length > 0;
+  if (
+    cache[videoId]
+    && Date.now() - cache[videoId].ts < CACHE_TTL
+    && cachedDescriptionReady
+    && !isLikelyTruncatedDescription(cachedDescription)
+  ) {
     return cache[videoId].data;
   }
 
@@ -58,11 +82,14 @@ export async function fetchVideoInfo(videoId: string): Promise<VideoInfo> {
     const result: VideoInfo = {
       relatedVideos: data.relatedVideos || [],
       comments: data.comments || [],
-      description: data.description || "",
+      description: normalizeDescription(data.description),
     };
 
     // Only cache if we got actual data
-    if (result.relatedVideos.length > 0 || result.comments.length > 0 || (result.description || "").length > 0) {
+    const canCacheForCaller = !options.requireDescription || (
+      result.description.length > 0 && !isLikelyTruncatedDescription(result.description)
+    );
+    if (canCacheForCaller && (result.relatedVideos.length > 0 || result.comments.length > 0 || result.description.length > 0)) {
       const updated = getCache();
       updated[videoId] = { data: result, ts: Date.now() };
       setCache(updated);
@@ -71,7 +98,9 @@ export async function fetchVideoInfo(videoId: string): Promise<VideoInfo> {
     return result;
   } catch (err) {
     console.warn("Video info fetch failed:", err);
-    return cache[videoId]?.data || { relatedVideos: [], comments: [], description: "" };
+    const fallback = cache[videoId]?.data;
+    if (fallback && !isLikelyTruncatedDescription(fallback.description)) return fallback;
+    return { relatedVideos: fallback?.relatedVideos || [], comments: fallback?.comments || [], description: "" };
   }
 }
 
