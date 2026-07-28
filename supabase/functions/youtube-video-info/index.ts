@@ -112,9 +112,17 @@ async function fetchVideoInfo(videoId: string) {
           }));
       }
 
-      // If we got both, return immediately
+      // If we got both, return immediately — buscando description via innertube se faltar
       if (relatedVideos.length > 0 && comments.length > 0) {
         console.log(`[youtube-video-info] Full success from ${base}: ${relatedVideos.length} related, ${comments.length} comments`);
+        if (!description || description.trim().length < 40) {
+          try {
+            const innertube = await fetchFromInnertube(videoId);
+            if (innertube.description && innertube.description.length > description.length) {
+              description = innertube.description;
+            }
+          } catch {}
+        }
         return { relatedVideos, comments, description };
       }
       // If we got partial data, save it and try to fill the rest
