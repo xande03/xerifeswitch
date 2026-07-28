@@ -45,14 +45,19 @@ function setCache(cache: Record<string, { data: VideoInfo; ts: number }>): void 
   } catch {}
 }
 
-export async function fetchVideoInfo(videoId: string): Promise<VideoInfo> {
+export async function fetchVideoInfo(
+  videoId: string,
+  options: { requireDescription?: boolean } = {}
+): Promise<VideoInfo> {
   if (!videoId) return { relatedVideos: [], comments: [], description: "" };
 
   const cache = getCache();
   const cachedDescription = normalizeDescription(cache[videoId]?.data?.description);
+  const cachedDescriptionReady = !options.requireDescription || cachedDescription.length > 0;
   if (
     cache[videoId]
     && Date.now() - cache[videoId].ts < CACHE_TTL
+    && cachedDescriptionReady
     && !isLikelyTruncatedDescription(cachedDescription)
   ) {
     return cache[videoId].data;
@@ -81,7 +86,10 @@ export async function fetchVideoInfo(videoId: string): Promise<VideoInfo> {
     };
 
     // Only cache if we got actual data
-    if (result.relatedVideos.length > 0 || result.comments.length > 0 || (result.description || "").length > 0) {
+    const canCacheForCaller = !options.requireDescription || (
+      result.description.length > 0 && !isLikelyTruncatedDescription(result.description)
+    );
+    if (canCacheForCaller && (result.relatedVideos.length > 0 || result.comments.length > 0 || result.description.length > 0)) {
       const updated = getCache();
       updated[videoId] = { data: result, ts: Date.now() };
       setCache(updated);

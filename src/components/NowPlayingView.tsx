@@ -430,7 +430,7 @@ const NowPlayingView = ({
     if (song.youtubeId) {
       setVideoInfoLoading(true);
       (async () => {
-        const info = await fetchVideoInfo(song.youtubeId);
+        const info = await fetchVideoInfo(song.youtubeId, { requireDescription: context === "podcast" });
         if (cancelled) return;
         // Fallback: if no related videos, search by artist + title to populate Recomendados
         if (!info.relatedVideos || info.relatedVideos.length === 0) {
@@ -454,7 +454,7 @@ const NowPlayingView = ({
       cancelled = true;
       if (prefetchTimer) clearTimeout(prefetchTimer);
     };
-  }, [song.id]);
+  }, [song.id, context]);
 
   // Paginação infinita dos "Próximos vídeos" — busca mais recomendados sob
   // demanda (mesmo artista + queries variadas) para o usuário continuar
