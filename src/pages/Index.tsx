@@ -42,7 +42,7 @@ import VideoHomeScreen, { getWatchLater, removeFromWatchLater } from "@/componen
 import HubHomeScreen from "@/components/HubHomeScreen";
 import { useModuleMode } from "@/hooks/useModuleMode";
 import ChannelProfile from "@/components/ChannelProfile";
-import { getFavoriteChannels, removeFavoriteChannel, FAV_CHANNELS_EVENT } from "@/lib/favoriteChannels";
+import { getFavoriteChannels, removeFavoriteChannel, addFavoriteChannel, FAV_CHANNELS_EVENT } from "@/lib/favoriteChannels";
 import ArtistProfile from "@/components/ArtistProfile";
 import BottomNav from "@/components/BottomNav";
 import DesktopSidebar from "@/components/DesktopSidebar";
