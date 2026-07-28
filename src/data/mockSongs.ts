@@ -14,6 +14,7 @@ export interface Song {
   votes: number;
   isDownloaded: boolean;
   type?: 'music' | 'video' | 'podcast';
+  description?: string;
 }
 
 // Mock songs with real YouTube video IDs for playback
