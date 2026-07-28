@@ -581,6 +581,23 @@ const Index = () => {
     }
 
     if (result === "fallback") {
+      // Fallback quando o navegador não expõe `webkitSetPresentationMode`
+      // nem PiP nativo (Android/Chrome antigo, WebViews, Firefox mobile):
+      // se já estamos em fullscreen, saímos dele e ativamos o mini player
+      // flutuante interno, que mantém controles equivalentes e o áudio tocando.
+      if (playerState.isFullscreen) {
+        try { await exitFullscreen(); } catch {}
+        setExpanded(false);
+        setShowFloatingPiP(true);
+        setPipStatus("active");
+        trackPip("enter-fallback", { ...pipMeta(), reason: "fullscreen-no-native-pip" });
+        toast.info("Mini player flutuante ativo", {
+          description: isAndroid
+            ? "No app Android, sair para a tela inicial mantém o vídeo em janela flutuante."
+            : "O vídeo continua tocando dentro do app.",
+        });
+        return;
+      }
       if (isMobile) {
         try {
           await requestFullscreen();
