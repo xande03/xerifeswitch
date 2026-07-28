@@ -64,6 +64,7 @@ interface NowPlayingViewProps {
   isLiked?: boolean;
   onLike?: () => void;
   onArtistClick?: (artist: { name: string; image: string }) => void;
+  onOpenChannel?: (channel: { name: string; thumbnail?: string }) => void;
   onAddToPlaylist?: (song: Song) => void;
   initialMode?: PlayerMode;
   /** Xerife Music: troca o clipe do modo Vídeo preservando o tempo de reprodução. */
@@ -132,6 +133,7 @@ const NowPlayingView = ({
   onShare, onDownload,
   isLiked, onLike,
   onArtistClick,
+  onOpenChannel,
   onAddToPlaylist,
   initialMode,
   onSwapClipAt,
@@ -874,6 +876,7 @@ const NowPlayingView = ({
                           onToggleLike={onLike}
                           onAddToPlaylist={onAddToPlaylist ? () => onAddToPlaylist(song) : undefined}
                           onNavigateToLibrary={onNavigateToLibrary}
+                          onOpenChannel={onOpenChannel}
                         />
                       </div>
                     )}

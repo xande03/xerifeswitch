@@ -3173,6 +3173,11 @@ const Index = () => {
               setExpanded(false);
               setActiveTab("home");
             }}
+            onOpenChannel={(channel) => {
+              setChannelView({ name: channel.name, thumbnail: channel.thumbnail });
+              setExpanded(false);
+              setActiveTab("home");
+            }}
             queueCount={smartQueueList.length + (albumQueue ? albumQueue.length : 0)}
             onDownload={() => handleDownload(currentSong)}
             onShare={() => handleShare(currentSong)}
