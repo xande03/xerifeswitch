@@ -413,18 +413,24 @@ const Index = () => {
       const vw = (window.visualViewport?.width ?? window.innerWidth) || r.width;
       const vh = (window.visualViewport?.height ?? window.innerHeight) || r.height;
       const pad = 12;
-      const ratio = r.height / r.width;
+      // Proporção FIXA 16:9 — nunca derivada do retângulo medido (evita
+      // subpixel/arredondamento que gera faixas pretas no iframe).
+      const RATIO = 9 / 16;
       const maxW = Math.max(0, vw - pad * 2);
       let width = Math.min(r.width, maxW);
-      let height = width * ratio;
+      let height = width * RATIO;
       // iOS: a barra de URL/safe-area encolhe o viewport visual. Se o 16:9 não
       // couber verticalmente a partir do topo do anchor, reduzimos mantendo a
       // proporção — assim o player nunca fica cortado nem transborda a tela.
       const availableH = Math.max(120, vh - Math.max(0, r.top) - pad);
       if (height > availableH) {
         height = availableH;
-        width = height / ratio;
+        width = height / RATIO;
       }
+      // Arredondar em passos de 16px de largura para que a altura 9/16 caia
+      // em valor inteiro exato — 16:9 perfeito, sem letterbox de 1px.
+      width = Math.max(160, Math.floor(width / 16) * 16);
+      height = Math.round((width * 9) / 16);
       const left = Math.max(pad, Math.min(r.left + (r.width - width) / 2, Math.max(pad, vw - pad - width)));
       const top = Math.max(0, Math.min(r.top, vh - height - pad));
 
@@ -432,6 +438,7 @@ const Index = () => {
         if (prev && Math.abs(prev.left - left) < 0.5 && Math.abs(prev.top - top) < 0.5 && Math.abs(prev.width - width) < 0.5 && Math.abs(prev.height - height) < 0.5) return prev;
         return { left, top, width, height };
       });
+
     };
     // Double rAF: aguardar o layout do NowPlayingView estabilizar após
     // orientationchange antes de reposicionar, evitando flicker.
