@@ -62,7 +62,8 @@ async function fetchVideoInfo(videoId: string) {
       const timeout = setTimeout(() => controller.abort(), 6000);
 
       const [videoRes, commentsRes] = await Promise.all([
-        fetch(`${base}/api/v1/videos/${videoId}?fields=recommendedVideos`, {
+        // Peça também "description" para receber a descrição completa do episódio/vídeo.
+        fetch(`${base}/api/v1/videos/${videoId}?fields=recommendedVideos,description`, {
           signal: controller.signal,
           headers: { "User-Agent": "Mozilla/5.0 (compatible; Bot/1.0)" },
         }),
