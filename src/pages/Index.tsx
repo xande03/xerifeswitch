@@ -882,6 +882,55 @@ const Index = () => {
 
   useEffect(() => { setPlayerVolume(volume); saveVolume(volume); }, [volume, setPlayerVolume]);
 
+  // ── Estado persistente do player (velocidade, mudo, posição) ──
+  const isMuted = volume === 0;
+  const handleToggleMute = useCallback(() => {
+    setVolumeState((v) => {
+      if (v === 0) {
+        const restored = getPreMuteVolume(80);
+        saveMuted(false);
+        return restored;
+      }
+      savePreMuteVolume(v);
+      saveMuted(true);
+      return 0;
+    });
+  }, []);
+
+  // Reaplica velocidade salva sempre que um novo vídeo fica pronto.
+  useEffect(() => {
+    if (!playerState.isReady || !playerState.videoId) return;
+    const rate = getPlaybackRate();
+    if (rate !== 1) {
+      const t = setTimeout(() => setPlaybackRate(rate), 300);
+      return () => clearTimeout(t);
+    }
+  }, [playerState.isReady, playerState.videoId, setPlaybackRate]);
+
+  // Retoma a posição salva ao (re)abrir o mesmo vídeo — só quando começa do zero.
+  const resumedVideoRef = useRef<string | null>(null);
+  useEffect(() => {
+    const vid = playerState.videoId;
+    if (!playerState.isReady || !vid) return;
+    if (resumedVideoRef.current === vid) return;
+    resumedVideoRef.current = vid;
+    const saved = getPosition(vid);
+    if (saved && (playerState.currentTime || 0) < 3) {
+      const t = setTimeout(() => seekTo(saved), 400);
+      return () => clearTimeout(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerState.isReady, playerState.videoId, seekTo]);
+
+  // Salva a posição periodicamente (feed + fullscreen) e ao fechar a aba.
+  useEffect(() => {
+    const flush = () => savePosition(playerState.videoId, playerState.currentTime || 0, playerState.duration || 0);
+    const id = setInterval(flush, 8000);
+    window.addEventListener("pagehide", flush);
+    return () => { clearInterval(id); window.removeEventListener("pagehide", flush); flush(); };
+  }, [playerState.videoId, playerState.currentTime, playerState.duration]);
+
+
   useEffect(() => {
     const votes: Record<string, number> = {};
     songs.forEach((s) => { votes[s.id] = s.votes; });
