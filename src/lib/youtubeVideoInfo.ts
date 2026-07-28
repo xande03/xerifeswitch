@@ -13,7 +13,9 @@ export interface Comment {
 export interface VideoInfo {
   relatedVideos: VideoResult[];
   comments: Comment[];
+  description?: string;
 }
+
 
 const CACHE_KEY = "demus_video_info_cache";
 const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
@@ -30,7 +32,7 @@ function setCache(cache: Record<string, { data: VideoInfo; ts: number }>): void 
 }
 
 export async function fetchVideoInfo(videoId: string): Promise<VideoInfo> {
-  if (!videoId) return { relatedVideos: [], comments: [] };
+  if (!videoId) return { relatedVideos: [], comments: [], description: "" };
 
   const cache = getCache();
   if (cache[videoId] && Date.now() - cache[videoId].ts < CACHE_TTL) {
@@ -56,10 +58,11 @@ export async function fetchVideoInfo(videoId: string): Promise<VideoInfo> {
     const result: VideoInfo = {
       relatedVideos: data.relatedVideos || [],
       comments: data.comments || [],
+      description: data.description || "",
     };
 
     // Only cache if we got actual data
-    if (result.relatedVideos.length > 0 || result.comments.length > 0) {
+    if (result.relatedVideos.length > 0 || result.comments.length > 0 || (result.description || "").length > 0) {
       const updated = getCache();
       updated[videoId] = { data: result, ts: Date.now() };
       setCache(updated);
@@ -68,6 +71,7 @@ export async function fetchVideoInfo(videoId: string): Promise<VideoInfo> {
     return result;
   } catch (err) {
     console.warn("Video info fetch failed:", err);
-    return cache[videoId]?.data || { relatedVideos: [], comments: [] };
+    return cache[videoId]?.data || { relatedVideos: [], comments: [], description: "" };
   }
 }
+
