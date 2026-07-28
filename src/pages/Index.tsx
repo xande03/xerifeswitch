@@ -1749,7 +1749,7 @@ const Index = () => {
           style={
             playerState.isFullscreen
               ? {
-                  width: '100vw',
+                  width: '100dvw',
                   height: '100dvh',
                   // Fallback para navegadores sem dvh (Safari antigo)
                   minHeight: '-webkit-fill-available',
@@ -1778,10 +1778,11 @@ const Index = () => {
             style={
               playerState.isFullscreen
                 ? {
-                    // Letterbox 16:9 centralizado: nunca corta nem distorce o vídeo,
-                    // independente do notch/safe-area em landscape.
-                    width: 'min(100vw, calc(100dvh * 16 / 9))',
-                    height: 'min(100dvh, calc(100vw * 9 / 16))',
+                    // Letterbox 16:9 centralizado: sem corte em landscape mobile.
+                    // dvw/dvh = viewport dinâmico (sem barra de endereço iOS).
+                    // Sem aspect-ratio explícito para evitar over-constraint.
+                    width: 'min(100dvw, calc(100dvh * 16 / 9))',
+                    height: 'min(100dvh, calc(100dvw * 9 / 16))',
                     margin: 'auto',
                   }
                 : undefined
