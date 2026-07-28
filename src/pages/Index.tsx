@@ -1792,7 +1792,9 @@ const Index = () => {
             className={
               playerState.isFullscreen
                 ? "relative z-0 overflow-hidden bg-black"
-                : "w-full h-full rounded-xl overflow-hidden relative z-0"
+                : isRailMode
+                  ? "h-full overflow-hidden relative z-0 bg-black mx-auto"
+                  : "w-full h-full rounded-xl overflow-hidden relative z-0"
             }
             style={
               playerState.isFullscreen
@@ -1809,9 +1811,19 @@ const Index = () => {
                     aspectRatio: '16 / 9',
                     objectFit: 'contain',
                   }
-                : undefined
+                : isRailMode
+                  ? {
+                      // Xerife Vídeos (rail): o container ocupa a faixa toda, mas o
+                      // player mantém 16:9 exato — largura derivada da altura — para
+                      // não sobrar faixa preta nas laterais quando a altura muda (iPhone).
+                      width: 'min(100%, calc(var(--xerife-video-h) * 16 / 9))',
+                      height: '100%',
+                      aspectRatio: '16 / 9',
+                    }
+                  : undefined
             }
           />
+
 
           {expanded && playerMode === "video" && <QualityBadge />}
           {/* Overlay controls on top of the actual YouTube player */}
