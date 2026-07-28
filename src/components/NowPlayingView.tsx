@@ -8,7 +8,7 @@ import RelatedVideos from "./RelatedVideos";
 import VideoComments from "./VideoComments";
 import VideoInfoBar from "./VideoInfoBar";
 import { isInWatchLater, addToWatchLater, removeFromWatchLater } from "./VideoHomeScreen";
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback, Fragment } from "react";
 import { fetchLyrics, invalidateLyricsCache, type LyricsResult } from "@/lib/lyrics";
 import { getLyricsOffset, setLyricsOffset } from "@/lib/lyricsStorage";
 
@@ -45,23 +45,80 @@ function PodcastDescriptionPanel({
   loading: boolean;
   episodeTitle: string;
 }) {
-  // Mostrar a descrição COMPLETA por padrão. O usuário pode recolher se quiser.
-  const [expanded, setExpanded] = useState(true);
-  const clean = (description || "").replace(/\n{3,}/g, "\n\n").trim();
+  // Normaliza espaçamento: colapsa 3+ quebras em 2, remove espaços à direita
+  // e conserva quebras/parágrafos originais para manter a formatação do autor.
+  const clean = React.useMemo(
+    () =>
+      (description || "")
+        .replace(/\r\n/g, "\n")
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim(),
+    [description]
+  );
   const hasContent = clean.length > 0;
-  // Prévia usada apenas quando o usuário decide recolher manualmente.
-  const COLLAPSED_CHARS = 600;
-  const short = clean.length > COLLAPSED_CHARS ? clean.slice(0, COLLAPSED_CHARS).trimEnd() + "…" : clean;
+
+  // Renderiza parágrafos e transforma URLs em links clicáveis, sem quebrar
+  // palavras/URLs em locais estranhos no meio da linha.
+  const rendered = React.useMemo(() => {
+    if (!hasContent) return null;
+    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+    const paragraphs = clean.split(/\n{2,}/);
+    return paragraphs.map((para, pIdx) => {
+      const lines = para.split("\n");
+      return (
+        <p
+          key={pIdx}
+          className="text-[13.5px] sm:text-[15px] leading-[1.7] text-foreground/90"
+          style={{
+            // Quebra apenas em limites naturais de palavra; URLs longas
+            // podem quebrar em qualquer ponto para não estourar a caixa.
+            wordBreak: "normal",
+            overflowWrap: "break-word",
+            hyphens: "auto",
+          }}
+        >
+          {lines.map((line, lIdx) => {
+            const parts = line.split(urlRegex);
+            return (
+              <React.Fragment key={lIdx}>
+                {parts.map((part, i) => {
+                  if (urlRegex.test(part)) {
+                    // reset lastIndex porque a regex é global
+                    urlRegex.lastIndex = 0;
+                    return (
+                      <a
+                        key={i}
+                        href={part}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline underline-offset-2 hover:opacity-80 break-all"
+                        style={{ color: "hsl(var(--module-accent))" }}
+                      >
+                        {part}
+                      </a>
+                    );
+                  }
+                  return <React.Fragment key={i}>{part}</React.Fragment>;
+                })}
+                {lIdx < lines.length - 1 && <br />}
+              </React.Fragment>
+            );
+          })}
+        </p>
+      );
+    });
+  }, [clean, hasContent]);
 
   return (
     <section
       aria-label={`Descrição do episódio ${episodeTitle}`}
-      className="mt-4 md:mt-6 mx-auto w-full max-w-2xl px-3 sm:px-4 pb-24 md:pb-8"
+      className="mt-4 md:mt-6 mx-auto w-full max-w-2xl lg:max-w-3xl px-3 sm:px-5 pb-24 md:pb-10"
     >
-      <div className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm p-4 sm:p-5 shadow-sm">
-        <header className="flex items-center gap-2 mb-3">
-          <FileText size={16} className="text-primary" style={{ color: "hsl(var(--module-accent))" }} />
-          <h3 className="text-sm sm:text-base font-semibold text-foreground">
+      <div className="rounded-2xl border border-border/40 bg-background/50 backdrop-blur-sm p-4 sm:p-6 shadow-sm">
+        <header className="flex items-center gap-2 mb-3 sm:mb-4">
+          <FileText size={16} className="shrink-0" style={{ color: "hsl(var(--module-accent))" }} />
+          <h3 className="text-sm sm:text-base font-semibold text-foreground truncate">
             Sobre este episódio
           </h3>
         </header>
@@ -71,34 +128,10 @@ function PodcastDescriptionPanel({
             <div className="h-3 rounded bg-muted/60 animate-pulse w-11/12" />
             <div className="h-3 rounded bg-muted/60 animate-pulse w-10/12" />
             <div className="h-3 rounded bg-muted/60 animate-pulse w-8/12" />
+            <div className="h-3 rounded bg-muted/60 animate-pulse w-9/12" />
           </div>
         ) : hasContent ? (
-          <>
-            <p
-              className="text-[13px] sm:text-sm leading-relaxed text-foreground/85 whitespace-pre-line break-words"
-              style={{ overflowWrap: "anywhere" }}
-            >
-              {expanded ? clean : short}
-            </p>
-            {clean.length > short.length && (
-              <button
-                type="button"
-                onClick={() => setExpanded((v) => !v)}
-                className="mt-3 inline-flex items-center gap-1 text-xs sm:text-[13px] font-semibold text-primary hover:underline"
-                style={{ color: "hsl(var(--module-accent))" }}
-              >
-                {expanded ? (
-                  <>
-                    Mostrar menos <ChevronUp size={14} />
-                  </>
-                ) : (
-                  <>
-                    Ler mais <ChevronDown size={14} />
-                  </>
-                )}
-              </button>
-            )}
-          </>
+          <div className="space-y-3 sm:space-y-4">{rendered}</div>
         ) : (
           <p className="text-xs text-muted-foreground italic">
             Este episódio não possui descrição disponível.
@@ -108,6 +141,7 @@ function PodcastDescriptionPanel({
     </section>
   );
 }
+
 
 
 
