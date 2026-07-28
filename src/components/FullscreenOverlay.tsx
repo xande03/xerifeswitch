@@ -59,12 +59,17 @@ interface FullscreenOverlayProps {
   onPrev: () => void;
   onSeek: (fraction: number) => void;
   onExit: () => void;
-  /** Picture-in-Picture (WebKit `webkitSetPresentationMode` no iOS) */
+  /** Picture-in-Picture (WebKit `webkitSetPresentationMode` no iOS, fallback no Android/desktop) */
   onTogglePiP?: () => void;
   /** Espelhar / AirPlay (`webkitShowPlaybackTargetPicker`) */
   onAirPlay?: () => void;
   /** Velocidade de reprodução */
   onSpeedChange?: (rate: number) => void;
+  /** Mudo / desmudo — persistido entre fullscreen e feed */
+  isMuted?: boolean;
+  onToggleMute?: () => void;
+  /** Id do vídeo (para persistir a posição de reprodução) */
+  videoId?: string | null;
 }
 
 const MIN_SCALE = 1;
@@ -73,7 +78,7 @@ const MAX_SCALE = 4;
 const FullscreenOverlay = ({
   song, isPlaying, currentTime, duration, progress,
   onTogglePlay, onNext, onPrev, onSeek, onExit,
-  onTogglePiP, onAirPlay, onSpeedChange,
+  onTogglePiP, onAirPlay, onSpeedChange, isMuted = false, onToggleMute, videoId,
 }: FullscreenOverlayProps) => {
   const [showControls, setShowControls] = useState(true);
   const [zoom, setZoom] = useState<{ scale: number; x: number; y: number }>({ scale: 1, x: 0, y: 0 });
@@ -89,18 +94,42 @@ const FullscreenOverlay = ({
   }));
   const [pipActive, setPipActive] = useState(false);
   const [airplayAvailable, setAirplayAvailable] = useState(false);
-  const [speed, setSpeed] = useState<number>(() => {
-    try { const n = Number(localStorage.getItem("demus-playback-rate")); return SPEED_OPTIONS.includes(n as any) ? n : 1; } catch { return 1; }
-  });
+  const [speed, setSpeed] = useState<number>(() => getPlaybackRate());
   const [speedOpen, setSpeedOpen] = useState(false);
 
   const applySpeed = (rate: number) => {
     setSpeed(rate);
     setSpeedOpen(false);
-    try { localStorage.setItem("demus-playback-rate", String(rate)); } catch {}
+    savePlaybackRate(rate);
     onSpeedChange?.(rate);
     try { window.dispatchEvent(new CustomEvent("demus:set-rate", { detail: rate })); } catch {}
   };
+
+  // Reaplica a velocidade salva ao abrir o fullscreen (garante paridade com o feed).
+  useEffect(() => {
+    const saved = getPlaybackRate();
+    if (saved !== 1) onSpeedChange?.(saved);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persiste a posição de reprodução continuamente e ao sair do fullscreen,
+  // para que voltar ao feed (ou recarregar) retome de onde parou.
+  const progressRef = useRef({ t: currentTime, d: duration, id: videoId ?? song.id });
+  progressRef.current = { t: currentTime, d: duration, id: videoId ?? song.id };
+  useEffect(() => {
+    const flush = () => {
+      const { t, d, id } = progressRef.current;
+      savePosition(id, t, d);
+    };
+    const interval = setInterval(flush, 5000);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, []);
+
 
   // Estado de PiP + disponibilidade de AirPlay (WebKit)
   useEffect(() => {
