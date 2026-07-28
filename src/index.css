@@ -447,10 +447,14 @@ html, body {
   border-radius: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
+  overflow: hidden !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   z-index: 9999 !important;
+  /* Garante que safe-area-insets laterais (notch iPhone landscape)
+     não desloquem o contêiner do fullscreen */
+  inset: 0 !important;
 }
 .pseudo-fullscreen { z-index: 10000 !important; }
 
@@ -475,6 +479,7 @@ html, body {
   margin: auto !important;
   padding: 0 !important;
   border-radius: 0 !important;
+  flex-shrink: 0 !important;
   z-index: 0 !important;
   background: black !important;
 }
@@ -488,6 +493,50 @@ html, body {
   height: 100% !important;
   border-radius: 0 !important;
   z-index: 0 !important;
+}
+
+/* ===========================================================
+   Landscape mobile fullscreen: garante que o vídeo preencha
+   a tela horizontalmente sem deslocamento por safe-area-insets.
+   Em landscape, a largura é maior que a altura; o contêiner
+   deve cobrir 100% da tela visível e centralizar o player.
+   =========================================================== */
+@media (orientation: landscape) and (max-height: 600px) {
+  #yt-fullscreen-container:fullscreen,
+  #yt-fullscreen-container:-webkit-full-screen,
+  .pseudo-fullscreen {
+    /* Força o container a cobrir toda a tela, ignorando safe-area */
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    width: 100dvw !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  #yt-fullscreen-container:fullscreen #yt-player,
+  #yt-fullscreen-container:-webkit-full-screen #yt-player,
+  .pseudo-fullscreen #yt-player {
+    /* Em landscape: largura comanda — preenche 100% da largura,
+       altura derivada da proporção 9:16 (inverso). Se a altura
+       calculada exceder a tela, a altura comanda em vez disso. */
+    width: min(100dvw, calc(100dvh * 16 / 9)) !important;
+    height: min(100dvh, calc(100dvw * 9 / 16)) !important;
+    /* Fallback para browsers sem dvh */
+    width: min(100vw, calc(100vh * 16 / 9)) !important;
+    height: min(100vh, calc(100vw * 9 / 16)) !important;
+    /* dvw/dvh sobrescreve se suportado */
+    width: min(100dvw, calc(100dvh * 16 / 9)) !important;
+    height: min(100dvh, calc(100dvw * 9 / 16)) !important;
+    margin: auto !important;
+    transform: none !important;
+    left: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    translate: none !important;
+  }
 }
 
 /* O iframe do YouTube deve sempre preencher o #yt-player (evita vídeo
