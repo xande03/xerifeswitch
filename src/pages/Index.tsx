@@ -2034,8 +2034,14 @@ const Index = () => {
               onNext={handleNext}
               onPrev={handlePrev}
               onSeek={handleSeek}
-              onExit={() => exitFullscreen()}
-              onTogglePiP={() => togglePiP()}
+              onExit={() => {
+                savePosition(playerState.videoId, playerState.currentTime || ct, playerState.duration || dur);
+                exitFullscreen();
+              }}
+              videoId={playerState.videoId}
+              isMuted={isMuted}
+              onToggleMute={handleToggleMute}
+              onTogglePiP={handleTogglePiP}
               onAirPlay={() => requestAirPlay('video')}
               onSpeedChange={(rate) => setPlaybackRate(rate)}
             />
