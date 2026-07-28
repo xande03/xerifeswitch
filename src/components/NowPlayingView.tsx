@@ -45,10 +45,13 @@ function PodcastDescriptionPanel({
   loading: boolean;
   episodeTitle: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  // Mostrar a descrição COMPLETA por padrão. O usuário pode recolher se quiser.
+  const [expanded, setExpanded] = useState(true);
   const clean = (description || "").replace(/\n{3,}/g, "\n\n").trim();
   const hasContent = clean.length > 0;
-  const short = clean.length > 320 ? clean.slice(0, 320).trimEnd() + "…" : clean;
+  // Prévia usada apenas quando o usuário decide recolher manualmente.
+  const COLLAPSED_CHARS = 600;
+  const short = clean.length > COLLAPSED_CHARS ? clean.slice(0, COLLAPSED_CHARS).trimEnd() + "…" : clean;
 
   return (
     <section
