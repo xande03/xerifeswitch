@@ -146,9 +146,9 @@ function getPodcastPanelDescription(fullDescription?: string, fallbackDescriptio
   const full = (fullDescription || "").trim();
   const fallback = (fallbackDescription || "").trim();
 
-  if (full && (!isLikelyTruncatedDescription(full) || full.length >= fallback.length)) return full;
+  if (full && !isLikelyTruncatedDescription(full)) return full;
   if (fallback && !isLikelyTruncatedDescription(fallback)) return fallback;
-  return full && !isLikelyTruncatedDescription(full) ? full : "";
+  return "";
 }
 
 
