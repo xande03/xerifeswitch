@@ -8,7 +8,7 @@ import RelatedVideos from "./RelatedVideos";
 import VideoComments from "./VideoComments";
 import VideoInfoBar from "./VideoInfoBar";
 import { isInWatchLater, addToWatchLater, removeFromWatchLater } from "./VideoHomeScreen";
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback, Fragment } from "react";
 import { fetchLyrics, invalidateLyricsCache, type LyricsResult } from "@/lib/lyrics";
 import { getLyricsOffset, setLyricsOffset } from "@/lib/lyricsStorage";
 
