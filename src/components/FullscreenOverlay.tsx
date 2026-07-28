@@ -480,7 +480,14 @@ const FullscreenOverlay = ({
           paddingRight: "max(1.25rem, env(safe-area-inset-right))",
         }}
       >
-        <div className="w-11" /> {/* spacer for the always-visible button */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onExit(); }}
+          className="w-11 h-11 flex items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
+          aria-label="Fechar tela cheia"
+          title="Fechar"
+        >
+          <X size={24} />
+        </button>
         <div className="flex-1 text-center px-4 min-w-0">
           <p className="text-white text-sm font-medium truncate">{song.title}</p>
           <p className="text-white/60 text-xs truncate">
