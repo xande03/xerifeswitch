@@ -47,6 +47,8 @@ interface VideoInfoBarProps {
   onToggleLike?: () => void;
   onAddToPlaylist?: () => void;
   onNavigateToLibrary?: () => void;
+  /** Abre o painel do canal (catálogo completo, playlists etc.) */
+  onOpenChannel?: (channel: { name: string; thumbnail?: string }) => void;
 }
 
 const VideoInfoBar = ({
