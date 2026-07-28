@@ -2652,9 +2652,23 @@ const Index = () => {
                               <span className="text-sm font-medium text-foreground truncate">{c.name}</span>
                             </button>
                             <button
-                              onClick={() => { removeFavoriteChannel(c); setRecentHistory([...recentHistory]); }}
-                              className="p-1.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                              title="Remover dos favoritos"
+                              onClick={() => {
+                                removeFavoriteChannel(c);
+                                setWatchLaterVersion((v) => v + 1);
+                                toast("Canal removido dos favoritos", {
+                                  description: c.name,
+                                  action: {
+                                    label: "Desfazer",
+                                    onClick: () => {
+                                      addFavoriteChannel({ channelId: c.channelId, name: c.name, thumbnail: c.thumbnail, channelUrl: c.channelUrl });
+                                      setWatchLaterVersion((v) => v + 1);
+                                    },
+                                  },
+                                });
+                              }}
+                              className="p-1.5 rounded-full text-primary hover:text-destructive hover:bg-destructive/10 transition-colors"
+                              title="Desfavoritar canal"
+                              aria-label={`Desfavoritar ${c.name}`}
                             >
                               <Trash2 size={14} />
                             </button>
