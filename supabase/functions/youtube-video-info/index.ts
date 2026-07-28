@@ -98,6 +98,11 @@ async function fetchVideoInfo(videoId: string) {
           }));
       }
 
+      if (!description || isLikelyTruncatedDescription(description)) {
+        const full = await fetchPlayerDescription(videoId).catch(() => "");
+        description = chooseBestDescription(description, full);
+      }
+
       if (commentsRes?.ok) {
         const commentsData = await commentsRes.json();
         comments = (commentsData.comments || [])
@@ -115,12 +120,10 @@ async function fetchVideoInfo(videoId: string) {
       // If we got both, return immediately — buscando description via innertube se faltar
       if (relatedVideos.length > 0 && comments.length > 0) {
         console.log(`[youtube-video-info] Full success from ${base}: ${relatedVideos.length} related, ${comments.length} comments`);
-        if (!description || description.trim().length < 40) {
+        if (!description || description.trim().length < 40 || isLikelyTruncatedDescription(description)) {
           try {
             const innertube = await fetchFromInnertube(videoId);
-            if (innertube.description && innertube.description.length > description.length) {
-              description = innertube.description;
-            }
+            description = chooseBestDescription(description, innertube.description);
           } catch {}
         }
         return { relatedVideos, comments, description };
@@ -133,7 +136,7 @@ async function fetchVideoInfo(videoId: string) {
         return {
           relatedVideos: relatedVideos.length > 0 ? relatedVideos : innertube.relatedVideos,
           comments: comments.length > 0 ? comments : innertube.comments,
-          description: description || innertube.description,
+          description: chooseBestDescription(description, innertube.description),
         };
       }
       console.warn(`[youtube-video-info] ${base} returned empty data`);
@@ -195,6 +198,11 @@ async function fetchFromInnertube(videoId: string): Promise<{ relatedVideos: any
         }
       } catch (de) {
         console.warn("[youtube-video-info] Description extraction failed:", de);
+      }
+
+      if (!description || isLikelyTruncatedDescription(description)) {
+        const playerDescription = await fetchPlayerDescription(videoId).catch(() => "");
+        description = chooseBestDescription(description, playerDescription);
       }
 
       const items = data?.contents?.twoColumnWatchNextResults?.secondaryResults
@@ -274,6 +282,52 @@ async function fetchFromInnertube(videoId: string): Promise<{ relatedVideos: any
   }
 
   return { relatedVideos: [], comments: [], description: "" };
+}
+
+function normalizeDescription(description?: string): string {
+  return (description || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function isLikelyTruncatedDescription(description?: string): boolean {
+  const text = normalizeDescription(description);
+  return !!text && /(\.\.\.|…|\u2026)\s*$/.test(text);
+}
+
+function chooseBestDescription(...candidates: Array<string | undefined>): string {
+  const normalized = candidates.map(normalizeDescription).filter(Boolean);
+  const complete = normalized.filter((d) => !isLikelyTruncatedDescription(d));
+  const pool = complete.length > 0 ? complete : normalized;
+  return pool.sort((a, b) => b.length - a.length)[0] || "";
+}
+
+async function fetchPlayerDescription(videoId: string): Promise<string> {
+  const context = {
+    client: {
+      clientName: "WEB",
+      clientVersion: "2.20240101.00.00",
+      hl: "pt",
+      gl: "BR",
+    },
+  };
+
+  const res = await fetch(
+    "https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
+      body: JSON.stringify({ context, videoId }),
+    }
+  );
+  if (!res.ok) return "";
+  const data = await res.json();
+  return normalizeDescription(data?.videoDetails?.shortDescription || "");
 }
 
 
