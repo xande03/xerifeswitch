@@ -63,6 +63,7 @@ const VideoInfoBar = ({
   onToggleLike,
   onAddToPlaylist,
   onNavigateToLibrary,
+  onOpenChannel,
 }: VideoInfoBarProps) => {
   const [isFav, setIsFav] = useState(false);
 
