@@ -1757,7 +1757,8 @@ const Index = () => {
             playerState.isFullscreen
               ? "fixed inset-0 z-[10000] bg-black"
               : isRailMode
-                ? "fixed left-0 right-0 md:left-4 md:right-[calc(var(--xerife-video-rail)+32px)] z-[60] top-[env(safe-area-inset-top)] md:top-[90px] bg-black"
+                ? "fixed left-0 right-0 md:left-4 md:right-[calc(var(--xerife-video-rail)+32px)] z-[60] top-[env(safe-area-inset-top)] md:top-[90px] bg-transparent flex items-center justify-center"
+
                 : isMusicVideoMode
                   ? (musicVideoRect
                       ? "fixed z-[60] bg-black rounded-2xl overflow-hidden ring-1 ring-border/60 dark:ring-white/10 transition-[left,top,width,height] duration-200 ease-out"
