@@ -33,6 +33,81 @@ import { broadcastPlayerMode, subscribePlayerMode } from "@/lib/playerModeSync";
 
 export type PlayerMode = "video" | "audio" | "lyrics";
 
+// ── Painel de descrição do episódio de podcast ──
+// Aparece dentro de "Tocando agora" quando o contexto é podcast e o vídeo/áudio
+// possui uma descrição textual (transcrição, resumo, tópicos, links etc.).
+function PodcastDescriptionPanel({
+  description,
+  loading,
+  episodeTitle,
+}: {
+  description: string;
+  loading: boolean;
+  episodeTitle: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const clean = (description || "").replace(/\n{3,}/g, "\n\n").trim();
+  const hasContent = clean.length > 0;
+  const short = clean.length > 320 ? clean.slice(0, 320).trimEnd() + "…" : clean;
+
+  return (
+    <section
+      aria-label={`Descrição do episódio ${episodeTitle}`}
+      className="mt-4 md:mt-6 mx-auto w-full max-w-2xl px-3 sm:px-4 pb-24 md:pb-8"
+    >
+      <div className="rounded-2xl border border-border/40 bg-background/40 backdrop-blur-sm p-4 sm:p-5 shadow-sm">
+        <header className="flex items-center gap-2 mb-3">
+          <FileText size={16} className="text-primary" style={{ color: "hsl(var(--module-accent))" }} />
+          <h3 className="text-sm sm:text-base font-semibold text-foreground">
+            Sobre este episódio
+          </h3>
+        </header>
+
+        {loading && !hasContent ? (
+          <div className="space-y-2">
+            <div className="h-3 rounded bg-muted/60 animate-pulse w-11/12" />
+            <div className="h-3 rounded bg-muted/60 animate-pulse w-10/12" />
+            <div className="h-3 rounded bg-muted/60 animate-pulse w-8/12" />
+          </div>
+        ) : hasContent ? (
+          <>
+            <p
+              className="text-[13px] sm:text-sm leading-relaxed text-foreground/85 whitespace-pre-line break-words"
+              style={{ overflowWrap: "anywhere" }}
+            >
+              {expanded ? clean : short}
+            </p>
+            {clean.length > short.length && (
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-3 inline-flex items-center gap-1 text-xs sm:text-[13px] font-semibold text-primary hover:underline"
+                style={{ color: "hsl(var(--module-accent))" }}
+              >
+                {expanded ? (
+                  <>
+                    Mostrar menos <ChevronUp size={14} />
+                  </>
+                ) : (
+                  <>
+                    Ler mais <ChevronDown size={14} />
+                  </>
+                )}
+              </button>
+            )}
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground italic">
+            Este episódio não possui descrição disponível.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+
+
 interface NowPlayingViewProps {
   song: Song;
   isPlaying: boolean;
