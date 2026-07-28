@@ -166,9 +166,31 @@ async function fetchFromInnertube(videoId: string): Promise<{ relatedVideos: any
 
     if (res.ok) {
       const data = await res.json();
-      
+
+      // Extract full video description from videoSecondaryInfoRenderer
+      let description = "";
+      try {
+        const resultsList = data?.contents?.twoColumnWatchNextResults?.results
+          ?.results?.contents || [];
+        for (const c of resultsList) {
+          const sec = c?.videoSecondaryInfoRenderer;
+          if (sec) {
+            const runs = sec?.attributedDescription?.content
+              || sec?.description?.runs?.map((r: any) => r.text).join("")
+              || "";
+            if (typeof runs === "string" && runs.trim()) {
+              description = runs;
+              break;
+            }
+          }
+        }
+      } catch (de) {
+        console.warn("[youtube-video-info] Description extraction failed:", de);
+      }
+
       const items = data?.contents?.twoColumnWatchNextResults?.secondaryResults
         ?.secondaryResults?.results || [];
+
 
       const relatedVideos = items
         .filter((i: any) => i.compactVideoRenderer?.videoId)
