@@ -53,7 +53,6 @@ import SidebarPlayer from "@/components/SidebarPlayer";
 
 import SplashScreen from "@/components/SplashScreen";
 import FullscreenOverlay from "@/components/FullscreenOverlay";
-import { getPlaybackRate, savePosition, getPosition, getPreMuteVolume, savePreMuteVolume, saveMuted } from "@/lib/playerSession";
 import HeaderMenu from "@/components/HeaderMenu";
 import { DownloadModal } from "@/components/DownloadModal";
 import { ShareModal } from "@/components/ShareModal";
@@ -581,23 +580,6 @@ const Index = () => {
     }
 
     if (result === "fallback") {
-      // Fallback quando o navegador não expõe `webkitSetPresentationMode`
-      // nem PiP nativo (Android/Chrome antigo, WebViews, Firefox mobile):
-      // se já estamos em fullscreen, saímos dele e ativamos o mini player
-      // flutuante interno, que mantém controles equivalentes e o áudio tocando.
-      if (playerState.isFullscreen) {
-        try { await exitFullscreen(); } catch {}
-        setExpanded(false);
-        setShowFloatingPiP(true);
-        setPipStatus("active");
-        trackPip("enter-fallback", { ...pipMeta(), reason: "fullscreen-no-native-pip" });
-        toast.info("Mini player flutuante ativo", {
-          description: isAndroid
-            ? "No app Android, sair para a tela inicial mantém o vídeo em janela flutuante."
-            : "O vídeo continua tocando dentro do app.",
-        });
-        return;
-      }
       if (isMobile) {
         try {
           await requestFullscreen();
@@ -899,55 +881,6 @@ const Index = () => {
   };
 
   useEffect(() => { setPlayerVolume(volume); saveVolume(volume); }, [volume, setPlayerVolume]);
-
-  // ── Estado persistente do player (velocidade, mudo, posição) ──
-  const isMuted = volume === 0;
-  const handleToggleMute = useCallback(() => {
-    setVolumeState((v) => {
-      if (v === 0) {
-        const restored = getPreMuteVolume(80);
-        saveMuted(false);
-        return restored;
-      }
-      savePreMuteVolume(v);
-      saveMuted(true);
-      return 0;
-    });
-  }, []);
-
-  // Reaplica velocidade salva sempre que um novo vídeo fica pronto.
-  useEffect(() => {
-    if (!playerState.isReady || !playerState.videoId) return;
-    const rate = getPlaybackRate();
-    if (rate !== 1) {
-      const t = setTimeout(() => setPlaybackRate(rate), 300);
-      return () => clearTimeout(t);
-    }
-  }, [playerState.isReady, playerState.videoId, setPlaybackRate]);
-
-  // Retoma a posição salva ao (re)abrir o mesmo vídeo — só quando começa do zero.
-  const resumedVideoRef = useRef<string | null>(null);
-  useEffect(() => {
-    const vid = playerState.videoId;
-    if (!playerState.isReady || !vid) return;
-    if (resumedVideoRef.current === vid) return;
-    resumedVideoRef.current = vid;
-    const saved = getPosition(vid);
-    if (saved && (playerState.currentTime || 0) < 3) {
-      const t = setTimeout(() => seekTo(saved), 400);
-      return () => clearTimeout(t);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerState.isReady, playerState.videoId, seekTo]);
-
-  // Salva a posição periodicamente (feed + fullscreen) e ao fechar a aba.
-  useEffect(() => {
-    const flush = () => savePosition(playerState.videoId, playerState.currentTime || 0, playerState.duration || 0);
-    const id = setInterval(flush, 8000);
-    window.addEventListener("pagehide", flush);
-    return () => { clearInterval(id); window.removeEventListener("pagehide", flush); flush(); };
-  }, [playerState.videoId, playerState.currentTime, playerState.duration]);
-
 
   useEffect(() => {
     const votes: Record<string, number> = {};
@@ -2051,16 +1984,7 @@ const Index = () => {
               onNext={handleNext}
               onPrev={handlePrev}
               onSeek={handleSeek}
-              onExit={() => {
-                savePosition(playerState.videoId, playerState.currentTime || ct, playerState.duration || dur);
-                exitFullscreen();
-              }}
-              videoId={playerState.videoId}
-              isMuted={isMuted}
-              onToggleMute={handleToggleMute}
-              onTogglePiP={handleTogglePiP}
-              onAirPlay={() => requestAirPlay('video')}
-              onSpeedChange={(rate) => setPlaybackRate(rate)}
+              onExit={() => exitFullscreen()}
             />
           )}
         </div>
