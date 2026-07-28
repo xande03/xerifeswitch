@@ -1318,7 +1318,17 @@ const NowPlayingView = ({
                     </div>
                   </div>
                 )}
+
+                {/* Podcast episode description — descrição do episódio de podcast */}
+                {context === "podcast" && (videoInfo?.description?.trim() || videoInfoLoading) && (
+                  <PodcastDescriptionPanel
+                    description={videoInfo?.description || ""}
+                    loading={videoInfoLoading}
+                    episodeTitle={song.title}
+                  />
+                )}
               </div>
+
             </div>
           </div>
         </div>
