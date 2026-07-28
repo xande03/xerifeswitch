@@ -488,7 +488,73 @@ const FullscreenOverlay = ({
             <span className="uppercase tracking-wide">{currentQualityLabel}</span>
           </p>
         </div>
-        <div className="relative" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          {/* Velocidade de reprodução */}
+          <div className="relative">
+            <button
+              onClick={(e) => { e.stopPropagation(); setSpeedOpen((v) => !v); setQualityOpen(false); }}
+              className={`h-11 min-w-11 px-2 flex items-center justify-center gap-1 rounded-full transition-all active:scale-90 ${
+                speed !== 1 ? "bg-white/20 text-white" : "text-white/90 hover:text-white hover:bg-white/10"
+              }`}
+              aria-label="Velocidade de reprodução"
+              title={`Velocidade: ${speed}x`}
+            >
+              <Gauge size={20} />
+              <span className="text-[11px] font-semibold tabular-nums">{speed}x</span>
+            </button>
+            {speedOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full mt-2 z-[210] min-w-[140px] rounded-2xl bg-black/85 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden"
+              >
+                <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-white/60 border-b border-white/10">
+                  Velocidade
+                </div>
+                {SPEED_OPTIONS.map((rate) => (
+                  <button
+                    key={rate}
+                    onClick={(e) => { e.stopPropagation(); applySpeed(rate); }}
+                    className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-[13px] transition-colors ${
+                      speed === rate ? "bg-white/15 text-white font-semibold" : "text-white/85 hover:bg-white/10"
+                    }`}
+                  >
+                    <span>{rate === 1 ? "Normal (1x)" : `${rate}x`}</span>
+                    {speed === rate && <Check size={14} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Espelhar / AirPlay (WebKit) */}
+          {(caps.airplay || caps.webkit) && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onAirPlay?.(); resetTimer(); }}
+              className={`w-11 h-11 flex items-center justify-center rounded-full transition-all active:scale-90 ${
+                airplayAvailable ? "text-white bg-white/15" : "text-white/90 hover:text-white hover:bg-white/10"
+              }`}
+              aria-label="Espelhar (AirPlay)"
+              title="Espelhar / AirPlay"
+            >
+              <Airplay size={22} />
+            </button>
+          )}
+
+          {/* Picture-in-Picture */}
+          {(caps.pip || caps.webkit) && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onTogglePiP?.(); resetTimer(); }}
+              className={`w-11 h-11 flex items-center justify-center rounded-full transition-all active:scale-90 ${
+                pipActive ? "text-white bg-white/20" : "text-white/90 hover:text-white hover:bg-white/10"
+              }`}
+              aria-label={pipActive ? "Sair do Picture-in-Picture" : "Picture-in-Picture"}
+              title="Picture-in-Picture"
+            >
+              <PictureInPicture2 size={22} />
+            </button>
+          )}
+
+          <div className="relative">
           <button
             onClick={(e) => { e.stopPropagation(); setQualityOpen((v) => !v); }}
             className="w-11 h-11 flex items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
