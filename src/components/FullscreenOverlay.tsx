@@ -1,8 +1,37 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ChevronDown, Play, Pause, SkipBack, SkipForward, ArrowLeft, Settings2, Check, Loader2 } from "lucide-react";
+import { ChevronDown, Play, Pause, SkipBack, SkipForward, ArrowLeft, Settings2, Check, Loader2, X, PictureInPicture2, Airplay, Gauge } from "lucide-react";
 import { track as trackMetric } from "@/lib/playbackMetrics";
 import { Song, formatDuration } from "@/data/mockSongs";
 import SeekBar from "@/components/SeekBar";
+
+/** iOS/WebKit capability detection — usado para imitar o player nativo do iOS. */
+const isWebKitLike = () => {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  const iOS = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && (navigator as any).maxTouchPoints > 1);
+  const safari = /^((?!chrome|android|crios|fxios).)*safari/i.test(ua);
+  return iOS || safari;
+};
+const supportsPiP = () => {
+  if (typeof document === "undefined") return false;
+  const v = document.createElement("video");
+  return (
+    (document as any).pictureInPictureEnabled === true ||
+    typeof (v as any).webkitSetPresentationMode === "function" ||
+    typeof (v as any).requestPictureInPicture === "function"
+  );
+};
+const supportsAirPlay = () => {
+  if (typeof window === "undefined") return false;
+  const v = document.createElement("video");
+  return (
+    typeof (v as any).webkitShowPlaybackTargetPicker === "function" ||
+    typeof (window as any).WebKitPlaybackTargetAvailabilityEvent !== "undefined"
+  );
+};
+
+const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2] as const;
+
 
 const AUTOHIDE_OPTS = [2000, 3500, 5000, 8000] as const;
 const AUTOHIDE_DEFAULT = 3500;
