@@ -1395,10 +1395,10 @@ const NowPlayingView = ({
                 )}
 
                 {/* Podcast episode description — descrição do episódio de podcast */}
-                {context === "podcast" && (videoInfo?.description?.trim() || videoInfoLoading) && (
+                {context === "podcast" && (videoInfo?.description?.trim() || song.description?.trim() || videoInfoLoading) && (
                   <PodcastDescriptionPanel
-                    description={videoInfo?.description || ""}
-                    loading={videoInfoLoading}
+                    description={videoInfo?.description?.trim() || song.description || ""}
+                    loading={videoInfoLoading && !song.description?.trim()}
                     episodeTitle={song.title}
                   />
                 )}
