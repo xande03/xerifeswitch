@@ -42,7 +42,7 @@ import VideoHomeScreen, { getWatchLater, removeFromWatchLater } from "@/componen
 import HubHomeScreen from "@/components/HubHomeScreen";
 import { useModuleMode } from "@/hooks/useModuleMode";
 import ChannelProfile from "@/components/ChannelProfile";
-import { getFavoriteChannels, removeFavoriteChannel, FAV_CHANNELS_EVENT } from "@/lib/favoriteChannels";
+import { getFavoriteChannels, removeFavoriteChannel, addFavoriteChannel, FAV_CHANNELS_EVENT } from "@/lib/favoriteChannels";
 import ArtistProfile from "@/components/ArtistProfile";
 import BottomNav from "@/components/BottomNav";
 import DesktopSidebar from "@/components/DesktopSidebar";
@@ -2652,11 +2652,25 @@ const Index = () => {
                               <span className="text-sm font-medium text-foreground truncate">{c.name}</span>
                             </button>
                             <button
-                              onClick={() => { removeFavoriteChannel(c); setRecentHistory([...recentHistory]); }}
-                              className="p-1.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                              title="Remover dos favoritos"
+                              onClick={() => {
+                                removeFavoriteChannel(c);
+                                setWatchLaterVersion((v) => v + 1);
+                                toast("Canal removido dos favoritos", {
+                                  description: c.name,
+                                  action: {
+                                    label: "Desfazer",
+                                    onClick: () => {
+                                      addFavoriteChannel({ channelId: c.channelId, name: c.name, thumbnail: c.thumbnail, channelUrl: c.channelUrl });
+                                      setWatchLaterVersion((v) => v + 1);
+                                    },
+                                  },
+                                });
+                              }}
+                              className="p-1.5 rounded-full text-primary hover:text-destructive hover:bg-destructive/10 transition-colors"
+                              title="Desfavoritar canal"
+                              aria-label={`Desfavoritar ${c.name}`}
                             >
-                              <Trash2 size={14} />
+                              <Star size={14} className="fill-current" />
                             </button>
                           </div>
                         ))}
