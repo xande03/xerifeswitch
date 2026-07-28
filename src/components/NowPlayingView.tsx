@@ -145,14 +145,28 @@ function PodcastDescriptionPanel({
   );
 }
 
-function getPodcastPanelDescription(fullDescription?: string, fallbackDescription?: string): string {
-  const full = (fullDescription || "").trim();
-  const fallback = (fallbackDescription || "").trim();
-
-  if (full && !isLikelyTruncatedDescription(full)) return full;
-  if (fallback && !isLikelyTruncatedDescription(fallback)) return fallback;
-  return "";
+function sanitizeDescription(text?: string): string {
+  return (text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[\s]*(?:\.{3,}|…|\u2026)+\s*$/g, "")
+    .trim();
 }
+
+function getPodcastPanelDescription(fullDescription?: string, fallbackDescription?: string): string {
+  const full = sanitizeDescription(fullDescription);
+  const fallback = sanitizeDescription(fallbackDescription);
+
+  // Prefere sempre a versão mais longa que não estava truncada originalmente.
+  const candidates = [
+    { text: full, truncated: isLikelyTruncatedDescription(fullDescription) },
+    { text: fallback, truncated: isLikelyTruncatedDescription(fallbackDescription) },
+  ].filter((c) => c.text.length > 0);
+
+  const complete = candidates.filter((c) => !c.truncated);
+  const pool = complete.length > 0 ? complete : candidates;
+  return pool.sort((a, b) => b.text.length - a.text.length)[0]?.text || "";
+}
+
 
 
 
