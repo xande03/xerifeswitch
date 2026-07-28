@@ -248,6 +248,7 @@ function videoToSong(v: VideoResult): Song {
     title: v.title, artist: v.channel, album: v.channel,
     cover: v.thumbnail, duration: v.lengthSeconds,
     votes: 0, isDownloaded: false, type: "podcast",
+    description: v.description || "",
   };
 }
 
