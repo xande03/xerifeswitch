@@ -846,15 +846,29 @@ const NowPlayingView = ({
             <div className={`w-full ${isPodcastVideo ? "" : isRailVideoMode ? "md:flex-1 md:min-w-0" : "lg:w-1/2 flex flex-col justify-center items-center gap-4"} relative`}>
               
               {/* Video/Artwork Container */}
-              <div className={`w-full group ${
+              <div
+                className={`w-full group ${
                 isRailVideoMode
                   ? "pt-3 lg:pt-0"
                   : isMusicVideoMode
                     ? (context === "podcast"
-                        ? "relative aspect-video w-full max-w-[420px] sm:max-w-[500px] md:max-w-[560px] lg:max-w-[600px] xl:max-w-[640px] mx-auto px-3 sm:px-4 md:px-2 mt-6 sm:mt-8 lg:mt-10 isolate"
+                        ? "relative aspect-video w-full max-w-[420px] sm:max-w-[500px] md:max-w-[560px] lg:max-w-[600px] xl:max-w-[640px] mx-auto px-3 sm:px-4 md:px-2 mt-3 sm:mt-6 lg:mt-10 isolate"
                         : "relative aspect-video w-full max-w-[460px] sm:max-w-[620px] md:max-w-[720px] lg:max-w-[820px] mx-auto px-3 sm:px-4 md:px-2 mt-6 sm:mt-8 lg:mt-10 isolate")
                     : "relative aspect-square max-w-[380px] sm:max-w-[440px] lg:max-w-[520px] mx-auto px-3 sm:px-4 mt-2 sm:mt-4"
-              }`}>
+                }`}
+                style={
+                  isMusicVideoMode && context === "podcast"
+                    ? {
+                        // iOS/mobile: limita a altura do 16:9 ao viewport dinâmico real
+                        // (barra de URL, notch e safe-areas), sem estourar a tela em
+                        // portrait nem em landscape.
+                        maxWidth:
+                          "min(100%, calc((min(42dvh, 42vh) - env(safe-area-inset-top)) * 16 / 9 + 24px), 640px)",
+                      }
+                    : undefined
+                }
+              >
+
                 {isRailVideoMode ? (
                   <>
                     {/* Spacer that matches the fixed yt-player height — full-bleed on mobile, matches left column on desktop */}

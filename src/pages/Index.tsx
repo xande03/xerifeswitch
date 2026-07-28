@@ -411,12 +411,23 @@ const Index = () => {
       // Clamp to viewport to guarantee o iframe nunca ultrapasse limites laterais
       // (portrait/landscape/resize com scrollbar aparecendo).
       const vw = (window.visualViewport?.width ?? window.innerWidth) || r.width;
+      const vh = (window.visualViewport?.height ?? window.innerHeight) || r.height;
       const pad = 12;
+      const ratio = r.height / r.width;
       const maxW = Math.max(0, vw - pad * 2);
-      const width = Math.min(r.width, maxW);
-      const height = width * (r.height / r.width);
-      const left = Math.max(pad, Math.min(r.left, vw - pad - width));
-      const top = r.top;
+      let width = Math.min(r.width, maxW);
+      let height = width * ratio;
+      // iOS: a barra de URL/safe-area encolhe o viewport visual. Se o 16:9 não
+      // couber verticalmente a partir do topo do anchor, reduzimos mantendo a
+      // proporção — assim o player nunca fica cortado nem transborda a tela.
+      const availableH = Math.max(120, vh - Math.max(0, r.top) - pad);
+      if (height > availableH) {
+        height = availableH;
+        width = height / ratio;
+      }
+      const left = Math.max(pad, Math.min(r.left + (r.width - width) / 2, Math.max(pad, vw - pad - width)));
+      const top = Math.max(0, Math.min(r.top, vh - height - pad));
+
       setMusicVideoRect((prev) => {
         if (prev && Math.abs(prev.left - left) < 0.5 && Math.abs(prev.top - top) < 0.5 && Math.abs(prev.width - width) < 0.5 && Math.abs(prev.height - height) < 0.5) return prev;
         return { left, top, width, height };
