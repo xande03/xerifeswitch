@@ -533,7 +533,9 @@ const FullscreenOverlay = ({
               })}
             </div>
           )}
+          </div>
         </div>
+
       </div>
 
       {/* Bottom controls — transport + slider colado ao rodapé, respeitando
