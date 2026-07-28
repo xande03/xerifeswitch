@@ -75,9 +75,11 @@ async function fetchVideoInfo(videoId: string) {
 
       let relatedVideos: any[] = [];
       let comments: any[] = [];
+      let description = "";
 
       if (videoRes.ok) {
         const videoData = await videoRes.json();
+        description = (videoData.description || "").toString();
         relatedVideos = (videoData.recommendedVideos || [])
           .filter((v: any) => v.videoId)
           .slice(0, 15)
@@ -112,7 +114,7 @@ async function fetchVideoInfo(videoId: string) {
       // If we got both, return immediately
       if (relatedVideos.length > 0 && comments.length > 0) {
         console.log(`[youtube-video-info] Full success from ${base}: ${relatedVideos.length} related, ${comments.length} comments`);
-        return { relatedVideos, comments };
+        return { relatedVideos, comments, description };
       }
       // If we got partial data, save it and try to fill the rest
       if (relatedVideos.length > 0 || comments.length > 0) {
@@ -122,6 +124,7 @@ async function fetchVideoInfo(videoId: string) {
         return {
           relatedVideos: relatedVideos.length > 0 ? relatedVideos : innertube.relatedVideos,
           comments: comments.length > 0 ? comments : innertube.comments,
+          description: description || innertube.description,
         };
       }
       console.warn(`[youtube-video-info] ${base} returned empty data`);
@@ -136,7 +139,8 @@ async function fetchVideoInfo(videoId: string) {
   return innertube;
 }
 
-async function fetchFromInnertube(videoId: string): Promise<{ relatedVideos: any[]; comments: any[] }> {
+async function fetchFromInnertube(videoId: string): Promise<{ relatedVideos: any[]; comments: any[]; description: string }> {
+
   console.log("[youtube-video-info] Trying innertube");
   try {
     const body = {
