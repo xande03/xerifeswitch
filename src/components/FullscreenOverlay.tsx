@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ChevronDown, Play, Pause, SkipBack, SkipForward, ArrowLeft, Settings2, Check, Loader2, X, PictureInPicture2, Airplay, Gauge } from "lucide-react";
+import { ChevronDown, Play, Pause, SkipBack, SkipForward, ArrowLeft, Settings2, Check, Loader2, X, PictureInPicture2, Airplay, Gauge, Volume2, VolumeX } from "lucide-react";
 import { track as trackMetric } from "@/lib/playbackMetrics";
 import { Song, formatDuration } from "@/data/mockSongs";
 import SeekBar from "@/components/SeekBar";
+import { getPlaybackRate, savePlaybackRate, savePosition } from "@/lib/playerSession";
 
 /** iOS/WebKit capability detection — usado para imitar o player nativo do iOS. */
 const isWebKitLike = () => {
