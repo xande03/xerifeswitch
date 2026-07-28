@@ -47,6 +47,8 @@ interface VideoInfoBarProps {
   onToggleLike?: () => void;
   onAddToPlaylist?: () => void;
   onNavigateToLibrary?: () => void;
+  /** Abre o painel do canal (catálogo completo, playlists etc.) */
+  onOpenChannel?: (channel: { name: string; thumbnail?: string }) => void;
 }
 
 const VideoInfoBar = ({
@@ -61,6 +63,7 @@ const VideoInfoBar = ({
   onToggleLike,
   onAddToPlaylist,
   onNavigateToLibrary,
+  onOpenChannel,
 }: VideoInfoBarProps) => {
   const [isFav, setIsFav] = useState(false);
 
@@ -348,9 +351,10 @@ const VideoInfoBar = ({
         {/* 3) Channel row: avatar + name + subscribers | Subscribe pill on the right */}
         <div className="mt-3 flex items-center gap-3 px-1">
           <button
-            onClick={() => {/* artist profile handled by parent NowPlayingView title */}}
-            className="flex items-center gap-3 min-w-0 flex-1 group"
-            title={song.artist}
+            onClick={() => onOpenChannel?.({ name: song.artist, thumbnail: song.cover })}
+            className="flex items-center gap-3 min-w-0 flex-1 group text-left"
+            title={`Abrir canal de ${song.artist}`}
+            aria-label={`Abrir canal de ${song.artist}`}
           >
             <img
               src={hdThumbnail(song.cover)}
