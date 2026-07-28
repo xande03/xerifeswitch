@@ -257,15 +257,16 @@ async function fetchFromInnertube(videoId: string): Promise<{ relatedVideos: any
         console.warn("[youtube-video-info] Comments extraction failed:", ce);
       }
 
-      console.log(`[youtube-video-info] Innertube: ${relatedVideos.length} related, ${comments.length} comments`);
-      return { relatedVideos, comments };
+      console.log(`[youtube-video-info] Innertube: ${relatedVideos.length} related, ${comments.length} comments, desc=${description.length}`);
+      return { relatedVideos, comments, description };
     }
   } catch (err) {
     console.warn("[youtube-video-info] Innertube failed:", err);
   }
 
-  return { relatedVideos: [], comments: [] };
+  return { relatedVideos: [], comments: [], description: "" };
 }
+
 
 function parseDuration(text: string): number {
   if (!text) return 0;
