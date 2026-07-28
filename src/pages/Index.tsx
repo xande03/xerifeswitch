@@ -334,7 +334,7 @@ const Index = () => {
     if (typeof window === "undefined") return;
     // Skip when in music-video mode: positioning já é feito via getBoundingClientRect
     // do #music-video-anchor (efeito abaixo), então não aplicamos transform.
-    const isMusicVideoMode = homeMode !== "video";
+    const isMusicVideoMode = podcastMode || homeMode !== "video";
     if (isMusicVideoMode) return;
     const mq = window.matchMedia("(min-width: 768px)");
     if (!mq.matches) return;
@@ -395,7 +395,7 @@ const Index = () => {
   const [musicVideoRect, setMusicVideoRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const active = expanded && playerMode === "video" && homeMode !== "video";
+    const active = expanded && playerMode === "video" && (podcastMode || homeMode !== "video");
     if (!active) { setMusicVideoRect(null); return; }
 
     let raf = 0;
@@ -1741,8 +1741,8 @@ const Index = () => {
         <div className="flex-1 flex flex-col min-w-0">
         {/* YouTube Player + Fullscreen Container */}
         {(() => {
-          const isRailMode = expanded && playerMode === "video" && homeMode === "video";
-          const isMusicVideoMode = expanded && playerMode === "video" && homeMode !== "video";
+          const isRailMode = expanded && playerMode === "video" && !podcastMode && homeMode === "video";
+          const isMusicVideoMode = expanded && playerMode === "video" && (podcastMode || homeMode !== "video");
           return (
         <div
           id="yt-fullscreen-container"
