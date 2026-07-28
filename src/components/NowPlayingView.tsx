@@ -12,7 +12,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, Fragment } fr
 import { fetchLyrics, invalidateLyricsCache, type LyricsResult } from "@/lib/lyrics";
 import { getLyricsOffset, setLyricsOffset } from "@/lib/lyricsStorage";
 
-import { fetchVideoInfo, type VideoInfo } from "@/lib/youtubeVideoInfo";
+import { fetchVideoInfo, isLikelyTruncatedDescription, type VideoInfo } from "@/lib/youtubeVideoInfo";
 import type { VideoResult } from "@/lib/youtubeGeneralSearch";
 import Logo from "./Logo";
 import SeekBar from "@/components/SeekBar";
@@ -140,6 +140,15 @@ function PodcastDescriptionPanel({
       </div>
     </section>
   );
+}
+
+function getPodcastPanelDescription(fullDescription?: string, fallbackDescription?: string): string {
+  const full = (fullDescription || "").trim();
+  const fallback = (fallbackDescription || "").trim();
+
+  if (full && (!isLikelyTruncatedDescription(full) || full.length >= fallback.length)) return full;
+  if (fallback && !isLikelyTruncatedDescription(fallback)) return fallback;
+  return full && !isLikelyTruncatedDescription(full) ? full : "";
 }
 
 
@@ -309,6 +318,10 @@ const NowPlayingView = ({
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
   const [videoInfoLoading, setVideoInfoLoading] = useState(false);
   const [bottomTab, setBottomTab] = useState<"related" | "comments">("related");
+  const podcastPanelDescription = useMemo(
+    () => getPodcastPanelDescription(videoInfo?.description, song.description),
+    [videoInfo?.description, song.description]
+  );
 
   const [showFsControls, setShowFsControls] = useState(true);
   const fsControlsTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -1432,10 +1445,10 @@ const NowPlayingView = ({
                 )}
 
                 {/* Podcast episode description — descrição do episódio de podcast */}
-                {context === "podcast" && (videoInfo?.description?.trim() || song.description?.trim() || videoInfoLoading) && (
+                {context === "podcast" && (podcastPanelDescription || videoInfoLoading) && (
                   <PodcastDescriptionPanel
-                    description={videoInfo?.description?.trim() || song.description || ""}
-                    loading={videoInfoLoading && !song.description?.trim()}
+                    description={podcastPanelDescription}
+                    loading={videoInfoLoading && !podcastPanelDescription}
                     episodeTitle={song.title}
                   />
                 )}
