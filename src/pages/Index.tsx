@@ -2900,7 +2900,11 @@ const Index = () => {
                     else setActiveTab("library");
                     break;
                   case "watchlater":
+                    setHomeMode("video");
+                    setActiveTab("library");
+                    break;
                   case "favchannels":
+                    if (mod === "podcast") { podNav("subscriptions"); break; }
                     setHomeMode("video");
                     setActiveTab("library");
                     break;
