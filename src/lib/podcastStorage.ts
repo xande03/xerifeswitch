@@ -1,4 +1,6 @@
 // Podcast data persistence layer using localStorage
+import { normalizeChannelKey } from "@/lib/podcastDedupe";
+
 
 export interface PodcastShow {
   channelId: string;  // YouTube channel name as ID
@@ -67,27 +69,45 @@ function emitSubsUpdated() {
 
 export function getSubscriptions(): PodcastShow[] {
   try {
-    return JSON.parse(localStorage.getItem(SUBS_KEY) || "[]");
+    const raw: PodcastShow[] = JSON.parse(localStorage.getItem(SUBS_KEY) || "[]");
+    // Dedupe por canal normalizado (evita o mesmo podcast aparecer 2x em Favoritos)
+    const seen = new Set<string>();
+    const out: PodcastShow[] = [];
+    for (const s of raw) {
+      if (!s || !s.channelId) continue;
+      const key = normalizeChannelKey(s.channelId || s.name);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(s);
+    }
+    if (out.length !== raw.length) {
+      try { localStorage.setItem(SUBS_KEY, JSON.stringify(out)); } catch {}
+    }
+    return out;
   } catch { return []; }
 }
 
 export function subscribe(show: Omit<PodcastShow, "subscribedAt">): void {
   const subs = getSubscriptions();
-  if (subs.some(s => s.channelId === show.channelId)) return;
+  const key = normalizeChannelKey(show.channelId || show.name);
+  if (subs.some(s => normalizeChannelKey(s.channelId || s.name) === key)) return;
   subs.unshift({ ...show, subscribedAt: Date.now() });
   localStorage.setItem(SUBS_KEY, JSON.stringify(subs));
   emitSubsUpdated();
 }
 
 export function unsubscribe(channelId: string): void {
-  const subs = getSubscriptions().filter(s => s.channelId !== channelId);
+  const key = normalizeChannelKey(channelId);
+  const subs = getSubscriptions().filter(s => normalizeChannelKey(s.channelId || s.name) !== key);
   localStorage.setItem(SUBS_KEY, JSON.stringify(subs));
   emitSubsUpdated();
 }
 
 export function isSubscribed(channelId: string): boolean {
-  return getSubscriptions().some(s => s.channelId === channelId);
+  const key = normalizeChannelKey(channelId);
+  return getSubscriptions().some(s => normalizeChannelKey(s.channelId || s.name) === key);
 }
+
 
 // ── Episode Progress ──
 
