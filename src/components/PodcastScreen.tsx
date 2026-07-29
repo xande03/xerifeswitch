@@ -3,6 +3,7 @@ import HorizontalScroll from "./HorizontalScroll";
 import { Search, Play, Pause, Clock, X, ChevronRight, ChevronDown, Headphones, Radio, Bell, BellOff, Gauge, RotateCcw, ListMusic, SkipForward, Plus, Trash2, Calendar, Mic, ArrowLeft, Bookmark, MoreVertical, Download, LayoutGrid, List, Rows3, Eye, Palette, Video, Star, Sparkles, Compass, Heart, FileText, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { searchYouTubeGeneral, searchYouTubeGeneralPage, loadMoreYouTubeGeneral, type VideoResult } from "@/lib/youtubeGeneralSearch";
+import { dedupeVideos, normalizeEpisodeKey } from "@/lib/podcastDedupe";
 import { getSearchSuggestions } from "@/lib/youtubeSearch";
 import { Song } from "@/data/mockSongs";
 import {
@@ -457,7 +458,7 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
             .slice(0, 3)
             .forEach((v) => { if (!byId.has(v.videoId)) byId.set(v.videoId, v); });
         });
-        if (!cancelled) setFavRecs(Array.from(byId.values()).slice(0, 12));
+        if (!cancelled) setFavRecs(dedupeVideos(Array.from(byId.values())).slice(0, 12));
       } catch { if (!cancelled) setFavRecs([]); }
       finally { if (!cancelled) setLoadingFavRecs(false); }
     };
@@ -501,7 +502,7 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
 
       // Dedupe por videoId
       const byId = new Map<string, VideoResult>();
-      for (const v of all) if (!byId.has(v.videoId)) byId.set(v.videoId, v);
+      for (const v of dedupeVideos(all)) byId.set(v.videoId, v);
 
       const parseViews = (v: string) => {
         const n = parseFloat((v || "").replace(/[^\d.,]/g, "").replace(",", "."));
@@ -687,7 +688,7 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
 
       // Dedupe por videoId
       const byId = new Map<string, VideoResult>();
-      for (const v of all) if (!byId.has(v.videoId)) byId.set(v.videoId, v);
+      for (const v of dedupeVideos(all)) byId.set(v.videoId, v);
 
       const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
       const parseViews = (v: string) => {
@@ -859,15 +860,18 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
       const freshList = [...extras, ...freshnessQueries];
       const nameLower = channelName.toLowerCase();
 
+      const seenTitleKeys = new Set<string>();
       const mergeResults = (results: VideoResult[], prevSeen: Set<string>) => {
         const added: VideoResult[] = [];
-        for (const v of results) {
+        for (const v of dedupeVideos(results)) {
           const channelLower = v.channel.toLowerCase();
           const isMatch = channelLower.includes(nameLower) || nameLower.includes(channelLower);
-          if (isMatch && !prevSeen.has(v.videoId)) {
-            prevSeen.add(v.videoId);
-            added.push(v);
-          }
+          if (!isMatch || prevSeen.has(v.videoId)) continue;
+          const tKey = normalizeEpisodeKey(v.title, v.channel);
+          if (tKey.replace("::", "").length > 6 && seenTitleKeys.has(tKey)) continue;
+          seenTitleKeys.add(tKey);
+          prevSeen.add(v.videoId);
+          added.push(v);
         }
         return added;
       };
