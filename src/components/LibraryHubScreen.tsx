@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Download, Heart, Bookmark, ListMusic, Clock, Headphones, Music, MonitorPlay, Library, ChevronRight, Star } from "lucide-react";
 import { getFavoritesMetadata, getHistory, getPlaylists } from "@/lib/localStorage";
 import { getWatchLater } from "@/components/VideoHomeScreen";
-import { getFavoriteEpisodes } from "@/lib/podcastStorage";
+import { getFavoriteEpisodes, getSubscriptions, PODCAST_SUBS_EVENT } from "@/lib/podcastStorage";
 import { getAllSavedSongs } from "@/lib/indexedDB";
 import { getFavoriteChannels, FAV_CHANNELS_EVENT } from "@/lib/favoriteChannels";
 
@@ -40,7 +40,7 @@ const LibraryHubScreen = ({ onHomeModeChange, onOpenTool, initialFilter }: Libra
     historyMusic: 0,
     historyVideo: 0,
     historyPodcast: 0,
-    podcasts: 0,
+    podcastShows: 0,
     favChannels: 0,
   });
 
@@ -60,10 +60,10 @@ const LibraryHubScreen = ({ onHomeModeChange, onOpenTool, initialFilter }: Libra
         const historyPodcast = history.filter((h) => h.type === "podcast").length;
         let downloadsMusic = 0;
         try { downloadsMusic = (await getAllSavedSongs()).length; } catch {}
-        const podcasts = likedPodcast; // subscriptions proxy
+        const podcastShows = getSubscriptions().length;
         const favChannels = getFavoriteChannels().length;
         if (!cancelled) {
-          setCounts({ downloadsMusic, likedMusic, likedVideo, likedPodcast, watchLater, playlists, historyMusic, historyVideo, historyPodcast, podcasts, favChannels });
+          setCounts({ downloadsMusic, likedMusic, likedVideo, likedPodcast, watchLater, playlists, historyMusic, historyVideo, historyPodcast, podcastShows, favChannels });
         }
       } catch {}
     };
@@ -77,6 +77,7 @@ const LibraryHubScreen = ({ onHomeModeChange, onOpenTool, initialFilter }: Libra
     window.addEventListener("demus:downloads-updated", onStorage);
     window.addEventListener("xerife:podcast-favs-updated", onStorage);
     window.addEventListener(FAV_CHANNELS_EVENT, onStorage);
+    window.addEventListener(PODCAST_SUBS_EVENT, onStorage);
     return () => {
       cancelled = true;
       window.removeEventListener("storage", onStorage);
@@ -87,6 +88,7 @@ const LibraryHubScreen = ({ onHomeModeChange, onOpenTool, initialFilter }: Libra
       window.removeEventListener("demus:downloads-updated", onStorage);
       window.removeEventListener("xerife:podcast-favs-updated", onStorage);
       window.removeEventListener(FAV_CHANNELS_EVENT, onStorage);
+      window.removeEventListener(PODCAST_SUBS_EVENT, onStorage);
     };
   }, [filter]);
 
@@ -95,8 +97,8 @@ const LibraryHubScreen = ({ onHomeModeChange, onOpenTool, initialFilter }: Libra
     if (id === "liked") return filter === "music" ? counts.likedMusic : filter === "video" ? counts.likedVideo : counts.likedPodcast;
     if (id === "watchlater") return counts.watchLater;
     if (id === "playlists") return counts.playlists;
-    if (id === "podcasts") return counts.podcasts;
-    if (id === "favchannels") return counts.favChannels;
+    if (id === "podcasts") return counts.podcastShows;
+    if (id === "favchannels") return filter === "podcast" ? counts.podcastShows : counts.favChannels;
     if (id === "history") return filter === "music" ? counts.historyMusic : filter === "video" ? counts.historyVideo : counts.historyPodcast;
     return 0;
   };
@@ -113,8 +115,7 @@ const LibraryHubScreen = ({ onHomeModeChange, onOpenTool, initialFilter }: Libra
     { id: "liked", label: "Curtidos", description: filter === "video" ? "Vídeos que você curtiu" : filter === "podcast" ? "Episódios curtidos" : "Músicas que você curtiu", icon: Heart, gradient: "from-pink-500/30 to-rose-500/5", filters: ["music", "podcast", "video"], count: countFor("liked") },
     { id: "watchlater", label: "Assistir mais tarde", description: "Vídeos salvos para depois", icon: Bookmark, gradient: "from-sky-500/30 to-blue-500/5", filters: ["video"], count: countFor("watchlater") },
     { id: "playlists", label: "Playlists", description: "Suas coleções", icon: ListMusic, gradient: "from-violet-500/30 to-purple-500/5", filters: ["music", "video"], count: countFor("playlists") },
-    { id: "podcasts", label: "Podcasts", description: "Programas e episódios", icon: Headphones, gradient: "from-amber-500/30 to-orange-500/5", filters: ["podcast"], count: countFor("podcasts") },
-    { id: "favchannels", label: "Favoritos", description: "Canais que você favoritou", icon: Star, gradient: "from-yellow-500/30 to-amber-500/5", filters: ["video"], count: countFor("favchannels") },
+    { id: "favchannels", label: "Favoritos", description: filter === "podcast" ? "Canais de podcast favoritados" : "Canais que você favoritou", icon: Star, gradient: "from-yellow-500/30 to-amber-500/5", filters: ["podcast", "video"], count: countFor("favchannels") },
     { id: "history", label: "Histórico", description: "Reproduções recentes", icon: Clock, gradient: "from-slate-500/30 to-zinc-500/5", filters: ["music", "podcast", "video"], count: countFor("history") },
   ];
 
