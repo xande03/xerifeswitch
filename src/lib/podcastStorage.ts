@@ -57,7 +57,13 @@ export function toggleFavoriteEpisode(ep: Omit<FavoriteEpisode, "favoritedAt">):
   return nowFav;
 }
 
-// ── Subscriptions ──
+// ── Subscriptions (canais de podcast favoritados) ──
+
+export const PODCAST_SUBS_EVENT = "xerife:podcast-subs-updated";
+
+function emitSubsUpdated() {
+  try { window.dispatchEvent(new CustomEvent(PODCAST_SUBS_EVENT)); } catch {}
+}
 
 export function getSubscriptions(): PodcastShow[] {
   try {
@@ -68,13 +74,15 @@ export function getSubscriptions(): PodcastShow[] {
 export function subscribe(show: Omit<PodcastShow, "subscribedAt">): void {
   const subs = getSubscriptions();
   if (subs.some(s => s.channelId === show.channelId)) return;
-  subs.push({ ...show, subscribedAt: Date.now() });
+  subs.unshift({ ...show, subscribedAt: Date.now() });
   localStorage.setItem(SUBS_KEY, JSON.stringify(subs));
+  emitSubsUpdated();
 }
 
 export function unsubscribe(channelId: string): void {
   const subs = getSubscriptions().filter(s => s.channelId !== channelId);
   localStorage.setItem(SUBS_KEY, JSON.stringify(subs));
+  emitSubsUpdated();
 }
 
 export function isSubscribed(channelId: string): boolean {
