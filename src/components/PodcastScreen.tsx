@@ -11,6 +11,7 @@ import {
   getPlaybackSpeed, setPlaybackSpeed, type PodcastShow, type PodcastEpisodeProgress,
   getPodcastHistory,
   getFavoriteEpisodes, isFavoriteEpisode, toggleFavoriteEpisode, type FavoriteEpisode,
+  PODCAST_SUBS_EVENT,
 } from "@/lib/podcastStorage";
 import { useChannelAutoRefresh } from "@/hooks/useAutoRefreshChannel";
 import NewContentBadge from "./NewContentBadge";
@@ -310,6 +311,8 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
   const [hasSearched, setHasSearched] = useState(false);
   const [expandedShow, setExpandedShow] = useState<string | null>(null);
   const [subs, setSubs] = useState<PodcastShow[]>(getSubscriptions());
+  const [favRecs, setFavRecs] = useState<VideoResult[]>([]);
+  const [loadingFavRecs, setLoadingFavRecs] = useState(false);
   const [speed, setSpeed] = useState(getPlaybackSpeed());
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [inProgress, setInProgress] = useState<PodcastEpisodeProgress[]>(getAllInProgressEpisodes());
@@ -421,6 +424,46 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
 
 
   const refreshSubs = () => setSubs(getSubscriptions());
+
+  // Mantém a lista de canais favoritos sincronizada (Biblioteca › Favoritos, painel do canal, etc.)
+  useEffect(() => {
+    const sync = () => setSubs(getSubscriptions());
+    sync();
+    window.addEventListener(PODCAST_SUBS_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(PODCAST_SUBS_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  // Recomendações da tela de início baseadas nos canais favoritados
+  useEffect(() => {
+    if (tab !== "home" || subs.length === 0) { setFavRecs([]); return; }
+    let cancelled = false;
+    const load = async () => {
+      setLoadingFavRecs(true);
+      try {
+        const picks = subs.slice(0, 4);
+        const settled = await Promise.allSettled(
+          picks.map((s) => searchYouTubeGeneral(`${s.name} podcast episódio`))
+        );
+        const byId = new Map<string, VideoResult>();
+        settled.forEach((r, idx) => {
+          if (r.status !== "fulfilled") return;
+          const name = picks[idx].name.toLowerCase();
+          r.value
+            .filter((v) => (v.lengthSeconds || 0) > 600 && (v.channel || "").toLowerCase().includes(name.split(" ")[0]))
+            .slice(0, 3)
+            .forEach((v) => { if (!byId.has(v.videoId)) byId.set(v.videoId, v); });
+        });
+        if (!cancelled) setFavRecs(Array.from(byId.values()).slice(0, 12));
+      } catch { if (!cancelled) setFavRecs([]); }
+      finally { if (!cancelled) setLoadingFavRecs(false); }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [tab, subs]);
 
   // Auto-play next episode when current ends
   useEffect(() => {
@@ -1558,6 +1601,55 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
                           );
                         })}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Dos seus canais favoritos */}
+                  {subs.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-1.5">
+                          <Star size={14} className="fill-primary text-primary" />
+                          <h2 className="text-sm font-semibold text-foreground">Dos seus canais favoritos</h2>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{subs.length} canais</span>
+                      </div>
+
+                      <PodcastRail label="Canais favoritos" className="flex gap-2.5 -mx-3 px-3 pb-1">
+                        {subs.map((show) => (
+                          <button key={show.channelId} onClick={() => browseChannel(show.name, show.thumbnail)}
+                            className="flex-shrink-0 w-20 text-center active:scale-95 transition-transform">
+                            <img src={show.thumbnail} alt={show.name} className="w-16 h-16 mx-auto rounded-full object-cover border-2 border-primary/30" />
+                            <p className="mt-1 text-[10px] font-semibold text-foreground line-clamp-2 leading-tight">{show.name}</p>
+                          </button>
+                        ))}
+                      </PodcastRail>
+
+                      {loadingFavRecs && favRecs.length === 0 ? (
+                        <div className="flex gap-2.5 -mx-3 px-3">
+                          {[0, 1, 2].map((i) => (
+                            <div key={i} className="flex-shrink-0 w-40 h-24 rounded-xl bg-secondary/50 animate-pulse" />
+                          ))}
+                        </div>
+                      ) : favRecs.length > 0 ? (
+                        <PodcastRail label="Episódios recomendados" className="flex gap-2.5 -mx-3 px-3 pb-2">
+                          {favRecs.map((ep, i) => (
+                            <motion.button
+                              key={ep.videoId}
+                              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
+                              onClick={() => handlePlayEpisodeWithQueue(ep, favRecs, i)}
+                              className="flex-shrink-0 w-40 sm:w-44 text-left group active:scale-[0.97] transition-transform"
+                            >
+                              <div className="relative w-40 h-[90px] sm:w-44 sm:h-[99px] rounded-xl overflow-hidden bg-secondary">
+                                <img src={ep.thumbnail} alt={ep.title} className="absolute inset-0 w-full h-full object-cover" />
+                                <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full bg-primary/95 text-[8.5px] font-bold text-white uppercase tracking-wider">Favorito</div>
+                              </div>
+                              <p className="mt-1.5 text-[11px] font-semibold text-foreground line-clamp-2 leading-tight">{ep.title}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">{ep.channel}</p>
+                            </motion.button>
+                          ))}
+                        </PodcastRail>
+                      ) : null}
                     </div>
                   )}
 
