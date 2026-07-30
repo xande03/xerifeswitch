@@ -313,18 +313,8 @@ const FullscreenOverlay = ({
 
 
     
-    // Lock orientation to landscape on mount
-    const lockOrientation = async () => {
-      try {
-        if (screen.orientation && (screen.orientation as any).lock) {
-          await (screen.orientation as any).lock("landscape");
-        }
-      } catch (err) {
-        console.warn("Could not lock orientation:", err);
-      }
-    };
-    
-    lockOrientation();
+    // Sem lock de orientação: o fullscreen respeita a rotação do dispositivo.
+
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);

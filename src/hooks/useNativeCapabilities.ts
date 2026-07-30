@@ -62,14 +62,10 @@ export function useNativeCapabilities(isPlaying: boolean) {
     return () => document.removeEventListener('touchmove', preventOverscroll);
   }, []);
 
-  // Unlock orientation
-  useEffect(() => {
-    try {
-      if (screen.orientation && (screen.orientation as any).unlock) {
-        (screen.orientation as any).unlock();
-      }
-    } catch { }
-  }, []);
+  // NOTE: intencionalmente NÃO chamamos screen.orientation.unlock() aqui.
+  // Forçar unlock fazia o app girar mesmo com a rotação bloqueada no aparelho.
+  // Agora a orientação segue exclusivamente a configuração do sistema.
+
 }
 
 /**
