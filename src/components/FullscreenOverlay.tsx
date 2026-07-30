@@ -333,6 +333,7 @@ const FullscreenOverlay = ({
           (screen.orientation as any).unlock();
         }
       } catch {}
+
       (window as any).__xerifeFsOverlayMounted = false;
       // Fully abort any in-flight pinch/pan gesture so exiting fullscreen mid-gesture
       // leaves the player un-transformed and never distorted.
