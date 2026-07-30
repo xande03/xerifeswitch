@@ -328,11 +328,8 @@ const FullscreenOverlay = ({
       try { orientationMql?.removeEventListener?.("change", onOrientation); } catch {}
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("demus:fs-autohide-changed", onAutoHidePref as EventListener);
-      try {
-        if (screen.orientation && (screen.orientation as any).unlock) {
-          (screen.orientation as any).unlock();
-        }
-      } catch {}
+
+
 
       (window as any).__xerifeFsOverlayMounted = false;
       // Fully abort any in-flight pinch/pan gesture so exiting fullscreen mid-gesture

@@ -1386,13 +1386,9 @@ export function useYouTubePlayer(containerId: string) {
         }
       }
 
-      try {
-        if (screen.orientation && (screen.orientation as any).lock) {
-          await (screen.orientation as any).lock("landscape");
-        }
-      } catch {
-        // orientation lock not supported
-      }
+      // Sem screen.orientation.lock(): a orientação segue a configuração
+      // (bloqueio de rotação) do próprio dispositivo.
+
     } catch (err) {
       console.warn("Fullscreen request failed:", err);
       enterPseudoFullscreen();
