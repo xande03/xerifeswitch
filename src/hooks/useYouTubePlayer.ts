@@ -1421,13 +1421,8 @@ export function useYouTubePlayer(containerId: string) {
 
     clearPseudo();
     setState((s) => ({ ...s, isFullscreen: false }));
-
-    try {
-      if (screen.orientation && (screen.orientation as any).unlock) {
-        (screen.orientation as any).unlock();
-      }
-    } catch {}
   }, []);
+
 
   // Track fullscreen state
   useEffect(() => {
