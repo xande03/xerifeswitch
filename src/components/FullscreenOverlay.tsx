@@ -313,18 +313,8 @@ const FullscreenOverlay = ({
 
 
     
-    // Lock orientation to landscape on mount
-    const lockOrientation = async () => {
-      try {
-        if (screen.orientation && (screen.orientation as any).lock) {
-          await (screen.orientation as any).lock("landscape");
-        }
-      } catch (err) {
-        console.warn("Could not lock orientation:", err);
-      }
-    };
-    
-    lockOrientation();
+    // Sem lock de orientação: o fullscreen respeita a rotação do dispositivo.
+
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -338,11 +328,9 @@ const FullscreenOverlay = ({
       try { orientationMql?.removeEventListener?.("change", onOrientation); } catch {}
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("demus:fs-autohide-changed", onAutoHidePref as EventListener);
-      try {
-        if (screen.orientation && (screen.orientation as any).unlock) {
-          (screen.orientation as any).unlock();
-        }
-      } catch {}
+
+
+
       (window as any).__xerifeFsOverlayMounted = false;
       // Fully abort any in-flight pinch/pan gesture so exiting fullscreen mid-gesture
       // leaves the player un-transformed and never distorted.
