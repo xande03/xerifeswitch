@@ -996,7 +996,9 @@ const NowPlayingView = ({
                     ? (context === "podcast"
                         ? "relative aspect-video w-full max-w-[420px] sm:max-w-[500px] md:max-w-[560px] lg:max-w-[600px] xl:max-w-[640px] mx-auto px-3 sm:px-4 md:px-2 mt-3 sm:mt-6 lg:mt-10 isolate"
                         : "relative aspect-video w-full max-w-[460px] sm:max-w-[620px] md:max-w-[720px] lg:max-w-[820px] mx-auto px-3 sm:px-4 md:px-2 mt-6 sm:mt-8 lg:mt-10 isolate")
-                    : "relative aspect-square max-w-[380px] sm:max-w-[440px] lg:max-w-[520px] mx-auto px-3 sm:px-4 mt-2 sm:mt-4"
+                    : context === "podcast"
+                      ? "relative aspect-video w-full max-w-[420px] sm:max-w-[520px] lg:max-w-[640px] mx-auto px-3 sm:px-4 mt-2 sm:mt-4"
+                      : "relative aspect-square max-w-[380px] sm:max-w-[440px] lg:max-w-[520px] mx-auto px-3 sm:px-4 mt-2 sm:mt-4"
                 }`}
                 style={
                   isMusicVideoMode && context === "podcast"
