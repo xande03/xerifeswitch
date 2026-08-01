@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Loader2, Play, Pause, SkipForward, SkipBack, MoreHorizontal, Users, Disc3, Music2, ChevronRight, ChevronDown, X, Heart, Download, Share2, ListPlus, Shuffle } from "lucide-react";
+import { ArrowLeft, Loader2, Play, Pause, SkipForward, SkipBack, MoreHorizontal, Users, Disc3, Music2, ChevronRight, ChevronDown, X, Heart, ListPlus, Shuffle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import BlurImage from "@/components/BlurImage";
 import { hdThumbnail } from "@/lib/utils";
@@ -301,12 +301,6 @@ const ArtistProfile = ({ artistName, artistImage, onBack, onPlaySong, currentPla
                 <div className="flex items-center justify-center gap-4 mb-6">
                   <button className="w-10 h-10 rounded-full bg-accent/60 flex items-center justify-center active:scale-90 transition-transform" title="Favoritar">
                     <Heart size={20} className="text-foreground/80" />
-                  </button>
-                  <button className="w-10 h-10 rounded-full bg-accent/60 flex items-center justify-center active:scale-90 transition-transform" title="Baixar">
-                    <Download size={20} className="text-foreground/80" />
-                  </button>
-                  <button className="w-10 h-10 rounded-full bg-accent/60 flex items-center justify-center active:scale-90 transition-transform" title="Compartilhar">
-                    <Share2 size={20} className="text-foreground/80" />
                   </button>
                   <button className="w-10 h-10 rounded-full bg-accent/60 flex items-center justify-center active:scale-90 transition-transform" title="Adicionar à playlist">
                     <ListPlus size={20} className="text-foreground/80" />
