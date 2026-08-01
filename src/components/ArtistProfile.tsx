@@ -302,12 +302,6 @@ const ArtistProfile = ({ artistName, artistImage, onBack, onPlaySong, currentPla
                   <button className="w-10 h-10 rounded-full bg-accent/60 flex items-center justify-center active:scale-90 transition-transform" title="Favoritar">
                     <Heart size={20} className="text-foreground/80" />
                   </button>
-                  <button className="w-10 h-10 rounded-full bg-accent/60 flex items-center justify-center active:scale-90 transition-transform" title="Baixar">
-                    <Download size={20} className="text-foreground/80" />
-                  </button>
-                  <button className="w-10 h-10 rounded-full bg-accent/60 flex items-center justify-center active:scale-90 transition-transform" title="Compartilhar">
-                    <Share2 size={20} className="text-foreground/80" />
-                  </button>
                   <button className="w-10 h-10 rounded-full bg-accent/60 flex items-center justify-center active:scale-90 transition-transform" title="Adicionar à playlist">
                     <ListPlus size={20} className="text-foreground/80" />
                   </button>
