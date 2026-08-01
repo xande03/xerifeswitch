@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Loader2, Play, Pause, SkipForward, SkipBack, MoreHorizontal, Users, Disc3, Music2, ChevronRight, ChevronDown, X, Heart, Download, Share2, ListPlus, Shuffle } from "lucide-react";
+import { ArrowLeft, Loader2, Play, Pause, SkipForward, SkipBack, MoreHorizontal, Users, Disc3, Music2, ChevronRight, ChevronDown, X, Heart, ListPlus, Shuffle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import BlurImage from "@/components/BlurImage";
 import { hdThumbnail } from "@/lib/utils";
