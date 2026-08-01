@@ -1701,9 +1701,9 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
                               key={podcast.name}
                               initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
                               onClick={() => browsePopularPodcast(podcast)}
-                              className="flex-shrink-0 w-32 sm:w-36 text-left group active:scale-[0.97] transition-transform"
+                              className="flex-shrink-0 w-44 sm:w-52 text-left group active:scale-[0.97] transition-transform"
                             >
-                              <div className="relative w-32 h-32 sm:w-36 sm:h-36 rounded-xl overflow-hidden">
+                              <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-secondary">
                                 {thumb ? (
                                   <img src={thumb} alt={podcast.name} className="absolute inset-0 w-full h-full object-cover" />
                                 ) : (
