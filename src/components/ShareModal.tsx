@@ -91,33 +91,33 @@ export const ShareModal = ({ open, onOpenChange, song, isVideo }: ShareModalProp
           )}
 
           {/* Share buttons */}
-          <div className="flex gap-3 justify-center">
+          <div className="grid grid-cols-3 gap-3">
             <button
               onClick={shareWhatsApp}
-              className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 transition-colors active:scale-95"
+              className="w-full min-w-0 aspect-square flex flex-col items-center justify-center gap-1.5 p-2 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 transition-colors active:scale-95"
             >
-              <MessageCircle size={28} className="text-[#25D366]" />
-              <span className="text-[11px] font-medium text-foreground">WhatsApp</span>
+              <MessageCircle size={28} className="text-[#25D366] shrink-0" />
+              <span className="text-[11px] font-medium text-foreground truncate max-w-full">WhatsApp</span>
             </button>
 
             <button
               onClick={shareTelegram}
-              className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-[#0088cc]/10 hover:bg-[#0088cc]/20 transition-colors active:scale-95"
+              className="w-full min-w-0 aspect-square flex flex-col items-center justify-center gap-1.5 p-2 rounded-xl bg-[#0088cc]/10 hover:bg-[#0088cc]/20 transition-colors active:scale-95"
             >
-              <Send size={28} className="text-[#0088cc]" />
-              <span className="text-[11px] font-medium text-foreground">Telegram</span>
+              <Send size={28} className="text-[#0088cc] shrink-0" />
+              <span className="text-[11px] font-medium text-foreground truncate max-w-full">Telegram</span>
             </button>
 
-            {typeof navigator.share === 'function' && (
-              <button
-                onClick={shareNative}
-                className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-secondary/50 hover:bg-secondary transition-colors active:scale-95"
-              >
-                <Share2 size={28} className="text-primary" />
-                <span className="text-[11px] font-medium text-foreground">Mais</span>
-              </button>
-            )}
+            <button
+              onClick={shareNative}
+              disabled={typeof navigator.share !== 'function'}
+              className="w-full min-w-0 aspect-square flex flex-col items-center justify-center gap-1.5 p-2 rounded-xl bg-secondary/50 hover:bg-secondary transition-colors active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <Share2 size={28} className="text-primary shrink-0" />
+              <span className="text-[11px] font-medium text-foreground truncate max-w-full">Mais</span>
+            </button>
           </div>
+
         </div>
       </DialogContent>
     </Dialog>
