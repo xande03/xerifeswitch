@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AnimatePresence, motion } from "framer-motion";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import ShareTest from "./pages/__ShareTest";
+
 import PWAInstallBanner from "./components/PWAInstallBanner";
 
 const queryClient = new QueryClient();
