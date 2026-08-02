@@ -31,6 +31,8 @@ function AnimatedRoutes() {
       >
         <Routes location={location}>
           <Route path="/" element={<Index />} />
+          <Route path="/__share-test" element={<ShareTest />} />
+
           <Route path="*" element={<NotFound />} />
         </Routes>
       </motion.div>
