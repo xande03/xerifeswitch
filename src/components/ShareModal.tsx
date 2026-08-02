@@ -59,24 +59,26 @@ export const ShareModal = ({ open, onOpenChange, song, isVideo }: ShareModalProp
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setCopied(false); }}>
-      <DialogContent className="sm:max-w-md w-[92vw] rounded-2xl p-5 bg-card border-border fixed bottom-4 top-auto left-1/2 -translate-x-1/2 sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Share2 className="text-primary" />
-            Compartilhar {isVideo ? "Vídeo" : "Música"}
+      <DialogContent className="sm:max-w-md w-[92vw] max-w-[92vw] grid-cols-1 rounded-2xl p-5 bg-card border-border fixed bottom-[max(1rem,env(safe-area-inset-bottom))] top-auto left-1/2 -translate-x-1/2 sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 max-h-[85vh] overflow-y-auto overflow-x-hidden">
+        <DialogHeader className="min-w-0">
+          <DialogTitle className="flex items-center gap-2 min-w-0">
+            <Share2 className="text-primary shrink-0" />
+            <span className="truncate">Compartilhar {isVideo ? "Vídeo" : "Música"}</span>
           </DialogTitle>
-          <DialogDescription className="pt-2 truncate">
+          <DialogDescription className="pt-2 truncate min-w-0">
             {song.title} - {song.artist}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 flex flex-col gap-4">
+
+        <div className="py-4 flex flex-col gap-4 min-w-0">
           {/* YouTube Link */}
-          <div className="flex items-center gap-2 bg-secondary/50 rounded-xl p-3">
+          <div className="flex items-center gap-2 bg-secondary/50 rounded-xl p-3 min-w-0 overflow-hidden">
             <input
               readOnly
+              size={1}
               value={youtubeUrl}
-              className="flex-1 bg-transparent text-sm text-foreground font-mono truncate outline-none"
+              className="flex-1 min-w-0 w-full bg-transparent text-sm text-foreground font-mono truncate outline-none"
             />
             <button
               onClick={handleCopy}
@@ -85,6 +87,7 @@ export const ShareModal = ({ open, onOpenChange, song, isVideo }: ShareModalProp
               {copied ? <Check size={18} /> : <Copy size={18} />}
             </button>
           </div>
+
 
           {copied && (
             <p className="text-xs text-primary text-center font-medium">Link copiado!</p>

@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AnimatePresence, motion } from "framer-motion";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+
 import PWAInstallBanner from "./components/PWAInstallBanner";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ function AnimatedRoutes() {
       >
         <Routes location={location}>
           <Route path="/" element={<Index />} />
+
           <Route path="*" element={<NotFound />} />
         </Routes>
       </motion.div>
