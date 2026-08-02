@@ -70,13 +70,14 @@ export const ShareModal = ({ open, onOpenChange, song, isVideo }: ShareModalProp
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 flex flex-col gap-4">
+        <div className="py-4 flex flex-col gap-4 min-w-0">
           {/* YouTube Link */}
-          <div className="flex items-center gap-2 bg-secondary/50 rounded-xl p-3">
+          <div className="flex items-center gap-2 bg-secondary/50 rounded-xl p-3 min-w-0 overflow-hidden">
             <input
               readOnly
+              size={1}
               value={youtubeUrl}
-              className="flex-1 bg-transparent text-sm text-foreground font-mono truncate outline-none"
+              className="flex-1 min-w-0 w-full bg-transparent text-sm text-foreground font-mono truncate outline-none"
             />
             <button
               onClick={handleCopy}
@@ -85,6 +86,7 @@ export const ShareModal = ({ open, onOpenChange, song, isVideo }: ShareModalProp
               {copied ? <Check size={18} /> : <Copy size={18} />}
             </button>
           </div>
+
 
           {copied && (
             <p className="text-xs text-primary text-center font-medium">Link copiado!</p>
