@@ -6,7 +6,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AnimatePresence, motion } from "framer-motion";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import ShareTest from "./pages/__ShareTest";
 
 import PWAInstallBanner from "./components/PWAInstallBanner";
 
@@ -33,7 +32,6 @@ function AnimatedRoutes() {
       >
         <Routes location={location}>
           <Route path="/" element={<Index />} />
-          <Route path="/__share-test" element={<ShareTest />} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>
