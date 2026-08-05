@@ -147,6 +147,29 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setShowSuggestions(false);
+    
+    const q = query.trim();
+    if (q.length < 2) return;
+
+    // Cancela o debounce automático e executa imediatamente
+    searchTokenRef.current++;
+    setLoading(true);
+    
+    (async () => {
+      try {
+        const { recordSearchQuery } = await import("@/lib/localStorage");
+        recordSearchQuery(q);
+        
+        const apiFilter = "songs";
+        const res = await searchYouTubeMusic(q, apiFilter);
+        setResults(res.map((s) => ({ ...s, type: "music" as const })));
+      } catch (err) {
+        console.error("Erro na busca manual:", err);
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
   };
 
   // Título das faixas — usado para excluir "artistas" que na verdade são nomes de músicas
