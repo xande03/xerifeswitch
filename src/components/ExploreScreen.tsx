@@ -183,7 +183,7 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
   };
   const handleDragEnd = () => { isDragging.current = false; };
 
-  const doSearch = async (q: string) => {
+  const doSearch = async (q: string, autoPlay: boolean = false) => {
     if (q.length < 2) return;
 
     // Se o usuário colou uma URL do YouTube, resolve o vídeo direto e toca.
@@ -196,7 +196,12 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
         if (video) {
           setResults([video]);
           setContinuation(undefined);
-          onPlayVideo(video);
+          // Só toca automaticamente se autoPlay for true (ex: clique em sugestão)
+          // ou se o usuário explicitamente confirmou (o que chamaria doSearch com true se desejado).
+          // Por padrão, para busca de URL via input direto, vamos respeitar o autoPlay.
+          if (autoPlay) {
+            onPlayVideo(video);
+          }
           toast({
             title: "Vídeo encontrado!",
             description: video.title,
@@ -300,7 +305,7 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
     setQuery(term);
     setSuggestions([]);
     setShowSuggestions(false);
-    doSearch(term);
+    doSearch(term, true);
   };
 
   const handleChannelClick = (channelName: string, channelThumbnail?: string, channelId?: string, channelUrl?: string) => {
@@ -337,7 +342,7 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
     }
     const cat = VIDEO_CATEGORIES.find(c => c.id === activeCategory);
     const combined = cat?.query && query.length >= 2 ? `${query} ${cat.query}` : query;
-    doSearch(combined || query);
+    doSearch(combined || query, false);
   };
 
   const handleLoadComments = async (video: VideoResult) => {
