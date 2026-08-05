@@ -726,6 +726,20 @@ export function useYouTubePlayer(containerId: string) {
             const buffering = event.data === window.YT.PlayerState.BUFFERING;
             const isHidden = document.visibilityState === 'hidden';
 
+            // Handle playlist progression for Xerife Videos
+            if (ended) {
+              if (currentPlaylistVideos.length > 0 && currentPlaylistIndex < currentPlaylistVideos.length - 1) {
+                const nextIndex = currentPlaylistIndex + 1;
+                const nextVideo = currentPlaylistVideos[nextIndex];
+                currentPlaylistIndex = nextIndex;
+                
+                console.info('[YT] Playlist auto-advance:', nextVideo.title);
+                window.dispatchEvent(new CustomEvent('demus:playlist-next', { 
+                  detail: { video: nextVideo, index: nextIndex } 
+                }));
+              }
+            }
+
             // CRITICAL: Check persisted pause flag before allowing playback
             if (playing && checkUserPausedFlag()) {
               console.log('[YT] Play BLOCKED - persisted user pause flag found');

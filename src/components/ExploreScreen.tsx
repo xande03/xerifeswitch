@@ -795,10 +795,15 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
                         <span className="text-muted-foreground font-normal">• {pl.videos.length} vídeos</span>
                       </h3>
                       <HorizontalScroll className="flex gap-3 pb-2 -mx-4 px-4">
-                        {pl.videos.map((video) => (
+                        {pl.videos.map((video, vi) => (
                           <button
-                            key={video.videoId}
-                            onClick={() => onPlayVideo(video)}
+                            key={`${pi}-${video.videoId}-${vi}`}
+                            onClick={() => {
+                              // User clicked a video in a pseudo-playlist: set the queue for auto-advance
+                              const { setGlobalPlaylist } = require("@/hooks/useYouTubePlayer");
+                              setGlobalPlaylist(pl.videos, vi);
+                              onPlayVideo(video);
+                            }}
                             className="flex-shrink-0 w-[180px] active:scale-[0.98] transition-transform text-left"
                           >
                             <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-card">
