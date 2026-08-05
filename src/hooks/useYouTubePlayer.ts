@@ -122,6 +122,15 @@ function getSharedSilentAudioUrl() {
   return sharedSilentAudioUrl;
 }
 
+// Global set to track if a playlist is currently active to handle queuing
+let currentPlaylistVideos: any[] = [];
+let currentPlaylistIndex = -1;
+
+export const setGlobalPlaylist = (videos: any[], startIndex = 0) => {
+  currentPlaylistVideos = videos;
+  currentPlaylistIndex = startIndex;
+};
+
 /**
  * iOS Safari/PWA keeps the audio session alive far more reliably when the
  * <audio> element is actually attached to the DOM. Hide it visually but
@@ -716,6 +725,20 @@ export function useYouTubePlayer(containerId: string) {
             const ended = event.data === window.YT.PlayerState.ENDED;
             const buffering = event.data === window.YT.PlayerState.BUFFERING;
             const isHidden = document.visibilityState === 'hidden';
+
+            // Handle playlist progression for Xerife Videos
+            if (ended) {
+              if (currentPlaylistVideos.length > 0 && currentPlaylistIndex < currentPlaylistVideos.length - 1) {
+                const nextIndex = currentPlaylistIndex + 1;
+                const nextVideo = currentPlaylistVideos[nextIndex];
+                currentPlaylistIndex = nextIndex;
+                
+                console.info('[YT] Playlist auto-advance:', nextVideo.title);
+                window.dispatchEvent(new CustomEvent('demus:playlist-next', { 
+                  detail: { video: nextVideo, index: nextIndex } 
+                }));
+              }
+            }
 
             // CRITICAL: Check persisted pause flag before allowing playback
             if (playing && checkUserPausedFlag()) {

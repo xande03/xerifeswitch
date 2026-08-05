@@ -130,6 +130,8 @@ const VideoCard = ({ video, onPlay, onChannelClick, onFullscreen, onAddToPlaylis
 
   // ── Grid / List modes ──
   // GRID = YouTube mobile style (full-bleed thumb, bold 2-line title, avatar + meta row, ⋮ menu)
+  // Notificações duplicadas: O componente VideoCard é puramente apresentacional.
+  // Evitamos avisos repetidos garantindo chaves únicas no mapeamento do ExploreScreen.
   if (viewMode === 'grid') {
     return (
       <div className="group/card w-full">
