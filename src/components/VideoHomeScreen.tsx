@@ -124,13 +124,13 @@ async function fetchTrendingVideos(): Promise<VideoResult[]> {
       videoId: t.youtubeId || t.videoId || "",
       title: t.title || "",
       channel: t.artist || t.channel || "",
-      channelThumbnail: "",
-      thumbnail: t.cover || "",
-      duration: t.duration > 0 ? `${Math.floor(t.duration / 60)}:${String(t.duration % 60).padStart(2, "0")}` : "",
-      views: "",
-      publishedTime: "",
+      channelThumbnail: t.channelThumbnail || "",
+      thumbnail: t.cover || t.thumbnail || "",
+      duration: t.durationText || (t.duration > 0 ? `${Math.floor(t.duration / 60)}:${String(t.duration % 60).padStart(2, "0")}` : ""),
+      views: t.views || "",
+      publishedTime: t.publishedTime || "",
       lengthSeconds: t.duration || 0,
-      description: "",
+      description: t.description || "",
     })).filter((v: VideoResult) => v.videoId);
 
     if (results.length > 0) setCachedTrending(results);
@@ -193,7 +193,7 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
       const lists = await Promise.all(
         picked.map((c) =>
           searchYouTubeGeneral(c.name, {
-            limit: 12,
+            limit: 25,
             sortByDate: true,
             channelId: c.channelId,
             channelName: c.name,
@@ -473,7 +473,8 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
             firstContinuation = page.continuation;
             for (const v of page.results) pushWithDiversity(v);
           } else {
-            const results = await searchYouTubeGeneral(q, opts);
+            // Aumentamos o limite para encontrar mais conteúdo de artistas (albuns, playlists)
+            const results = await searchYouTubeGeneral(q, { ...opts, limit: 50 });
             for (const v of results) pushWithDiversity(v);
           }
         } catch {
