@@ -122,6 +122,15 @@ function getSharedSilentAudioUrl() {
   return sharedSilentAudioUrl;
 }
 
+// Global set to track if a playlist is currently active to handle queuing
+let currentPlaylistVideos: any[] = [];
+let currentPlaylistIndex = -1;
+
+export const setGlobalPlaylist = (videos: any[], startIndex = 0) => {
+  currentPlaylistVideos = videos;
+  currentPlaylistIndex = startIndex;
+};
+
 /**
  * iOS Safari/PWA keeps the audio session alive far more reliably when the
  * <audio> element is actually attached to the DOM. Hide it visually but

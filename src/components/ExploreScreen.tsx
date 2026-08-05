@@ -287,8 +287,9 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
       suggestTimeoutRef.current = setTimeout(async () => {
         setSuggestions(await getSearchSuggestions(val));
       }, 500);
+      // Auto-search is intentionally disabled here to require manual 'Enter' or 'Confirm'
+      // per user request. We only clear any existing timeout.
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-      searchTimeoutRef.current = setTimeout(() => doSearch(val), 1200);
     } else {
       setSuggestions([]);
       setShowSuggestions(false);
