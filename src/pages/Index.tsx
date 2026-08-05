@@ -20,7 +20,7 @@ import { useMediaSession } from "@/hooks/useMediaSession";
 
 import { useTheme } from "@/hooks/useTheme";
 import { fetchRelatedQueue, popNextFromQueue, clearSmartQueue, shuffleSmartQueue, hasSmartQueue } from "@/lib/smartQueue";
-import { fetchRelatedVideoQueue, popNextVideoFromQueue } from "@/lib/smartVideoQueue";
+import { fetchRelatedVideoQueue, popNextVideoFromQueue, setSmartVideoQueue } from "@/lib/smartVideoQueue";
 import { fetchArtistAlbumQueue, fetchHistoryBasedQueue } from "@/lib/artistAlbumQueue";
 
 import QueueDrawer from "@/components/QueueDrawer";
@@ -29,6 +29,7 @@ import ModuleSwitcher, { MODULE_LABEL, type SwitchableModule } from "@/component
 
 
 import { getSearchSuggestions, searchYouTubeMusic } from "@/lib/youtubeSearch";
+import { fetchVideoInfo } from "@/lib/youtubeVideoInfo";
 import { hdThumbnail } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import SongCard from "@/components/SongCard";
