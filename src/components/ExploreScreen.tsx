@@ -283,7 +283,8 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
       setSuggestions([]);
       setShowSuggestions(false);
-      doSearch(val);
+      // Busca a URL mas não toca automaticamente (autoPlay: false)
+      doSearch(val, false);
       return;
     }
     if (val.length >= 2) {
@@ -337,7 +338,7 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
     setShowSuggestions(false);
     // URLs do YouTube ignoram categoria e vão direto para o resolver.
     if (extractYouTubeVideoId(query)) {
-      doSearch(query);
+      doSearch(query, true); // Aqui o usuário deu 'Enter', então pode tocar
       return;
     }
     const cat = VIDEO_CATEGORIES.find(c => c.id === activeCategory);
