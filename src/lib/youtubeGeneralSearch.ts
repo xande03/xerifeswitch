@@ -123,7 +123,7 @@ export async function loadMoreYouTubeGeneral(
 ): Promise<GeneralSearchPage> {
   if (!continuation) return { results: [], continuation: null };
   try {
-    const params: Record<string, string> = { continuation, limit: String(limit) };
+    const params: Record<string, string> = { continuation, limit: String(limit), type: "video,playlist,channel" };
     if (opts?.source) params.source = opts.source;
     if (opts?.channelId) params.channelId = opts.channelId;
     if (opts?.channelName) params.channelName = opts.channelName;
