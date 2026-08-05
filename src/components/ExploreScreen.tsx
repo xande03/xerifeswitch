@@ -231,6 +231,11 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
       const result = await searchYouTubeGeneralPage(q, { sortByDate: true, fresh: true, limit: 100 });
       setResults(result.results);
       setContinuation(result.continuation);
+
+      // Se o primeiro resultado for uma playlist, já podemos preparar a fila
+      if (result.results.length > 0 && result.results[0].videoId && q.toLowerCase().includes('playlist')) {
+        console.log('[ExploreScreen] Possível busca por playlist detectada');
+      }
       
       if (result.results.length > 0) {
         toast({
