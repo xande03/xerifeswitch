@@ -73,48 +73,41 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
     return () => window.removeEventListener("demus:search-history-updated", refresh);
   }, []);
 
-  // Debounce + cancelamento de busca: dispara ao mudar query/filter,
-  // aguarda 400ms de inatividade e ignora respostas de requests obsoletos.
+  // Busca disparada APENAS via handleSubmit (Enter/Confirmar) por solicitação do usuário.
   useEffect(() => {
     const q = query.trim();
     if (q.length < 2) {
-      // Cancela qualquer request pendente e limpa a lista imediatamente
       searchTokenRef.current++;
       setResults([]);
       setLoading(false);
       return;
     }
+  }, [query]);
+
+  const doSearch = async (q: string) => {
+    const term = q.trim();
+    if (term.length < 2) return;
 
     const token = ++searchTokenRef.current;
     setLoading(true);
-    const timer = setTimeout(async () => {
-      try {
-        const { recordSearchQuery } = await import("@/lib/localStorage");
-        recordSearchQuery(q);
-      } catch {}
-      // Sempre busca como "songs" para termos metadados de artista/álbum;
-      // as abas "artists" e "albums" são derivadas client-side desses resultados.
-      const apiFilter = "songs";
-      try {
-        const res = await searchYouTubeMusic(q, apiFilter);
-        if (token !== searchTokenRef.current) return; // request obsoleto
-        setResults(res.map((s) => ({ ...s, type: "music" as const })));
-        
-        // Se a busca for por um canal/artista exato, mostramos os resultados em vez de abrir o player
-        // A lógica de "abrir o player sem escolher" pode estar relacionada a como o `onSelect` é chamado.
-        // Garantimos que o estado de carregamento termine e os resultados sejam renderizados.
-      } catch {
-        if (token !== searchTokenRef.current) return;
-        setResults([]);
-      } finally {
-        if (token === searchTokenRef.current) setLoading(false);
-      }
-    }, 400);
+    setShowSuggestions(false);
 
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [query, filter]);
+    try {
+      const { recordSearchQuery } = await import("@/lib/localStorage");
+      recordSearchQuery(term);
+      
+      const res = await searchYouTubeMusic(term, "songs");
+      if (token !== searchTokenRef.current) return;
+      
+      setResults(res.map((s) => ({ ...s, type: "music" as const })));
+    } catch (err) {
+      console.error("Search failed:", err);
+      if (token === searchTokenRef.current) setResults([]);
+    } finally {
+      if (token === searchTokenRef.current) setLoading(false);
+    }
+  };
+
 
   const handleInput = (val: string) => {
     setQuery(val);
@@ -124,10 +117,8 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
       suggestTimeoutRef.current = setTimeout(async () => {
         setSuggestions(await getSearchSuggestions(val));
       }, 500);
-      // Auto-search (debounce) is handled in the useEffect above.
-      // However, we want to respect the user's request for "enter only" potentially.
-      // But the request specifically mentioned "Xerife Videos" (ExploreScreen).
-      // If we want to strictly apply it to Music too, we'd disable the useEffect debounce.
+      // A busca automática (debounce) agora está desativada no useEffect principal.
+      // O usuário deve pressionar Enter/Confirmar para disparar doSearch.
     } else {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -138,6 +129,7 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
     setQuery(term);
     setSuggestions([]);
     setShowSuggestions(false);
+    doSearch(term);
   };
 
   const handleGenreClick = (genre: string) => {
@@ -150,30 +142,7 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setShowSuggestions(false);
-    
-    const q = query.trim();
-    if (q.length < 2) return;
-
-    // Cancela o debounce automático e executa imediatamente
-    searchTokenRef.current++;
-    setLoading(true);
-    
-    (async () => {
-      try {
-        const { recordSearchQuery } = await import("@/lib/localStorage");
-        recordSearchQuery(q);
-        
-        const apiFilter = "songs";
-        const res = await searchYouTubeMusic(q, apiFilter);
-        setResults(res.map((s) => ({ ...s, type: "music" as const })));
-      } catch (err) {
-        console.error("Erro na busca manual:", err);
-        setResults([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    doSearch(query);
   };
 
   // Título das faixas — usado para excluir "artistas" que na verdade são nomes de músicas
