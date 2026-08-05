@@ -18,7 +18,10 @@ const VideoCard = ({ video, onPlay, onChannelClick, onFullscreen, onAddToPlaylis
     return (
       <div className="group/card w-full rounded-2xl overflow-hidden bg-card/60 hover:bg-card border border-border/30 hover:border-border/60 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/5">
         {/* Expanded thumbnail */}
-        <div className="relative w-full aspect-[16/9] cursor-pointer overflow-hidden group/thumb" onClick={() => onPlay(video)}>
+        <div className="relative w-full aspect-[16/9] cursor-pointer overflow-hidden group/thumb" onClick={() => {
+          const isPlaylist = video.videoId?.includes('list=') || video.videoId?.startsWith('PL');
+          onPlay(video);
+        }}>
           <BlurImage src={hdThumbnail(video.thumbnail)} alt={video.title} className="w-full h-full object-cover transition-transform duration-700 group-hover/thumb:scale-105" />
           
           {/* Gradient overlay */}
@@ -230,7 +233,10 @@ const VideoCard = ({ video, onPlay, onChannelClick, onFullscreen, onAddToPlaylis
   // LIST mode (unchanged compact layout for desktop search/lists)
   return (
     <div className="group/card w-full rounded-2xl flex flex-row gap-3 sm:gap-4 items-start bg-card/40 hover:bg-card/80 p-2 sm:p-3 border border-border/40 hover:shadow-xl hover:shadow-primary/5 active:scale-[0.99] transition-all duration-300">
-      <div className="relative flex-shrink-0 cursor-pointer overflow-hidden rounded-xl bg-muted group/thumb w-40 sm:w-56 md:w-64 lg:w-72 aspect-video" onClick={() => onPlay(video)}>
+      <div className="relative flex-shrink-0 cursor-pointer overflow-hidden rounded-xl bg-muted group/thumb w-40 sm:w-56 md:w-64 lg:w-72 aspect-video" onClick={() => {
+        const isPlaylist = video.videoId?.includes('list=') || video.videoId?.startsWith('PL');
+        onPlay(video);
+      }}>
         <BlurImage src={hdThumbnail(video.thumbnail)} alt={video.title} className="w-full h-full object-cover transition-transform duration-500 group-hover/thumb:scale-105" />
         {video.isLive ? (
           <span className="absolute bottom-2 left-2 bg-red-600 text-white text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md flex items-center gap-1">

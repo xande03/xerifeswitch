@@ -630,7 +630,16 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
                     >
                       <VideoCard
                         video={video}
-                        onPlay={onPlayVideo}
+                        onPlay={(v) => {
+                          const isPlaylist = v.videoId?.includes('list=') || v.videoId?.startsWith('PL');
+                          if (isPlaylist) {
+                            // Trigger search or specific view for the playlist
+                            // For now, we delegate to onPlayVideo which Index.tsx handles
+                            onPlayVideo(v);
+                          } else {
+                            onPlayVideo(v);
+                          }
+                        }}
                         onChannelClick={handleChannelClick}
                         onFullscreen={onFullscreenVideo}
                         onAddToPlaylist={onAddToPlaylist}
