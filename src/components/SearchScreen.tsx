@@ -129,8 +129,9 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
       // But the request specifically mentioned "Xerife Videos" (ExploreScreen).
       // If we want to strictly apply it to Music too, we'd disable the useEffect debounce.
     } else {
-      setSuggestions([]);
-      setShowSuggestions(false);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    doSearch(term);
     }
   };
 
