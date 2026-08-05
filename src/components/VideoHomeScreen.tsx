@@ -626,7 +626,7 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
                 <VideoCard
                   key={h.songId}
                   video={historyToVideoResult(h)}
-                  onPlay={onPlayVideo}
+                  onPlay={(v) => onPlayVideo(v)}
                   onChannelClick={onChannelClick}
                   onFullscreen={onFullscreenVideo}
                   onAddToPlaylist={onAddToPlaylist}

@@ -2330,14 +2330,54 @@ const Index = () => {
                 />
               ) : homeMode === "video" ? (
                 <VideoHomeScreen
-                  onPlayVideo={(video) => {
-                    const song: Song = {
-                      id: `yt-${video.videoId}`, youtubeId: video.videoId,
-                      title: video.title, artist: video.channel, album: video.title,
-                      cover: video.thumbnail, duration: video.lengthSeconds, votes: 0, isDownloaded: false,
-                      type: "video" as const,
-                    };
-                    handleSelect(song);
+                  onPlayVideo={async (video) => {
+                    const isPlaylist = video.videoId?.includes('list=') || video.videoId?.startsWith('PL');
+                    
+                    if (isPlaylist) {
+                      // Se for playlist, buscamos os vídeos dela para carregar a fila
+                      toast.info("Carregando playlist...");
+                      try {
+                        const info = await fetchVideoInfo(video.videoId);
+                        if (info.relatedVideos && info.relatedVideos.length > 0) {
+                          const firstVideo = info.relatedVideos[0];
+                          const playlistSongs: Song[] = info.relatedVideos.map(v => ({
+                            id: `yt-${v.videoId}`, youtubeId: v.videoId,
+                            title: v.title, artist: v.channel, album: v.title,
+                            cover: v.thumbnail, duration: v.lengthSeconds, votes: 0, isDownloaded: false,
+                            type: "video" as const,
+                          }));
+                          
+                          setSmartVideoQueue(playlistSongs.slice(1));
+                          
+                          const song: Song = {
+                            id: `yt-${firstVideo.videoId}`, youtubeId: firstVideo.videoId,
+                            title: firstVideo.title, artist: firstVideo.channel, album: firstVideo.title,
+                            cover: firstVideo.thumbnail, duration: firstVideo.lengthSeconds, votes: 0, isDownloaded: false,
+                            type: "video" as const,
+                          };
+                          handleSelect(song);
+                        } else {
+                          // Fallback se não conseguir extrair vídeos da playlist
+                          const song: Song = {
+                            id: `yt-${video.videoId}`, youtubeId: video.videoId,
+                            title: video.title, artist: video.channel, album: video.title,
+                            cover: video.thumbnail, duration: video.lengthSeconds, votes: 0, isDownloaded: false,
+                            type: "video" as const,
+                          };
+                          handleSelect(song);
+                        }
+                      } catch (e) {
+                        console.error("Erro ao carregar playlist:", e);
+                      }
+                    } else {
+                      const song: Song = {
+                        id: `yt-${video.videoId}`, youtubeId: video.videoId,
+                        title: video.title, artist: video.channel, album: video.title,
+                        cover: video.thumbnail, duration: video.lengthSeconds, votes: 0, isDownloaded: false,
+                        type: "video" as const,
+                      };
+                      handleSelect(song);
+                    }
                     setPlayerMode("video");
                     setExpanded(true);
                   }}
