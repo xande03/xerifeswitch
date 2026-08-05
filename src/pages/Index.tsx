@@ -139,49 +139,20 @@ const Index = () => {
     try { localStorage.setItem('demus-active-tab', activeTab); } catch {}
   }, [activeTab]);
 
-  const handlePlayVideo = useCallback((video: any) => {
-    const song: Song = {
-      id: `yt-${video.videoId}`,
-      youtubeId: video.videoId,
-      title: video.title,
-      artist: video.channel,
-      album: video.channel,
-      cover: video.thumbnail,
-      duration: video.duration,
-      votes: 0,
-      isDownloaded: false,
-      type: "video" as const,
-    };
-    handleSelect(song);
-    setExpanded(true);
-    setPlayerMode("video");
-  }, [handleSelect]);
-
   // Playlist tracking for Xerife Videos auto-advance
   useEffect(() => {
     const handlePlaylistNext = (e: any) => {
       // Only auto-advance if we are in the video session
-      if (session === "video") {
+      const currentSession = localStorage.getItem("xerife-last-session");
+      if (currentSession === "video") {
         console.log('[Index] Auto-playing next video from playlist:', e.detail.video.title);
-        handlePlayVideo(e.detail.video);
+        // Dispatching a custom event that will be handled later in the file once handlePlayVideo is defined
+        window.dispatchEvent(new CustomEvent('xerife:auto-play-video', { detail: e.detail.video }));
       }
     };
     window.addEventListener('demus:playlist-next', handlePlaylistNext);
     return () => window.removeEventListener('demus:playlist-next', handlePlaylistNext);
-  }, [session, handlePlayVideo]);
-
-  // Playlist tracking for Xerife Videos auto-advance
-  useEffect(() => {
-    const handlePlaylistNext = (e: any) => {
-      // Only auto-advance if we are in the video session
-      if (session === "video") {
-        console.log('[Index] Auto-playing next video from playlist:', e.detail.video.title);
-        handlePlayVideo(e.detail.video);
-      }
-    };
-    window.addEventListener('demus:playlist-next', handlePlaylistNext);
-    return () => window.removeEventListener('demus:playlist-next', handlePlaylistNext);
-  }, [session, handlePlayVideo]);
+  }, []);
 
   // Ativa podcastMode quando a aba Podcast for selecionada diretamente
   useEffect(() => {
