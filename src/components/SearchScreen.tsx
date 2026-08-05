@@ -124,14 +124,11 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
       suggestTimeoutRef.current = setTimeout(async () => {
         setSuggestions(await getSearchSuggestions(val));
       }, 500);
-      // Auto-search (debounce) is handled in the useEffect above.
-      // However, we want to respect the user's request for "enter only" potentially.
-      // But the request specifically mentioned "Xerife Videos" (ExploreScreen).
-      // If we want to strictly apply it to Music too, we'd disable the useEffect debounce.
+      // A busca automática (debounce) agora está desativada no useEffect principal.
+      // O usuário deve pressionar Enter/Confirmar para disparar doSearch.
     } else {
-    setSuggestions([]);
-    setShowSuggestions(false);
-    doSearch(term);
+      setSuggestions([]);
+      setShowSuggestions(false);
     }
   };
 
@@ -139,6 +136,7 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
     setQuery(term);
     setSuggestions([]);
     setShowSuggestions(false);
+    doSearch(term);
   };
 
   const handleGenreClick = (genre: string) => {
