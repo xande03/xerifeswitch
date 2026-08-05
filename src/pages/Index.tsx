@@ -145,9 +145,11 @@ const Index = () => {
       // Only auto-advance if we are in the video session
       const currentSession = localStorage.getItem("xerife-last-session");
       if (currentSession === "video") {
-        console.log('[Index] Auto-playing next video from playlist:', e.detail.video.title);
-        // Dispatching a custom event that will be handled later in the file once handlePlayVideo is defined
-        window.dispatchEvent(new CustomEvent('xerife:auto-play-video', { detail: e.detail.video }));
+        console.log('[Index] Auto-playing next video from playlist:', e.detail.video?.title);
+        // Dispatching a custom event that will be handled by handlePlayVideo
+        if (e.detail.video) {
+          window.dispatchEvent(new CustomEvent('xerife:auto-play-video', { detail: e.detail.video }));
+        }
       }
     };
     window.addEventListener('demus:playlist-next', handlePlaylistNext);
@@ -1109,8 +1111,31 @@ const Index = () => {
 
   useEffect(() => {
     const handleAutoPlay = (e: any) => handlePlayVideo(e.detail);
+    const handleSetQueue = (e: any) => {
+      if (e.detail?.videos) {
+        import("@/lib/smartVideoQueue").then(({ setSmartVideoQueue }) => {
+          const songs: Song[] = e.detail.videos.map((v: any) => ({
+            id: `yt-${v.videoId}`,
+            youtubeId: v.videoId,
+            title: v.title,
+            artist: v.channel,
+            album: v.channel,
+            cover: v.thumbnail,
+            duration: v.duration,
+            votes: 0,
+            isDownloaded: false,
+            type: "video" as const,
+          }));
+          setSmartVideoQueue(songs);
+        });
+      }
+    };
     window.addEventListener('xerife:auto-play-video', handleAutoPlay);
-    return () => window.removeEventListener('xerife:auto-play-video', handleAutoPlay);
+    window.addEventListener('demus:set-smart-video-queue', handleSetQueue as EventListener);
+    return () => {
+      window.removeEventListener('xerife:auto-play-video', handleAutoPlay);
+      window.removeEventListener('demus:set-smart-video-queue', handleSetQueue as EventListener);
+    };
   }, [handlePlayVideo]);
 
   const handleTogglePlay = useCallback(() => {
