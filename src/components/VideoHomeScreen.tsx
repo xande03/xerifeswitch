@@ -473,8 +473,8 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
             firstContinuation = page.continuation;
             for (const v of page.results) pushWithDiversity(v);
           } else {
-            // Aumentamos o limite para encontrar mais conteúdo de artistas (albuns, playlists)
-            const results = await searchYouTubeGeneral(q, { ...opts, limit: 50 });
+            // Aumentamos o limite para encontrar mais conteúdo de artistas (albuns, playlists) e incluímos tipo playlist
+            const results = await searchYouTubeGeneral(q, { ...opts, limit: 50, type: "video,playlist,channel" });
             for (const v of results) pushWithDiversity(v);
           }
         } catch {

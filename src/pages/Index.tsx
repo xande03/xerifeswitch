@@ -1150,6 +1150,7 @@ const Index = () => {
     if (currentSong.type === "video") {
       let next = popNextVideoFromQueue();
       if (!next) {
+        // Se estivermos no Xerife Vídeos, tentamos buscar mais vídeos relacionados ou da playlist
         const queue = await fetchRelatedVideoQueue(currentSong);
         if (queue.length > 0) next = popNextVideoFromQueue();
       }
