@@ -1118,6 +1118,30 @@ const Index = () => {
     } catch {}
   }, [loadVideo]);
 
+  const handlePlayVideo = useCallback((video: any) => {
+    const song: Song = {
+      id: `yt-${video.videoId}`,
+      youtubeId: video.videoId,
+      title: video.title,
+      artist: video.channel,
+      album: video.channel,
+      cover: video.thumbnail,
+      duration: video.duration,
+      votes: 0,
+      isDownloaded: false,
+      type: "video" as const,
+    };
+    handleSelect(song);
+    setExpanded(true);
+    setPlayerMode("video");
+  }, [handleSelect]);
+
+  useEffect(() => {
+    const handleAutoPlay = (e: any) => handlePlayVideo(e.detail);
+    window.addEventListener('xerife:auto-play-video', handleAutoPlay);
+    return () => window.removeEventListener('xerife:auto-play-video', handleAutoPlay);
+  }, [handlePlayVideo]);
+
   const handleTogglePlay = useCallback(() => {
     const offlineVideo = document.getElementById("offline-player") as HTMLVideoElement | null;
     const isPlayingOffline = blobSavedSongIds.has(currentSong.id);
