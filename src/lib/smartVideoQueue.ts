@@ -124,3 +124,13 @@ export function hasSmartVideoQueue(): boolean {
 export function clearSmartVideoQueue() {
   try { localStorage.removeItem(QUEUE_KEY); } catch {}
 }
+
+/** Explicitly set the smart video queue from a provided list (e.g. from a playlist). */
+export function setSmartVideoQueue(videos: Song[]) {
+  saveQueue({
+    videos,
+    seedChannel: "manual",
+    seedVideoId: "manual",
+    seedKeywords: "manual"
+  });
+}

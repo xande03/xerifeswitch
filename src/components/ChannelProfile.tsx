@@ -847,7 +847,21 @@ const ChannelProfile = ({ channelName, channelId, channelUrl, channelThumbnail, 
                     {playlist.videos.map((video) => (
                       <button
                         key={video.videoId}
-                        onClick={() => onPlayVideo(video)}
+                        onClick={() => {
+                          // Se clicou em um vídeo de playlist, o pai cuida de injetar a fila
+                          const currentIndex = playlist.videos.findIndex(v => v.videoId === video.videoId);
+                          const remaining = playlist.videos.slice(currentIndex + 1);
+                          
+                          // Dispara o vídeo atual
+                          onPlayVideo(video);
+                          
+                          // Prepara a fila para os próximos
+                          if (remaining.length > 0) {
+                            window.dispatchEvent(new CustomEvent('demus:set-smart-video-queue', { 
+                              detail: { videos: remaining } 
+                            }));
+                          }
+                        }}
                         className="group/item flex flex-col text-left active:scale-[0.98] transition-transform"
                       >
                         <div className="relative aspect-video rounded-2xl overflow-hidden bg-card border border-white/5 shadow-lg">
