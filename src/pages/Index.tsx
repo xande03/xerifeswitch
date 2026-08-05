@@ -139,6 +139,19 @@ const Index = () => {
     try { localStorage.setItem('demus-active-tab', activeTab); } catch {}
   }, [activeTab]);
 
+  // Playlist tracking for Xerife Videos auto-advance
+  useEffect(() => {
+    const handlePlaylistNext = (e: any) => {
+      // Only auto-advance if we are in the video session
+      if (session === "video") {
+        console.log('[Index] Auto-playing next video from playlist:', e.detail.video.title);
+        handlePlayVideo(e.detail.video);
+      }
+    };
+    window.addEventListener('demus:playlist-next', handlePlaylistNext);
+    return () => window.removeEventListener('demus:playlist-next', handlePlaylistNext);
+  }, [session, handlePlayVideo]);
+
   // Ativa podcastMode quando a aba Podcast for selecionada diretamente
   useEffect(() => {
     if (activeTab === "podcast" && !podcastMode) setPodcastMode(true);
