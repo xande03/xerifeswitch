@@ -88,7 +88,7 @@ export async function searchYouTubeGeneralPage(
   }
 
   try {
-    const params: Record<string, string> = { q: query, limit: String(limit) };
+    const params: Record<string, string> = { q: query, limit: String(limit), type: "video,playlist,channel" };
     if (opts?.sortByDate) params.sort = "date";
     if (opts?.channelId) {
       params.channelId = opts.channelId;

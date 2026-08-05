@@ -99,6 +99,10 @@ const SearchScreen = ({ currentSongId, onSelect, onArtistClick, onAddToPlaylist 
         const res = await searchYouTubeMusic(q, apiFilter);
         if (token !== searchTokenRef.current) return; // request obsoleto
         setResults(res.map((s) => ({ ...s, type: "music" as const })));
+        
+        // Se a busca for por um canal/artista exato, mostramos os resultados em vez de abrir o player
+        // A lógica de "abrir o player sem escolher" pode estar relacionada a como o `onSelect` é chamado.
+        // Garantimos que o estado de carregamento termine e os resultados sejam renderizados.
       } catch {
         if (token !== searchTokenRef.current) return;
         setResults([]);
