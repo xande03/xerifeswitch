@@ -9,6 +9,7 @@ import VideoComments from "./VideoComments";
 import VideoInfoBar from "./VideoInfoBar";
 import { isInWatchLater, addToWatchLater, removeFromWatchLater } from "./VideoHomeScreen";
 import React, { useState, useEffect, useRef, useMemo, useCallback, Fragment } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { fetchLyrics, invalidateLyricsCache, type LyricsResult } from "@/lib/lyrics";
 import { getLyricsOffset, setLyricsOffset } from "@/lib/lyricsStorage";
 
@@ -279,6 +280,20 @@ const NowPlayingView = ({
   activeVideoId,
   onNavigateToLibrary,
 }: NowPlayingViewProps) => {
+  const isMobile = useIsMobile();
+  const [isLandscape, setIsLandscape] = useState(
+    typeof window !== "undefined" && window.matchMedia("(orientation: landscape)").matches
+  );
+
+  useEffect(() => {
+    const mql = window.matchMedia("(orientation: landscape)");
+    const handler = (e: MediaQueryListEvent) => setIsLandscape(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
+
+  const isMobileLandscape = isMobile && isLandscape;
+
   const [mode, setMode] = useState<PlayerMode>(
     initialMode ?? (context === "video" ? "video" : "audio")
   );
@@ -968,7 +983,7 @@ const NowPlayingView = ({
 
         {/* Main Layout */}
         <div>
-          <div className={`${isPodcastVideo ? "flex flex-col h-full w-full max-w-[900px] mx-auto lg:px-8 lg:pb-8" : isRailVideoMode ? "md:flex md:flex-row md:gap-4 md:items-start md:px-4 w-full" : "flex flex-col lg:flex-row h-full lg:gap-16 w-full max-w-[1600px] mx-auto lg:px-12 lg:pb-12"}`}>
+          <div className={`${isPodcastVideo ? "flex flex-col h-full w-full max-w-[900px] mx-auto lg:px-8 lg:pb-8" : isRailVideoMode ? "md:flex md:flex-row md:gap-4 md:items-start md:px-4 w-full" : `flex flex-col ${isMobileLandscape ? "landscape-mobile-player" : "lg:flex-row"} h-full lg:gap-16 w-full max-w-[1600px] mx-auto lg:px-12 lg:pb-12`}`}>
 
 
             {/* Mobile top bar — collapse on the left, room for notch */}
@@ -985,7 +1000,7 @@ const NowPlayingView = ({
             )}
 
             {/* Left Column: Video / Artwork / Lyrics */}
-            <div className={`w-full ${isPodcastVideo ? "" : isRailVideoMode ? "md:flex-1 md:min-w-0" : "lg:w-1/2 flex flex-col justify-center items-center gap-4"} relative`}>
+            <div className={`w-full ${isPodcastVideo ? "" : isRailVideoMode ? "md:flex-1 md:min-w-0" : isMobileLandscape ? "landscape-mobile-left" : "lg:w-1/2 flex flex-col justify-center items-center gap-4"} relative`}>
               
               {/* Video/Artwork Container */}
               <div
@@ -1251,8 +1266,8 @@ const NowPlayingView = ({
                   ? "mt-4"
                   : isRailVideoMode
                   ? "md:w-[var(--xerife-video-rail)] md:flex-shrink-0 md:sticky md:self-start md:overflow-y-auto scrollbar-hide"
-                  : "lg:w-1/2"
-              } flex flex-col ${isPodcastVideo ? "items-center px-4 sm:px-8" : isRailVideoMode ? "px-2 md:px-0 mt-0" : "justify-center lg:items-center px-4 sm:px-8 mt-4 lg:mt-0"} min-w-0 relative`}
+                  : isMobileLandscape ? "landscape-mobile-right" : "lg:w-1/2"
+              } flex flex-col ${isPodcastVideo ? "items-center px-4 sm:px-8" : isRailVideoMode ? "px-2 md:px-0 mt-0" : isMobileLandscape ? "justify-center items-center px-4" : "justify-center lg:items-center px-4 sm:px-8 mt-4 lg:mt-0"} min-w-0 relative`}
               style={
                 isRailVideoMode && !isPodcastVideo
                   ? {
@@ -1268,16 +1283,15 @@ const NowPlayingView = ({
 
               <div
                 className={`w-full min-w-0 ${isPodcastVideo ? "max-w-xl lg:max-w-2xl mx-auto flex flex-col gap-5 lg:gap-6 items-center" : isRailVideoMode ? "" : "max-w-xl lg:max-w-2xl mx-auto flex flex-col gap-5 lg:gap-8 lg:items-center"} touch-pan-y`}
-
               >
 
                 {/* Info Header - hidden only in rail video mode (Xerife Vídeos) */}
                 {!isRailVideoMode && (
-                  <div className="flex flex-col gap-1 w-full items-center text-center mt-2 lg:mt-0">
-                    <div className="w-full max-w-full px-2">
+                  <div className={`flex flex-col gap-1 w-full ${isMobileLandscape ? "items-start text-left" : "items-center text-center"} mt-2 lg:mt-0`}>
+                    <div className={`w-full max-w-full ${isMobileLandscape ? "px-0" : "px-2"}`}>
                       <MarqueeText
                         text={song.title}
-                        className="text-2xl sm:text-4xl lg:text-5xl font-black text-foreground tracking-tight leading-tight"
+                        className={`${isMobileLandscape ? "text-xl sm:text-2xl" : "text-2xl sm:text-4xl lg:text-5xl"} font-black text-foreground tracking-tight leading-tight`}
                       />
                     </div>
                     <button onClick={() => onArtistClick?.({ name: song.artist, image: song.cover })} className="group inline-flex items-center gap-1.5">
@@ -1289,7 +1303,7 @@ const NowPlayingView = ({
 
                 {/* Action Bar - hidden only in rail video mode (Xerife Vídeos) */}
                 {!isRailVideoMode && (
-                  <div className="flex items-center justify-center gap-1 bg-card/40 backdrop-blur-xl border border-white/10 rounded-2xl p-1 shadow-2xl mx-auto w-fit">
+                  <div className={`flex items-center ${isMobileLandscape ? "justify-start" : "justify-center"} gap-1 bg-card/40 backdrop-blur-xl border border-white/10 rounded-2xl p-1 shadow-2xl ${isMobileLandscape ? "" : "mx-auto w-fit"}`}>
                     <button 
                       onClick={onLike}
                       title={isLiked ? "Remover dos favoritos" : "Adicionar aos favoritos"}
