@@ -1291,7 +1291,7 @@ const NowPlayingView = ({
                     <div className={`w-full max-w-full ${isMobileLandscape ? "px-0" : "px-2"}`}>
                       <MarqueeText
                         text={song.title}
-                        className="text-2xl sm:text-4xl lg:text-5xl font-black text-foreground tracking-tight leading-tight"
+                        className={`${isMobileLandscape ? "text-xl sm:text-2xl" : "text-2xl sm:text-4xl lg:text-5xl"} font-black text-foreground tracking-tight leading-tight`}
                       />
                     </div>
                     <button onClick={() => onArtistClick?.({ name: song.artist, image: song.cover })} className="group inline-flex items-center gap-1.5">
