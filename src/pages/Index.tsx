@@ -2312,7 +2312,12 @@ const Index = () => {
                   <ArtistProfile
                     artistName={artistView.name}
                     artistImage={artistView.image}
-                    onBack={() => setArtistView(null)}
+                    onBack={() => {
+                      setArtistView(null);
+                      if (activeTab !== "search") {
+                        setActiveTab("search");
+                      }
+                    }}
                     onPlaySong={(song, queue) => {
                       if (queue) setAlbumQueue(queue);
                       handleSelect(song);
