@@ -715,23 +715,6 @@ export function useYouTubePlayer(containerId: string) {
               }
             } catch {}
             
-            // Restore playback position on initial ready
-            if (state.videoId) {
-              try {
-                const savedTime = localStorage.getItem('demus-current-time');
-                const startSeconds = savedTime ? parseFloat(savedTime) : 0;
-                
-                // Cue or Load without autoplaying immediately unless it was already playing
-                // (though usually we want to return to the frame, not necessarily play)
-                playerRef.current.cueVideoById({
-                  videoId: state.videoId,
-                  startSeconds: startSeconds
-                });
-                console.log('[YT] Restored video pos:', state.videoId, '@', startSeconds);
-              } catch (e) {
-                console.warn('[YT] Failed to restore pos:', e);
-              }
-            }
 
             setState((s) => ({ ...s, isReady: true }));
           },
