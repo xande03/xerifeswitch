@@ -983,7 +983,7 @@ const NowPlayingView = ({
 
         {/* Main Layout */}
         <div>
-          <div className={`${isPodcastVideo ? "flex flex-col h-full w-full max-w-[900px] mx-auto lg:px-8 lg:pb-8" : isRailVideoMode ? "md:flex md:flex-row md:gap-4 md:items-start md:px-4 w-full" : "flex flex-col lg:flex-row h-full lg:gap-16 w-full max-w-[1600px] mx-auto lg:px-12 lg:pb-12"}`}>
+          <div className={`${isPodcastVideo ? "flex flex-col h-full w-full max-w-[900px] mx-auto lg:px-8 lg:pb-8" : isRailVideoMode ? "md:flex md:flex-row md:gap-4 md:items-start md:px-4 w-full" : `flex flex-col ${isMobileLandscape ? "landscape-mobile-player" : "lg:flex-row"} h-full lg:gap-16 w-full max-w-[1600px] mx-auto lg:px-12 lg:pb-12`}`}>
 
 
             {/* Mobile top bar — collapse on the left, room for notch */}
