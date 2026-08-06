@@ -280,6 +280,20 @@ const NowPlayingView = ({
   activeVideoId,
   onNavigateToLibrary,
 }: NowPlayingViewProps) => {
+  const isMobile = useIsMobile();
+  const [isLandscape, setIsLandscape] = useState(
+    typeof window !== "undefined" && window.matchMedia("(orientation: landscape)").matches
+  );
+
+  useEffect(() => {
+    const mql = window.matchMedia("(orientation: landscape)");
+    const handler = (e: MediaQueryListEvent) => setIsLandscape(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
+
+  const isMobileLandscape = isMobile && isLandscape;
+
   const [mode, setMode] = useState<PlayerMode>(
     initialMode ?? (context === "video" ? "video" : "audio")
   );
