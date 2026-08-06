@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Logo from "./Logo";
 
 const getLogoSize = () => {
@@ -10,18 +10,20 @@ const getLogoSize = () => {
 const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
   const [phase, setPhase] = useState<"logo" | "fade">("logo");
   const [logoSize, setLogoSize] = useState(getLogoSize);
+  const onFinishRef = useRef(onFinish);
   const [isDark, setIsDark] = useState(
     () => typeof document !== "undefined" && document.documentElement.classList.contains("dark")
   );
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("fade"), 1800);
-    const t2 = setTimeout(() => {
-      console.log("[SplashScreen] Finishing...");
-      onFinish();
-    }, 2400);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    onFinishRef.current = onFinish;
   }, [onFinish]);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase("fade"), 1800);
+    const t2 = setTimeout(() => onFinishRef.current(), 2400);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
 
   useEffect(() => {
     const onResize = () => setLogoSize(getLogoSize());

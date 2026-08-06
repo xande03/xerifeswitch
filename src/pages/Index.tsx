@@ -82,6 +82,7 @@ const albumCovers = [album1, album2, album3, album4];
 
 const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
+  const handleSplashFinish = useCallback(() => setShowSplash(false), []);
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     try {
       const saved = localStorage.getItem('demus-active-tab');
@@ -1737,7 +1738,7 @@ const Index = () => {
     <MotionConfig reducedMotion="user">
       <>
 
-      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+      {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
 
       
 
