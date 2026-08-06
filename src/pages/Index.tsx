@@ -2774,6 +2774,8 @@ const Index = () => {
                 currentSongId={currentSong.id}
                 onSelect={handleSelect}
                 onArtistClick={(name, image) => {
+                  const scrollPos = window.scrollY || document.documentElement.scrollTop;
+                  localStorage.setItem(`xerife-scroll-search`, scrollPos.toString());
                   setActiveTab("home");
                   setArtistView({ name, image });
                 }}
