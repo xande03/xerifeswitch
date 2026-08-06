@@ -2314,7 +2314,8 @@ const Index = () => {
                     artistImage={artistView.image}
                     onBack={() => {
                       setArtistView(null);
-                      if (activeTab !== "search") {
+                      // Cast activeTab to string for safe comparison with "search"
+                      if ((activeTab as string) !== "search") {
                         setActiveTab("search");
                       }
                     }}
