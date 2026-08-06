@@ -81,11 +81,7 @@ type HomeMode = "hub" | "music" | "video";
 const albumCovers = [album1, album2, album3, album4];
 
 const Index = () => {
-  const [showSplash, setShowSplash] = useState(() => {
-    // Se o app já carregou (o root está no ar), não mostramos o splash
-    // em re-renders. Apenas na primeira montagem do ciclo de vida.
-    return true;
-  });
+  const [showSplash, setShowSplash] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     try {
       const saved = localStorage.getItem('demus-active-tab');
