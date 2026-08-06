@@ -1288,7 +1288,7 @@ const NowPlayingView = ({
                 {/* Info Header - hidden only in rail video mode (Xerife Vídeos) */}
                 {!isRailVideoMode && (
                   <div className={`flex flex-col gap-1 w-full ${isMobileLandscape ? "items-start text-left" : "items-center text-center"} mt-2 lg:mt-0`}>
-                    <div className="w-full max-w-full px-2">
+                    <div className={`w-full max-w-full ${isMobileLandscape ? "px-0" : "px-2"}`}>
                       <MarqueeText
                         text={song.title}
                         className="text-2xl sm:text-4xl lg:text-5xl font-black text-foreground tracking-tight leading-tight"
