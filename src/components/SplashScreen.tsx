@@ -15,8 +15,11 @@ const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
   );
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("fade"), 1800);
-    const t2 = setTimeout(() => onFinish(), 2400);
+    const t1 = setTimeout(() => setPhase("fade"), 2200);
+    const t2 = setTimeout(() => {
+      console.log("[SplashScreen] Finishing...");
+      onFinish();
+    }, 2800);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [onFinish]);
 
