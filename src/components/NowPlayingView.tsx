@@ -1303,7 +1303,7 @@ const NowPlayingView = ({
 
                 {/* Action Bar - hidden only in rail video mode (Xerife Vídeos) */}
                 {!isRailVideoMode && (
-                  <div className="flex items-center justify-center gap-1 bg-card/40 backdrop-blur-xl border border-white/10 rounded-2xl p-1 shadow-2xl mx-auto w-fit">
+                  <div className={`flex items-center ${isMobileLandscape ? "justify-start" : "justify-center"} gap-1 bg-card/40 backdrop-blur-xl border border-white/10 rounded-2xl p-1 shadow-2xl ${isMobileLandscape ? "" : "mx-auto w-fit"}`}>
                     <button 
                       onClick={onLike}
                       title={isLiked ? "Remover dos favoritos" : "Adicionar aos favoritos"}
