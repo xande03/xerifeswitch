@@ -1266,8 +1266,8 @@ const NowPlayingView = ({
                   ? "mt-4"
                   : isRailVideoMode
                   ? "md:w-[var(--xerife-video-rail)] md:flex-shrink-0 md:sticky md:self-start md:overflow-y-auto scrollbar-hide"
-                  : "lg:w-1/2"
-              } flex flex-col ${isPodcastVideo ? "items-center px-4 sm:px-8" : isRailVideoMode ? "px-2 md:px-0 mt-0" : "justify-center lg:items-center px-4 sm:px-8 mt-4 lg:mt-0"} min-w-0 relative`}
+                  : isMobileLandscape ? "landscape-mobile-right" : "lg:w-1/2"
+              } flex flex-col ${isPodcastVideo ? "items-center px-4 sm:px-8" : isRailVideoMode ? "px-2 md:px-0 mt-0" : isMobileLandscape ? "justify-center items-center px-4" : "justify-center lg:items-center px-4 sm:px-8 mt-4 lg:mt-0"} min-w-0 relative`}
               style={
                 isRailVideoMode && !isPodcastVideo
                   ? {
