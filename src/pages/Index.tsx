@@ -82,13 +82,7 @@ const albumCovers = [album1, album2, album3, album4];
 
 const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
-  const [activeTab, setActiveTab] = useState<Tab>(() => {
-    try {
-      const saved = localStorage.getItem('demus-active-tab');
-      if (saved) return saved as Tab;
-      return "home";
-    } catch { return "home"; }
-  });
+  const [activeTab, setActiveTab] = useState<Tab>("home");
   // Single source of truth for the session module (hub/music/video/podcast).
   // Owns localStorage persistence, ?module=podcast URL sync, <html data-module>
   // and back/forward navigation. Never mutate those directly — always use the
@@ -139,10 +133,6 @@ const Index = () => {
     };
   }, []);
 
-  // Persist activeTab
-  useEffect(() => {
-    try { localStorage.setItem('demus-active-tab', activeTab); } catch {}
-  }, [activeTab]);
 
   // Playlist tracking for Xerife Videos auto-advance
   useEffect(() => {
@@ -222,23 +212,8 @@ const Index = () => {
   };
   const [channelView, setChannelView] = useState<{ name: string; thumbnail?: string; channelId?: string; channelUrl?: string } | null>(null);
   const [artistView, setArtistView] = useState<{ name: string; image?: string } | null>(null);
-  const [currentSong, setCurrentSong] = useState<Song>(() => {
-    try {
-      const savedId = localStorage.getItem('demus-current-song-id');
-      if (savedId) {
-        const found = mockSongs.find(s => s.id === savedId);
-        if (found) return found;
-      }
-    } catch {}
-    return mockSongs[0];
-  });
-  const [expanded, setExpanded] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('demus-player-expanded') === '1';
-    } catch {
-      return false;
-    }
-  });
+  const [currentSong, setCurrentSong] = useState<Song>(mockSongs[0]);
+  const [expanded, setExpanded] = useState<boolean>(false);
   const [playerMode, setPlayerMode] = useState<PlayerMode>(() => (localStorage.getItem('demus-player-mode') as PlayerMode) || 'audio');
   const [showFloatingPiP, setShowFloatingPiP] = useState<boolean>(() => localStorage.getItem('demus-pip-floating') === '1');
   const prePipExpandedRef = useRef<boolean>(false);
@@ -274,16 +249,6 @@ const Index = () => {
 
   // Persist player panel + mode + floating PiP so context survives reloads,
   // returning from PiP/home screen on mobile, and PWA relaunches.
-  useEffect(() => { localStorage.setItem('demus-player-expanded', expanded ? '1' : '0'); }, [expanded]);
-  useEffect(() => { 
-    localStorage.setItem('demus-player-mode', playerMode); 
-  }, [playerMode]);
-  useEffect(() => {
-    if (currentSong) {
-      localStorage.setItem('demus-current-song-id', currentSong.id);
-    }
-  }, [currentSong]);
-  useEffect(() => { localStorage.setItem('demus-pip-floating', showFloatingPiP ? '1' : '0'); }, [showFloatingPiP]);
 
   const [isShuffled, setIsShuffled] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
