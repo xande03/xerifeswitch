@@ -414,34 +414,15 @@ function enforceQualityCap(p: any, quality: string) {
 
 export function useYouTubePlayer(containerId: string) {
   const playerRef = useRef<any>(null);
-  const [state, setState] = useState<YouTubePlayerState>(() => {
-    try {
-      const savedTime = localStorage.getItem('demus-current-time');
-      const savedDur = localStorage.getItem('demus-current-duration');
-      const savedVideoId = localStorage.getItem('demus-current-song-id'); // Reusing this from Index.tsx or generic
-      
-      return {
-        isReady: false,
-        isPlaying: false,
-        isEnded: false,
-        currentTime: savedTime ? parseFloat(savedTime) : 0,
-        duration: savedDur ? parseFloat(savedDur) : 0,
-        videoId: savedVideoId || null,
-        isFullscreen: false,
-        captionsEnabled: loadCaptionsPref(),
-      };
-    } catch {
-      return {
-        isReady: false,
-        isPlaying: false,
-        isEnded: false,
-        currentTime: 0,
-        duration: 0,
-        videoId: null,
-        isFullscreen: false,
-        captionsEnabled: loadCaptionsPref(),
-      };
-    }
+  const [state, setState] = useState<YouTubePlayerState>({
+    isReady: false,
+    isPlaying: false,
+    isEnded: false,
+    currentTime: 0,
+    duration: 0,
+    videoId: null,
+    isFullscreen: false,
+    captionsEnabled: loadCaptionsPref(),
   });
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
   const userGestureRef = useRef(false);
