@@ -9,6 +9,7 @@ import VideoComments from "./VideoComments";
 import VideoInfoBar from "./VideoInfoBar";
 import { isInWatchLater, addToWatchLater, removeFromWatchLater } from "./VideoHomeScreen";
 import React, { useState, useEffect, useRef, useMemo, useCallback, Fragment } from "react";
+import { useMediaQuery } from "@/hooks/use-mobile";
 import { fetchLyrics, invalidateLyricsCache, type LyricsResult } from "@/lib/lyrics";
 import { getLyricsOffset, setLyricsOffset } from "@/lib/lyricsStorage";
 
