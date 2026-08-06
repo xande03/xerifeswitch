@@ -391,11 +391,14 @@ const ArtistProfile = ({ artistName, artistImage, onBack, onPlaySong, currentPla
 
         {/* Top bar */}
         <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pt-3" style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top))' }}>
-          <button onClick={() => {
-            // Se o onArtistClick estiver disponível, tentamos voltar para a busca/explorar limpando a visão atual
-            // No Index.tsx, o onBack padrão apenas faz setArtistView(null).
-            onBack();
-          }} className="flex items-center gap-1.5 text-foreground/90 hover:text-foreground transition-colors">
+          <button 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onBack();
+            }} 
+            className="flex items-center gap-1.5 text-foreground/90 hover:text-foreground transition-colors"
+          >
             <ArrowLeft size={20} />
             <span className="text-sm font-medium">Voltar</span>
           </button>
