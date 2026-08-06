@@ -2313,8 +2313,14 @@ const Index = () => {
                     artistImage={artistView.image}
                     onBack={() => {
                       setArtistView(null);
-                      // Se viemos da busca, garantimos que a tab de busca permaneça ativa
-                      // Se o usuário estava em 'home', ele volta pra home.
+                      // Restore scroll position after a short delay to allow re-render
+                      setTimeout(() => {
+                        const savedScroll = localStorage.getItem(`xerife-scroll-search`);
+                        if (savedScroll) {
+                          window.scrollTo({ top: parseInt(savedScroll, 10), behavior: 'instant' });
+                          localStorage.removeItem(`xerife-scroll-search`);
+                        }
+                      }, 50);
                     }}
                     onPlaySong={(song, queue) => {
                       if (queue) setAlbumQueue(queue);
@@ -2774,6 +2780,8 @@ const Index = () => {
                 currentSongId={currentSong.id}
                 onSelect={handleSelect}
                 onArtistClick={(name, image) => {
+                  const scrollPos = window.scrollY || document.documentElement.scrollTop;
+                  localStorage.setItem(`xerife-scroll-search`, scrollPos.toString());
                   setActiveTab("home");
                   setArtistView({ name, image });
                 }}
