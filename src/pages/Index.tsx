@@ -2311,7 +2311,11 @@ const Index = () => {
                   <ArtistProfile
                     artistName={artistView.name}
                     artistImage={artistView.image}
-                    onBack={() => setArtistView(null)}
+                    onBack={() => {
+                      setArtistView(null);
+                      // Se viemos da busca, garantimos que a tab de busca permaneça ativa
+                      // Se o usuário estava em 'home', ele volta pra home.
+                    }}
                     onPlaySong={(song, queue) => {
                       if (queue) setAlbumQueue(queue);
                       handleSelect(song);
