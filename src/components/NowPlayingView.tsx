@@ -1283,12 +1283,11 @@ const NowPlayingView = ({
 
               <div
                 className={`w-full min-w-0 ${isPodcastVideo ? "max-w-xl lg:max-w-2xl mx-auto flex flex-col gap-5 lg:gap-6 items-center" : isRailVideoMode ? "" : "max-w-xl lg:max-w-2xl mx-auto flex flex-col gap-5 lg:gap-8 lg:items-center"} touch-pan-y`}
-
               >
 
                 {/* Info Header - hidden only in rail video mode (Xerife Vídeos) */}
                 {!isRailVideoMode && (
-                  <div className="flex flex-col gap-1 w-full items-center text-center mt-2 lg:mt-0">
+                  <div className={`flex flex-col gap-1 w-full ${isMobileLandscape ? "items-start text-left" : "items-center text-center"} mt-2 lg:mt-0`}>
                     <div className="w-full max-w-full px-2">
                       <MarqueeText
                         text={song.title}
