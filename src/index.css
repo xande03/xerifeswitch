@@ -746,3 +746,45 @@ aside[data-sidebar-collapsed="true"] nav button {
   padding-left: 0.25rem !important;
   padding-right: 0.25rem !important;
 }
+
+/* Xerife Music: Mobile Landscape Layout Override */
+.landscape-mobile-player {
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 2rem !important;
+  padding-left: env(safe-area-inset-left, 24px) !important;
+  padding-right: env(safe-area-inset-right, 24px) !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+.landscape-mobile-left {
+  width: 45% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.landscape-mobile-left > div {
+  margin-top: 0 !important;
+  max-width: 100% !important;
+}
+
+.landscape-mobile-right {
+  width: 55% !important;
+  margin-top: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.landscape-mobile-right > div {
+  max-width: 100% !important;
+  align-items: flex-start !important;
+  text-align: left !important;
+}
+
+.landscape-mobile-right .marquee-container {
+  text-align: left !important;
+  justify-content: flex-start !important;
+}
