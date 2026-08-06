@@ -1000,7 +1000,7 @@ const NowPlayingView = ({
             )}
 
             {/* Left Column: Video / Artwork / Lyrics */}
-            <div className={`w-full ${isPodcastVideo ? "" : isRailVideoMode ? "md:flex-1 md:min-w-0" : "lg:w-1/2 flex flex-col justify-center items-center gap-4"} relative`}>
+            <div className={`w-full ${isPodcastVideo ? "" : isRailVideoMode ? "md:flex-1 md:min-w-0" : isMobileLandscape ? "landscape-mobile-left" : "lg:w-1/2 flex flex-col justify-center items-center gap-4"} relative`}>
               
               {/* Video/Artwork Container */}
               <div
