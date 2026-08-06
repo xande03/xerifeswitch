@@ -907,12 +907,6 @@ export function useYouTubePlayer(containerId: string) {
       } else {
         hiddenSinceRef.current = null;
       }
-      trackMetric('visibility', 'player', {
-        state: vs,
-        shouldBePlaying: shouldBePlayingRef.current,
-        userPaused: userPausedRef.current,
-        hiddenSince: hiddenSinceRef.current,
-      });
 
 
       if (document.visibilityState === 'hidden' && shouldBePlayingRef.current && !userPausedRef.current) {
@@ -1049,11 +1043,6 @@ export function useYouTubePlayer(containerId: string) {
       // Update local state
       setState((s) => ({ ...s, currentTime: ct, duration: dur }));
       
-      // Persist to localStorage for app recovery
-      if (ct > 0) {
-        localStorage.setItem('demus-current-time', ct.toString());
-        localStorage.setItem('demus-current-duration', dur.toString());
-      }
     }, 1000); // 1s interval is sufficient for persistence
 
     return () => {
