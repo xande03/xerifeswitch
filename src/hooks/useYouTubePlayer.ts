@@ -414,15 +414,34 @@ function enforceQualityCap(p: any, quality: string) {
 
 export function useYouTubePlayer(containerId: string) {
   const playerRef = useRef<any>(null);
-  const [state, setState] = useState<YouTubePlayerState>({
-    isReady: false,
-    isPlaying: false,
-    isEnded: false,
-    currentTime: 0,
-    duration: 0,
-    videoId: null,
-    isFullscreen: false,
-    captionsEnabled: loadCaptionsPref(),
+  const [state, setState] = useState<YouTubePlayerState>(() => {
+    try {
+      const savedTime = localStorage.getItem('demus-current-time');
+      const savedDur = localStorage.getItem('demus-current-duration');
+      const savedVideoId = localStorage.getItem('demus-current-song-id'); // Reusing this from Index.tsx or generic
+      
+      return {
+        isReady: false,
+        isPlaying: false,
+        isEnded: false,
+        currentTime: savedTime ? parseFloat(savedTime) : 0,
+        duration: savedDur ? parseFloat(savedDur) : 0,
+        videoId: savedVideoId || null,
+        isFullscreen: false,
+        captionsEnabled: loadCaptionsPref(),
+      };
+    } catch {
+      return {
+        isReady: false,
+        isPlaying: false,
+        isEnded: false,
+        currentTime: 0,
+        duration: 0,
+        videoId: null,
+        isFullscreen: false,
+        captionsEnabled: loadCaptionsPref(),
+      };
+    }
   });
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
   const userGestureRef = useRef(false);
@@ -631,7 +650,7 @@ export function useYouTubePlayer(containerId: string) {
         height: "100%",
         width: "100%",
         playerVars: {
-          autoplay: 1,
+          autoplay: 0, // Changed to 0 to prevent accidental autoplay on reload if not requested
           controls: 0,
           modestbranding: 1,
           rel: 0,
@@ -714,8 +733,24 @@ export function useYouTubePlayer(containerId: string) {
                 conn.addEventListener("change", onNet);
               }
             } catch {}
-
-
+            
+            // Restore playback position on initial ready
+            if (state.videoId) {
+              try {
+                const savedTime = localStorage.getItem('demus-current-time');
+                const startSeconds = savedTime ? parseFloat(savedTime) : 0;
+                
+                // Cue or Load without autoplaying immediately unless it was already playing
+                // (though usually we want to return to the frame, not necessarily play)
+                playerRef.current.cueVideoById({
+                  videoId: state.videoId,
+                  startSeconds: startSeconds
+                });
+                console.log('[YT] Restored video pos:', state.videoId, '@', startSeconds);
+              } catch (e) {
+                console.warn('[YT] Failed to restore pos:', e);
+              }
+            }
 
             setState((s) => ({ ...s, isReady: true }));
           },
@@ -1040,20 +1075,27 @@ export function useYouTubePlayer(containerId: string) {
     };
   }, [applyVolumeToPlayer, syncPlaybackStateFromPlayer]);
 
-  // Track progress
+  // Track progress and persist state
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
-    if (state.isPlaying) {
-      intervalRef.current = setInterval(() => {
-        const ct = playerRef.current?.getCurrentTime?.() || 0;
-        const dur = playerRef.current?.getDuration?.() || 0;
-        setState((s) => ({ ...s, currentTime: ct, duration: dur }));
-      }, 250);
-    }
+    intervalRef.current = setInterval(() => {
+      const ct = playerRef.current?.getCurrentTime?.() || 0;
+      const dur = playerRef.current?.getDuration?.() || 0;
+      
+      // Update local state
+      setState((s) => ({ ...s, currentTime: ct, duration: dur }));
+      
+      // Persist to localStorage for app recovery
+      if (ct > 0) {
+        localStorage.setItem('demus-current-time', ct.toString());
+        localStorage.setItem('demus-current-duration', dur.toString());
+      }
+    }, 1000); // 1s interval is sufficient for persistence
+
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [state.isPlaying]);
+  }, []); // Run always to track position even if paused (but player API only returns ct if ready)
 
   const loadVideo = useCallback((videoId: string) => {
     if (playerRef.current?.loadVideoById) {
