@@ -163,7 +163,7 @@ describe("FullscreenOverlay — pinch/pan/double-tap gestures", () => {
     vi.useRealTimers();
   });
 
-  it("re-clamps pan on orientation change to keep player within bounds", () => {
+  it("neutralizes zoom and pan on orientation change so the CSS letterbox recomputes", () => {
     const { container } = render(<FullscreenOverlay {...makeProps()} />);
     const surface = container.firstChild as Element;
 
@@ -171,7 +171,7 @@ describe("FullscreenOverlay — pinch/pan/double-tap gestures", () => {
     pointer("pointerdown", 1, 640, 360, surface);
     pointer("pointerdown", 2, 740, 360, surface);
     pointer("pointermove", 1, 440, 360, surface);
-    pointer("pointermove", 2, 940, 360, surface);
+    pointer("pointermove", 2, 940, 360, surface); // dist 100 -> 500, capped at 4
     pointer("pointerup", 1, 440, 360, surface);
     pointer("pointerup", 2, 940, 360, surface);
     pointer("pointerdown", 3, 640, 360, surface);
@@ -181,20 +181,33 @@ describe("FullscreenOverlay — pinch/pan/double-tap gestures", () => {
     const before = parseTransform();
     expect(before.s).toBeGreaterThan(1.5);
 
-    // Rotate to portrait — swap dims. Handler re-clamps via rAF.
+    // Rotate to portrait - swap dims.
     act(() => {
       setPlayerRect(720, 1280);
       window.dispatchEvent(new Event("orientationchange"));
     });
 
+    // Documented contract (see onOrientation in FullscreenOverlay): a residual
+    // pinch transform offsets/crops the player after rotating, so the handler
+    // deliberately drops zoom + pan to neutral and clears the inline transform
+    // across several frames, letting the CSS letterbox (aspect-ratio 16:9 via
+    // min() + margin:auto) recompute for the new viewport.
     const after = parseTransform();
-    // After rotation, bounds tighten on x and loosen on y; pan must be within them.
+    expect(after.s).toBeCloseTo(1, 2);
+    expect(after.tx).toBeCloseTo(0, 2);
+    expect(after.ty).toBeCloseTo(0, 2);
+
+    // Neutral is trivially inside the new viewport bounds: the player can never
+    // end up partially off-screen after rotating.
     const maxX = (720 * after.s - 720) / 2;
     const maxY = (1280 * after.s - 1280) / 2;
     expect(Math.abs(after.tx)).toBeLessThanOrEqual(maxX + 1);
     expect(Math.abs(after.ty)).toBeLessThanOrEqual(maxY + 1);
-    // Scale is preserved (not distorted).
-    expect(after.s).toBeCloseTo(before.s, 2);
+
+    // The inline transform must be wiped (not just scaled to 1) so the browser
+    // drops the GPU layer created during the pinch.
+    const el = document.getElementById("yt-player")!;
+    expect(["", "none"].includes(el.style.transform.trim())).toBe(true);
   });
 
   it("fully resets transform when unmounted mid-gesture (exit fullscreen)", () => {
