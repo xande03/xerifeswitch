@@ -4,8 +4,10 @@ on:
   push:
     paths:
       - 'supabase/functions/**'
+      - '.github/workflows/deploy-edge-functions.yml'
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
