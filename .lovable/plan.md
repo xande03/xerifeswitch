@@ -60,3 +60,38 @@ No painel "Tocando agora" em modo Vídeo, adicionar um mini-ajuste discreto (sem
 3. Trocar para o clipe memorizado retoma exatamente em `audioTime + offset`, com crossfade audível suave (sem estalo).
 4. Drift entre vídeo e áudio nunca excede 50ms por mais de 1s em condições normais de rede.
 5. Ajuste manual de offset persiste por faixa (`localStorage`) e é reaplicado em reproduções futuras.
+
+---
+
+## Status de implementacao (2026-09-16)
+
+| Item | Estado | Observacao |
+|---|---|---|
+| 1. Layered UI, iframe sempre montado | ✅ | `#music-video-anchor` + camadas em `NowPlayingView` |
+| 2. Matriz de offset por faixa | ✅ | `videoClipMemory.ts`: `getClipOffset` / `setClipOffset`, LRU 300 |
+| 3. `loadVideoAt` preservando audioTime | ✅ | + vies de handshake do IFrame medido por UA em `Index.tsx` (`onSwapClipAt`) |
+| 4. Observador de drift | ✅ **adaptado** | ver nota abaixo |
+| 5. Preload silencioso | ✅ | `preloadClip(videoId)`, auto-remove em 60s, exposto via `onPreloadClip` |
+| 6. Crossfade na troca | ✅ | dentro de `loadVideoAt` (rampa 15% → load → volta), respeita `prefers-reduced-motion` |
+| 7. Controle manual de offset | ✅ | botoes +/-0.5s no painel "Tocando agora" |
+
+### Nota sobre o item 4 (por que nao e um loop de 500ms comparando audio x video)
+
+O plano supunha dois relogios independentes. Na arquitetura real do Xerife Music o
+audio **e** o video: um unico iframe do YouTube IFrame API. Um watcher perpuo que
+compara `player.getCurrentTime()` com o relogio derivado do mesmo player so obtem
+o proprio numero de volta (no-op) e, se aplicar `seekTo`, provoca stall de buffer
+audivel — o contrario do objetivo.
+
+O desvio real acontece no **pouso**: `loadVideoById({ startSeconds })` ancora no
+keyframe mais proximo e as vezes devolve 0 no primeiro instante. Entao o item 4 foi
+implementado como **guard de pouso pos-swap**:
+
+- `src/lib/clipSyncGuard.ts` — politica pura (tolerancia 250ms, janela 6s,
+  maximo 2 correcoes, cede ao seek do usuario, ignora `BUFFERING`).
+- `useYouTubePlayer` — `startClipSyncWatch` no instante do load, `runClipSyncCheck`
+  no primeiro `PLAYING` e num polling de 500ms so enquanto ha alvo pendente.
+
+Tolerancia maior que os 50ms originais de proposito: o IFrame API so expoe tempo com
+granularidade de polling e o proprio seek tem latencia de rede; abaixo de ~250ms o
+"salto" nao e percebido e o custo de corrigir (rebuffer) e maior que o ganho.

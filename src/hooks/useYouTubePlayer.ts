@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { toast } from "sonner";
 import { track as trackMetric } from "@/lib/playbackMetrics";
 import { castYouTubeVideo, isCastSupported, loadCastSdk } from "@/lib/castService";
+import { evaluateClipSync, CLIP_SYNC_DEFAULTS } from "@/lib/clipSyncGuard";
 
 declare global {
   interface Window {
@@ -453,9 +454,102 @@ export function useYouTubePlayer(containerId: string) {
   // Track consecutive errors to avoid infinite retry loops
   const errorCountRef = useRef(0);
   const pseudoFullscreenRef = useRef<HTMLElement | null>(null);
+  // ── Guard de alinhamento do clipe (pos-swap) ──────────────────────────────
+  // Depois de loadVideoAt() o YouTube ancora em keyframe, nao no segundo pedido.
+  // Guardamos o alvo e corrigimos com no maximo N seeks discretos dentro de uma
+  // janela curta. Ver src/lib/clipSyncGuard.ts para a politica completa.
+  const clipSyncRef = useRef<{
+    targetSec: number | null;
+    startedAt: number;
+    corrections: number;
+    userSeekedSince: boolean;
+    timer?: ReturnType<typeof setInterval>;
+  }>({ targetSec: null, startedAt: 0, corrections: 0, userSeekedSince: false });
   const bgIntervalRef = useRef<ReturnType<typeof setInterval>>();
   const hiddenSinceRef = useRef<number | null>(null);
   const [proxyAudioElement, setProxyAudioElement] = useState<HTMLAudioElement | null>(null);
+
+  // ── Guard de alinhamento do clipe (pos-loadVideoAt) ───────────────────────
+  const stopClipSyncWatch = useCallback(() => {
+    const c = clipSyncRef.current;
+    if (c?.timer) {
+      clearInterval(c.timer);
+      c.timer = undefined;
+    }
+  }, []);
+
+  /**
+   * Consulta o player, roda a decisao do guard e aplica um seek corretivo
+   * discreto quando necessario. Politicas (tolerancia, janela, orçamento)
+   * vivem em src/lib/clipSyncGuard.ts, puras e testadas unitariamente.
+   */
+  const runClipSyncCheck = useCallback(() => {
+    const c = clipSyncRef.current;
+    if (!c || c.targetSec == null) return false;
+    const p = playerRef.current as {
+      getCurrentTime?: () => number;
+      getPlayerState?: () => number;
+      seekTo?: (seconds: number, allowSeekAhead: boolean) => void;
+    } | null;
+    if (!p?.getCurrentTime) return false;
+
+    let ytState: number | undefined;
+    try { ytState = p.getPlayerState?.(); } catch { /* IFrame ainda nao pronto: seguimos sem estado */ }
+    const buffering = ytState === window.YT?.PlayerState?.BUFFERING;
+    const observed = Number(p.getCurrentTime?.() || 0);
+
+    const verdict = evaluateClipSync({
+      pendingTargetSec: c.targetSec,
+      observedSec: observed,
+      isBuffering: buffering,
+      elapsedMs: Date.now() - c.startedAt,
+      correctionsUsed: c.corrections,
+      userSeekedSince: c.userSeekedSince,
+    });
+
+    if (verdict.action === "seek") {
+      c.corrections += 1;
+      const driftMs = Math.round(Math.abs(observed - c.targetSec) * 1000);
+      try { p.seekTo?.(verdict.targetSec, true); } catch { /* seek indisponivel: o proximo tick reavalia */ }
+      console.info('[YT clipSync] correcao aplicada', { reason: verdict.reason, driftMs, target: verdict.targetSec, attempt: c.corrections });
+      trackMetric('clip-sync', 'seek', { reason: verdict.reason, driftMs, attempt: c.corrections });
+      return true;
+    }
+    if (verdict.done) {
+      if (verdict.reason === 'converged' && c.corrections > 0) {
+        trackMetric('clip-sync', 'converged-after-correction', { corrections: c.corrections });
+      }
+      stopClipSyncWatch();
+      c.targetSec = null;
+    }
+    return false;
+  }, [stopClipSyncWatch]);
+
+  /** Abre a janela de observacao (500ms) apos um load com alvo explicito. */
+  const startClipSyncWatch = useCallback((targetSec: number) => {
+    stopClipSyncWatch();
+    const state = {
+      targetSec: Number.isFinite(targetSec) ? Math.max(0, targetSec) : null,
+      startedAt: Date.now(),
+      corrections: 0,
+      userSeekedSince: false,
+      timer: undefined as ReturnType<typeof setInterval> | undefined,
+    };
+    clipSyncRef.current = state;
+    if (state.targetSec == null) return;
+    const timer = setInterval(() => {
+      const cur = clipSyncRef.current;
+      if (!cur || cur.targetSec == null) { clearInterval(timer); return; }
+      runClipSyncCheck();
+      // Rede de seguranca: nunca deixar o polling vivo alem da janela.
+      if (Date.now() - cur.startedAt > CLIP_SYNC_DEFAULTS.windowMs + 2000) {
+        stopClipSyncWatch();
+        cur.targetSec = null;
+      }
+    }, 500);
+    clipSyncRef.current.timer = timer;
+  }, [runClipSyncCheck, stopClipSyncWatch]);
+
 
   // Helper functions for persistent pause flag
   const setUserPausedFlag = useCallback(() => {
@@ -850,6 +944,9 @@ export function useYouTubePlayer(containerId: string) {
               ensureProxyAudio().play().catch(() => {});
               resumeAudioContext();
               applyVolumeToPlayer(targetVolumeRef.current);
+              // Clipe trocado: verifica o pouso assim que ha reproducao real,
+              // antes mesmo do proximo tick do polling de 500ms.
+              runClipSyncCheck();
               // Notify listeners (quality-loading cleanup, etc.) that playback resumed.
               try { window.dispatchEvent(new CustomEvent('demus:playing')); } catch {}
             }
@@ -887,9 +984,10 @@ export function useYouTubePlayer(containerId: string) {
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      stopClipSyncWatch();
       playerRef.current?.destroy?.();
     };
-  }, [containerId, applyVolumeToPlayer]);
+  }, [containerId, applyVolumeToPlayer, runClipSyncCheck, stopClipSyncWatch]);
 
 
   // ── Audio Focus / Interruption handling (phone calls, other media apps) ──
@@ -1098,6 +1196,9 @@ export function useYouTubePlayer(containerId: string) {
   }, []); // Run always to track position even if paused (but player API only returns ct if ready)
 
   const loadVideo = useCallback((videoId: string) => {
+    // Troca de faixa invalida qualquer alvo de alinhamento da faixa anterior.
+    stopClipSyncWatch();
+    clipSyncRef.current = { ...clipSyncRef.current, targetSec: null, corrections: 0, userSeekedSince: false };
     if (playerRef.current?.loadVideoById) {
       clearUserPausedFlag(); // Clear persistent flag when loading new video
       userPausedRef.current = false;
@@ -1190,6 +1291,9 @@ export function useYouTubePlayer(containerId: string) {
       setState((s) => ({ ...s, videoId, currentTime: Math.max(0, startSeconds || 0), isEnded: false }));
       // Re-enforce cap + volume shortly after
       setTimeout(() => enforceQualityCap(playerRef.current, loadQualityPref()), 1200);
+      // O YouTube ancora em keyframe, nao no segundo pedido: abre a janela de
+      // observacao para corrigir o pouso com no maximo 2 seeks discretos.
+      startClipSyncWatch(Math.max(0, startSeconds || 0));
     };
 
     if (doFade) {
@@ -1205,7 +1309,7 @@ export function useYouTubePlayer(containerId: string) {
       applyLoad();
       applyVolumeToPlayer(originalVol);
     }
-  }, [applyVolumeToPlayer, clearUserPausedFlag]);
+  }, [applyVolumeToPlayer, clearUserPausedFlag, startClipSyncWatch]);
 
   /**
    * Pré-carrega o clipe oficial em um iframe oculto para aquecer o cache do
@@ -1281,6 +1385,14 @@ export function useYouTubePlayer(containerId: string) {
   const seekTo = useCallback((seconds: number) => {
     const player = playerRef.current;
     if (!player?.seekTo) return;
+
+    // Intencao manual do usuario: derruba qualquer correcao pendente do guard
+    // (o seek do guard chama player.seekTo direto, nunca este wrapper).
+    if (clipSyncRef.current?.targetSec != null) {
+      clipSyncRef.current.userSeekedSince = true;
+      stopClipSyncWatch();
+      clipSyncRef.current.targetSec = null;
+    }
 
     const duration = player.getDuration?.() || 0;
     const safeSeconds = Number.isFinite(seconds)
