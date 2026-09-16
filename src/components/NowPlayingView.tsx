@@ -867,7 +867,7 @@ const NowPlayingView = ({
 
   const toolItems = [
     onAddToPlaylist ? { icon: Plus, label: "Adicionar à playlist", onClick: () => onAddToPlaylist(song) } : null,
-    { icon: Music2, label: "Ver cifra", onClick: () => setChordsOpen(true), active: chordsOpen },
+    { icon: Music2, label: "Cifra e letra", onClick: () => setChordsOpen(true), active: chordsOpen },
 
     
     context === "music"
@@ -1497,6 +1497,10 @@ const NowPlayingView = ({
         onOpenChange={setChordsOpen}
         artist={song.artist}
         title={song.title}
+        album={song.album}
+        duration={song.duration}
+        currentTime={currentTime}
+        defaultTab={context === "music" ? "chords" : "lyrics"}
       />
     </div>
   );

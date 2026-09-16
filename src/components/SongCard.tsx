@@ -117,7 +117,7 @@ const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylis
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={openChords} className="gap-2">
-            <Music2 size={15} /> Ver cifra
+            <Music2 size={15} /> Cifra e letra
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -129,6 +129,8 @@ const SongCard = ({ song, isActive, onSelect, onVote, onDownload, onAddToPlaylis
     onOpenChange={setChordsOpen}
     artist={song.artist}
     title={song.title}
+    album={song.album}
+    duration={song.duration}
   />
   <ShareModal open={shareOpen} onOpenChange={setShareOpen} song={song} isVideo={false} />
   </>
