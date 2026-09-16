@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
-import { Search, Wifi, WifiOff, ChevronRight, ChevronDown, Music, TrendingUp, Play, Pause, SkipBack, SkipForward, User, Clock, Sparkles, Plus, Sun, Moon, Flame, Headphones, Disc3, Zap, MonitorPlay, Heart, ListMusic, Bookmark, Trash2, Maximize2, Minimize2, ArrowLeft, Captions, CaptionsOff, Home, RefreshCw, Star } from "lucide-react";
+import { Search, Wifi, WifiOff, ChevronRight, ChevronDown, Music, TrendingUp, Play, Pause, SkipBack, SkipForward, User, Clock, Sparkles, Plus, Sun, Moon, Flame, Headphones, Disc3, Zap, MonitorPlay, Heart, ListMusic, Bookmark, Trash2, Maximize2, Minimize2, ArrowLeft, Captions, CaptionsOff, Home, RefreshCw, Star, Link2 } from "lucide-react";
 // Telas/overlays pesados viram chunks async (ver src/lib/deferredScreens.ts):
 // alias com o mesmo nome mantem o JSX intacto, cada sitio ganhou um <Suspense>.
 import {
@@ -68,6 +68,7 @@ import { PlaylistDetail } from "@/components/PlaylistDetail";
 
 import LibraryHubScreen from "@/components/LibraryHubScreen";
 import ListeningStatsScreen from "@/components/ListeningStatsScreen";
+import ImportPlaylistDialog from "@/components/ImportPlaylistDialog";
 import { useListeningTracker } from "@/hooks/useListeningTracker";
 
 import { saveEpisodeProgress, getEpisodeProgress, getAllInProgressEpisodes } from "@/lib/podcastStorage";
@@ -327,6 +328,7 @@ const Index = () => {
   const listenAgainSeed = useRef<number>(Math.floor(Math.random() * 1_000_000));
   const [playlists, setPlaylists] = useState<Playlist[]>(() => getPlaylists());
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+  const [showImportPlaylist, setShowImportPlaylist] = useState(false);
   const [songToAddToPlaylist, setSongToAddToPlaylist] = useState<Song | null>(null);
   const [playlistModalMode, setPlaylistModalMode] = useState<"manage" | "add">("manage");
   const [openPlaylistId, setOpenPlaylistId] = useState<string | null>(null);
@@ -3263,14 +3265,22 @@ const Index = () => {
                 }
                 return (
                   <>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <h1 className="text-xl font-display font-bold text-foreground">Minhas Playlists</h1>
-                      <button
-                        onClick={() => { setPlaylistModalMode("manage"); setShowPlaylistModal(true); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-full font-bold text-xs"
-                      >
-                        <Plus size={14} /> Criar Playlist
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setShowImportPlaylist(true)}
+                          className="flex items-center gap-1.5 px-3.5 py-2 bg-secondary text-secondary-foreground rounded-full font-bold text-xs border border-border hover:bg-secondary/70 transition-colors"
+                        >
+                          <Link2 size={13} /> Importar
+                        </button>
+                        <button
+                          onClick={() => { setPlaylistModalMode("manage"); setShowPlaylistModal(true); }}
+                          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-full font-bold text-xs"
+                        >
+                          <Plus size={14} /> Criar Playlist
+                        </button>
+                      </div>
                     </div>
 
                     {playlists.length === 0 ? (
@@ -3474,7 +3484,16 @@ const Index = () => {
 
 
 
-        <PlaylistModal 
+        <ImportPlaylistDialog
+          open={showImportPlaylist}
+          onOpenChange={setShowImportPlaylist}
+          onImported={(pl) => {
+            setPlaylists(getPlaylists());
+            setActiveTab("playlists");
+            setOpenPlaylistId(pl.id);
+          }}
+        />
+        <PlaylistModal
            isOpen={showPlaylistModal}
            onClose={() => setShowPlaylistModal(false)}
            playlists={playlists}

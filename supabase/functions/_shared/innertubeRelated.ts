@@ -132,11 +132,13 @@ function fromCompactOrLegacy(r: any): RelatedVideoLite | null {
 }
 
 /**
- * Extrai as recomendações de um payload do `/next`. Aceita `lockupViewModel` (formato
- * atual), `compactVideoRenderer`/`videoRenderer` (formatos antigos, mantidos porque o
- * YouTube ainda os emite para alguns clients/A-B tests) e o invólucro `richItemRenderer`.
+ * Parser genérico de LISTAS de itens de vídeo do Innertube (`lockupViewModel`,
+ * `richItemRenderer`, `compactVideoRenderer`, `videoRenderer`, `gridVideoRenderer`,
+ * `playlistVideoRenderer`) — dedup por videoId e descarta itens sem título.
+ * Extraído de `parseRelatedFromNext` para reutilização por outras funções
+ * (ex.: `youtube-playlist`, que recebe lockups na página de playlist).
  */
-export function parseRelatedFromNext(payload: any, max = 15): RelatedVideoLite[] {
+export function parseVideoItemsList(items: any[], max = 15): RelatedVideoLite[] {
   const out: RelatedVideoLite[] = [];
   const seen = new Set<string>();
   const push = (v: RelatedVideoLite | null) => {
@@ -148,7 +150,7 @@ export function parseRelatedFromNext(payload: any, max = 15): RelatedVideoLite[]
     out.push(v);
   };
 
-  for (const item of collectRecommendationItems(payload)) {
+  for (const item of items) {
     if (out.length >= max) break;
     if (!item || typeof item !== "object") continue;
     if (item.lockupViewModel) push(fromLockup(item.lockupViewModel));
@@ -159,4 +161,13 @@ export function parseRelatedFromNext(payload: any, max = 15): RelatedVideoLite[]
     else if (item.playlistVideoRenderer) push(fromCompactOrLegacy(item.playlistVideoRenderer));
   }
   return out.slice(0, max);
+}
+
+/**
+ * Extrai as recomendações de um payload do `/next`. Aceita `lockupViewModel` (formato
+ * atual), `compactVideoRenderer`/`videoRenderer` (formatos antigos, mantidos porque o
+ * YouTube ainda os emite para alguns clients/A-B tests) e o invólucro `richItemRenderer`.
+ */
+export function parseRelatedFromNext(payload: any, max = 15): RelatedVideoLite[] {
+  return parseVideoItemsList(collectRecommendationItems(payload), max);
 }
