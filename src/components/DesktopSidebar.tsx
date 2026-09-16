@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Home, Search, Heart, Download, Settings, Compass, MonitorPlay, Clock, ListMusic, Music, Sun, Moon, Palette, Cast, X, ZoomIn, Plus, Minus, Sparkles, User, LogOut, LogIn, SlidersHorizontal, Podcast, ChevronDown, Library, Headphones, ChevronLeft, ChevronRight, ThumbsUp, Star } from "lucide-react";
+import { Home, Search, Heart, Download, Settings, Compass, MonitorPlay, Clock, ListMusic, Music, Sun, Moon, Palette, Cast, X, ZoomIn, Plus, Minus, Sparkles, User, LogOut, LogIn, SlidersHorizontal, Podcast, ChevronDown, Library, Headphones, ThumbsUp, Star } from "lucide-react";
 import { getFavoritesMetadata } from "@/lib/localStorage";
 import { getFavoriteEpisodes } from "@/lib/podcastStorage";
 
@@ -252,27 +252,32 @@ const DesktopSidebar = ({
       data-sidebar-collapsed={collapsed}
       className="hidden md:flex flex-col w-20 lg:w-[260px] h-full bg-sidebar border-r border-sidebar-border flex-shrink-0 transition-[width] duration-300 ease-in-out relative"
     >
-      {/* Collapse / expand toggle — evidente e destacado */}
+      {/* Logo = toggle do menu: clicar na estrela do app recolhe/expande a sidebar
+          (substitui o botão dedicado; mesmo estado/persistência de antes) */}
       <button
+        type="button"
         onClick={() => setCollapsed((v) => !v)}
         aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
-        title={collapsed ? "Expandir menu" : "Recolher menu"}
-        className="absolute -right-4 top-7 z-30 w-8 h-8 rounded-full bg-primary text-primary-foreground border-2 border-background shadow-lg shadow-primary/40 flex items-center justify-center hover:scale-110 hover:shadow-primary/60 transition-all active:scale-95 ring-1 ring-primary/50"
+        aria-expanded={!collapsed}
+        data-sidebar-iconcenter
+        className="w-full flex items-center gap-3 px-5 py-7 lg:py-6 justify-center lg:justify-start cursor-pointer select-none rounded-2xl hover:bg-sidebar-accent/40 active:scale-[0.98] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group/logo"
       >
-        {collapsed ? <ChevronRight size={18} strokeWidth={2.8} /> : <ChevronLeft size={18} strokeWidth={2.8} />}
+        <span className="hidden lg:flex" data-sidebar-fullonly>
+          <Logo size={52} showText tooltipLabel="Clique para recolher o menu" />
+        </span>
+        <Logo
+          size={48}
+          className="lg:hidden transition-transform duration-200 group-hover/logo:scale-105"
+          tooltipLabel={collapsed ? "Clique para expandir o menu" : "Clique para recolher o menu"}
+        />
+        {collapsed && (
+          <Logo
+            size={48}
+            className="hidden lg:block transition-transform duration-200 group-hover/logo:scale-105"
+            tooltipLabel="Clique para expandir o menu"
+          />
+        )}
       </button>
-
-
-
-
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-5 py-7 lg:py-6 justify-center lg:justify-start" data-sidebar-iconcenter>
-        <div className="hidden lg:flex" data-sidebar-fullonly>
-          <Logo size={52} showText />
-        </div>
-        <Logo size={48} className="lg:hidden" />
-        {collapsed && <Logo size={48} className="hidden lg:block" />}
-      </div>
 
       {/* Divider between logo and nav */}
       <div className="h-px bg-sidebar-border/60 mx-4 mb-1" />
