@@ -16,7 +16,10 @@
     "smoke": "node scripts/smoke-deferred.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "e2e:anchor": "node e2e/podcast-video-anchor-bounds.spec.mjs",
-    "check": "npm run typecheck && npm run test && npm run build && npm run e2e:anchor && npm run smoke"
+    "check": "npm run typecheck && npm run test && npm run build && npm run e2e:anchor && npm run smoke",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:android": "npm run build && npx cap sync android && npx cap open android",
+    "cap:ios": "npm run build && npx cap sync ios && npx cap open ios"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.0",
