@@ -1,15 +1,45 @@
 # Status do Xerife Music
 
-Atualizado em 2026-09-16. **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-09-16 (2ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-09-16 — três features entregues
+
+Medido neste checkout após as mudanças: `npm run check` ✅ (typecheck + **83 testes** em
+13 arquivos + build + e2e:anchor + smoke).
+
+1. **Letras junto das cifras** — o `ChordsSheet` ("Cifra e letra", aberto do player ou do
+   menu ⋯ do card) agora tem abas **Cifra | Letra**. A aba Letra
+   ([`src/components/LyricsPanel.tsx`](src/components/LyricsPanel.tsx)) reusa o pipeline já
+   existente (`fetchLyrics` → Edge Function `fetch-lyrics` → LRCLIB → fallbacks) e, quando
+   aberta a partir do player, destaca a linha atual com auto-scroll (letra sincronizada).
+2. **Estatísticas de escuta (estilo "Wrapped")** — tile "Estatísticas" na Biblioteca.
+   [`src/lib/listeningStats.ts`](src/lib/listeningStats.ts) agrega segundos por faixa/artista
+   por dia (localStorage, poda >400 dias); [`src/hooks/useListeningTracker.ts`](src/hooks/useListeningTracker.ts)
+   conta só reprodução real (delta ≤2,5 s tocando — seek e pausa não contam), com flush a
+   cada 15 s, na troca de faixa e ao esconder a página. Tela
+   [`src/components/ListeningStatsScreen.tsx`](src/components/ListeningStatsScreen.tsx) com
+   períodos (Hoje/7d/30d/Sempre), módulos (Músicas/Vídeos/Podcasts), top faixas (clique toca)
+   e top artistas. Coberto por `src/test/listening-stats.test.ts` (9 testes).
+3. **Importar playlist do YouTube** — botão "Importar" em Minhas Playlists
+   ([`src/components/ImportPlaylistDialog.tsx`](src/components/ImportPlaylistDialog.tsx)):
+   cola o link, pré-visualiza e salva em `demus_playlists` (localStorage). Cliente em
+   [`src/lib/youtubePlaylist.ts`](src/lib/youtubePlaylist.ts). **Atenção ao deploy**:
+   a função dedicada [`supabase/functions/youtube-playlist/`](supabase/functions/youtube-playlist/index.ts)
+   é **nova, ainda não deployada** (bloqueio do secret — item 2 abaixo). Até lá o cliente cai
+   no fallback `youtube-album-tracks?browseId=VL<id>`, que funciona para conteúdo do YouTube
+   Music (medido ao vivo: playlists só do youtube.com retornam vazio pelo caminho antigo).
+   O parser da função nova foi validado contra o YouTube real fora do deploy: itens hoje vêm
+   como `lockupViewModel` (a mesma migração que quebrou `relatedVideos`), e a coleta +
+   paginação retornaram 200 faixas em 2 requisições numa playlist pública real.
 
 ## Verificações
 
 | Checagem | Comando | Resultado |
 |---|---|---|
 | Tipos | `npm run typecheck` | ✅ limpo |
-| Testes unitários | `npm run test` | ✅ 60/60 em 10 arquivos |
+| Testes unitários | `npm run test` | ✅ 83/83 em 13 arquivos |
 | Build de produção | `npm run build` | ✅ sem avisos de ciclo |
 | E2E de layout do anchor | `npm run e2e:anchor` | ✅ 16 combinações (4 ramagens × 4 breakpoints × rotação), contra o CSS real do build |
 | Smoke do bundle | `npm run smoke` | ✅ mount + deep-link + dedupe de chunks |
@@ -63,6 +93,8 @@ ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
 3. **`ai-chat` existe na nuvem, não no repo** — está deployada e responde 200, mas não há
    `supabase/functions/ai-chat/`. Está fora do versionamento e do deploy automático
    (nenhum código em `src/` a invoca hoje).
+   Simétrico: **`youtube-playlist` existe no repo, não na nuvem** (nova na sessão
+   2026-09-16; aguardando o mesmo deploy do item 2).
 4. Falso negativo corrigido no verificador: `youtube-search`/`youtube-video-info` eram
    chamados com parâmetro **no corpo**, e as funções lêem da **query string** — o que
    produzia `200 OK` para uma chamada vaziosa (verde mentiroso) e `400` para o caso certo.
@@ -78,6 +110,7 @@ npm run dev            # vite em :8080
 npm run check          # typecheck + testes + build + e2e + smoke
 npm run verify:edge    # sonda as Edge Functions em produção
 npm run cap:sync       # build + npx cap sync (iOS/Android servem dist/)
+scripts/push-main.sh "mensagem"  # commit + push direto na main (helper da sessão)
 ```
 
 Guias mantidos na raiz: [`COMANDOS_RAPIDOS.md`](COMANDOS_RAPIDOS.md),
