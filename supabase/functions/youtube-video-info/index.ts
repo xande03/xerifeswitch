@@ -139,12 +139,14 @@ async function fetchVideoInfo(videoId: string, debug = false) {
       if (relatedVideos.length > 0 || comments.length > 0) {
         console.log(`[youtube-video-info] Partial from ${base}: ${relatedVideos.length} related, ${comments.length} comments — will try innertube for missing`);
         // Try innertube to fill in missing data
-        const innertube = await fetchFromInnertube(videoId);
-        return {
+        const innertube = await fetchFromInnertube(videoId, debug);
+        const out: any = {
           relatedVideos: relatedVideos.length > 0 ? relatedVideos : innertube.relatedVideos,
           comments: comments.length > 0 ? comments : innertube.comments,
           description: chooseBestDescription(description, innertube.description),
         };
+        if (debug) out.__debug = { invidiousPartialFrom: base, innertube: innertube.__debug };
+        return out;
       }
       console.warn(`[youtube-video-info] ${base} returned empty data`);
     } catch (err) {
