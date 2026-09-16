@@ -40,8 +40,14 @@ serve(async (req) => {
       });
     }
 
+    // ?debug=1 → bypassa o cache e anexa __debug com o que a função VÊ da rede
+    // de saída (diagnóstico de diferenças sandbox × edge runtime).
+    const debug = url.searchParams.get("debug") === "1";
+
     // Server-side cache: same videoId shares results across users for 15 min
-    const result = await cachedFetch(`video:v2:${videoId}`, () => fetchVideoInfo(videoId), { ttlMs: 15 * 60 * 1000 });
+    const result = debug
+      ? await fetchVideoInfo(videoId, true)
+      : await cachedFetch(`video:v2:${videoId}`, () => fetchVideoInfo(videoId), { ttlMs: 15 * 60 * 1000 });
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -55,7 +61,7 @@ serve(async (req) => {
   }
 });
 
-async function fetchVideoInfo(videoId: string) {
+async function fetchVideoInfo(videoId: string, debug = false) {
   // Try Invidious instances for related videos + comments
   for (const base of INVIDIOUS_INSTANCES) {
     try {
@@ -148,13 +154,14 @@ async function fetchVideoInfo(videoId: string) {
   }
 
   // Fallback: full innertube
-  const innertube = await fetchFromInnertube(videoId);
+  const innertube = await fetchFromInnertube(videoId, debug);
   return innertube;
 }
 
-async function fetchFromInnertube(videoId: string): Promise<{ relatedVideos: any[]; comments: any[]; description: string }> {
+async function fetchFromInnertube(videoId: string, debug = false): Promise<any> {
 
   console.log("[youtube-video-info] Trying innertube");
+  const diag: Record<string, any> = {};
   try {
     const body = {
       context: {
@@ -179,6 +186,13 @@ async function fetchFromInnertube(videoId: string): Promise<{ relatedVideos: any
 
     if (res.ok) {
       const data = await res.json();
+      if (debug) {
+        diag.status = res.status;
+        diag.topKeys = Object.keys(data || {});
+        diag.secondaryCount = (data?.contents?.twoColumnWatchNextResults?.secondaryResults?.secondaryResults?.results || []).length;
+        diag.secondaryTypes = (data?.contents?.twoColumnWatchNextResults?.secondaryResults?.secondaryResults?.results || []).slice(0, 5).map((r: any) => Object.keys(r || {})[0]);
+        diag.singleColCount = (data?.contents?.singleColumnWatchNextResults?.results?.results?.contents || []).length;
+      }
 
       // Extract full video description from videoSecondaryInfoRenderer
       let description = "";
@@ -260,6 +274,10 @@ async function fetchFromInnertube(videoId: string): Promise<{ relatedVideos: any
       }
 
       console.log(`[youtube-video-info] Innertube: ${relatedVideos.length} related, ${comments.length} comments, desc=${description.length}`);
+      if (debug) {
+        diag.parsedRelated = relatedVideos.length;
+        return { relatedVideos, comments, description, __debug: diag };
+      }
       return { relatedVideos, comments, description };
     }
   } catch (err) {
