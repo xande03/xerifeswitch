@@ -5,6 +5,10 @@ export interface Comment {
   author: string;
   authorThumbnail: string;
   content: string;
+  /** Texto original (antes da tradução pt-BR) — presente só quando difere. */
+  originalContent?: string;
+  /** Idioma detectado do comentário original (quando o backend traduziu/inspecionou). */
+  lang?: string | null;
   likes: number;
   publishedTime: string;
   isHearted: boolean;

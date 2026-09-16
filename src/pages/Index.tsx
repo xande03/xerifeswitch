@@ -261,6 +261,8 @@ const Index = () => {
   const videoOverlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoOverlayInteractingRef = useRef(false);
   const videoOverlayKeepOpenRef = useRef(false);
+  /** Guarda contra toggle duplicado: dois toques dentro desta janela contam como um. */
+  const videoOverlayTapGuardRef = useRef(0);
   const revealVideoOverlay = useCallback((opts?: { sticky?: boolean }) => {
     setShowVideoOverlayControls(true);
     if (videoOverlayTimerRef.current) {
@@ -276,10 +278,8 @@ const Index = () => {
 
   // (module accent, localStorage, URL query, back/forward — todos centralizados
   // em useModuleMode; não replicar aqui.)
-  useEffect(() => {
-    if (expanded && playerMode === "video") revealVideoOverlay();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expanded, playerMode]);
+  // Nota: a visibilidade inicial do overlay de vídeo é decidida pelo efeito
+  // "keepOpen" abaixo (visível pausado, oculto tocando) — sem reveal na abertura.
 
 
 
@@ -763,20 +763,21 @@ const Index = () => {
     isPlaying,
   );
 
-  // Keep video overlay controls visible while paused (or before playback starts):
-  // users need to see play/seek/time when the video isn't actively playing.
+  // Overlay do player de vídeo: MINIMIZADO enquanto toca — aparece ao tocar na
+  // área do vídeo (tap catcher faz toggle) ou quando a reprodução pausa/termina
+  // (o usuário precisa enxergar play/seek/tempo). Retomar → oculta de novo, sem
+  // flash de 4s: o vídeo é o protagonista.
   useEffect(() => {
     const shouldKeepOpen = expanded && playerMode === "video" && !isPlaying;
     videoOverlayKeepOpenRef.current = shouldKeepOpen;
+    if (videoOverlayTimerRef.current) {
+      clearTimeout(videoOverlayTimerRef.current);
+      videoOverlayTimerRef.current = null;
+    }
     if (shouldKeepOpen) {
       setShowVideoOverlayControls(true);
-      if (videoOverlayTimerRef.current) {
-        clearTimeout(videoOverlayTimerRef.current);
-        videoOverlayTimerRef.current = null;
-      }
     } else if (expanded && playerMode === "video") {
-      // Playback resumed — restart auto-hide countdown
-      revealVideoOverlay();
+      setShowVideoOverlayControls(false);
     }
   }, [isPlaying, expanded, playerMode, revealVideoOverlay]);
   const { trendingSongs, isLoading: trendingLoading } = useTrendingMusic();
@@ -1958,6 +1959,11 @@ const Index = () => {
                 aria-label={showVideoOverlayControls ? "Ocultar controles" : "Mostrar controles"}
                 onClick={(e) => {
                   e.stopPropagation();
+                  // Anti toque-fantasma/duplicado: janela mínima de 300ms entre toggles —
+                  // evita que 2 toques rápidos escondam e reexibam na mesma intenção.
+                  const now = Date.now();
+                  if (now - videoOverlayTapGuardRef.current < 300) return;
+                  videoOverlayTapGuardRef.current = now;
                   if (showVideoOverlayControls) {
                     if (videoOverlayTimerRef.current) { clearTimeout(videoOverlayTimerRef.current); videoOverlayTimerRef.current = null; }
                     setShowVideoOverlayControls(false);

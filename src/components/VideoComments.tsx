@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Heart, ThumbsUp, ThumbsDown, MessageSquare, ArrowUpDown, Check } from "lucide-react";
+import { Heart, ThumbsUp, ThumbsDown, MessageSquare, ArrowUpDown, Check, Languages } from "lucide-react";
 import type { Comment } from "@/lib/youtubeVideoInfo";
 
 interface VideoCommentsProps {
@@ -27,6 +27,29 @@ const parseTimeToOrder = (s?: string): number => {
     31536000;
   // smaller value = newer
   return n * mult;
+};
+
+/** Corpo do comentário com toggle "ver original / ver tradução" quando o
+ *  backend traduziu (originalContent ≠ content). */
+const CommentBody = ({ comment }: { comment: Comment }) => {
+  const [showOriginal, setShowOriginal] = useState(false);
+  const hasTranslation = !!comment.originalContent && comment.originalContent !== comment.content;
+  return (
+    <>
+      <p className="text-[14px] text-foreground/95 mt-1.5 leading-[1.45] tracking-[0.1px] break-words whitespace-pre-line font-normal">
+        {showOriginal ? comment.originalContent : comment.content}
+      </p>
+      {hasTranslation && (
+        <button
+          onClick={() => setShowOriginal((v) => !v)}
+          className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Languages size={11} />
+          {showOriginal ? "Ver tradução" : "Ver original · traduzido automaticamente"}
+        </button>
+      )}
+    </>
+  );
 };
 
 const VideoComments = ({ comments, loading, showHeader = true }: VideoCommentsProps) => {
@@ -141,9 +164,7 @@ const VideoComments = ({ comments, loading, showHeader = true }: VideoCommentsPr
                 )}
               </header>
 
-              <p className="text-[14px] text-foreground/95 mt-1.5 leading-[1.45] tracking-[0.1px] break-words whitespace-pre-line font-normal">
-                {comment.content}
-              </p>
+              <CommentBody comment={comment} />
 
               <div className="flex items-center gap-1 mt-2 -ml-2 text-muted-foreground">
                 <button

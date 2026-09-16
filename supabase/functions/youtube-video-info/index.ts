@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getClientIp, checkRateLimit, rateLimitResponse } from "../_shared/rateLimiter.ts";
 import { cachedFetch } from "../_shared/serverCache.ts";
 import { parseRelatedFromNext, parseVideoItemsList } from "../_shared/innertubeRelated.ts";
+import { formatRelativePtBR, translateTextsPtBR } from "../_shared/ptbrRelative.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -111,15 +112,33 @@ async function fetchVideoInfo(videoId: string, debug = false) {
       }
 
       if (commentsRes?.ok) {
-        const commentsData = await commentsRes.json();
-        comments = (commentsData.comments || [])
-          .slice(0, 20)
+        let commentsData = await commentsRes.json();
+        let rawComments = commentsData.comments || [];
+        // 2ª página (Invidious expõe `continuation` no topo) — objetivo: 40 comentários
+        if (rawComments.length && commentsData.continuation) {
+          try {
+            const page2 = await fetch(
+              `${base}/api/v1/comments/${videoId}?continuation=${encodeURIComponent(commentsData.continuation)}`,
+              { signal: AbortSignal.timeout(5000), headers: { "User-Agent": "Mozilla/5.0 (compatible; Bot/1.0)" } },
+            );
+            if (page2.ok) {
+              const page2Data = await page2.json();
+              if (Array.isArray(page2Data?.comments)) rawComments = rawComments.concat(page2Data.comments);
+            }
+          } catch { /* uma página já basta */ }
+        }
+        comments = rawComments
+          .slice(0, 40)
           .map((c: any) => ({
             author: c.author || "Anônimo",
             authorThumbnail: c.authorThumbnails?.[0]?.url || "",
             content: c.contentHtml?.replace(/<[^>]*>/g, "") || c.content || "",
             likes: c.likeCount || 0,
-            publishedTime: c.publishedText || "",
+            // `publishedText` vem NO LOCALE DA INSTÂNCIA (obs.: árabe no nadeko).
+            // O epoch `published` é determinístico → data relativa pt-BR aqui.
+            publishedTime: Number.isFinite(Number(c.published)) && Number(c.published) > 0
+              ? formatRelativePtBR(Number(c.published) * 1000)
+              : (c.publishedText || ""),
             isHearted: c.creatorHeart?.creatorThumbnail ? true : false,
           }));
       }
@@ -133,7 +152,7 @@ async function fetchVideoInfo(videoId: string, debug = false) {
             description = chooseBestDescription(description, innertube.description);
           } catch {}
         }
-        return { relatedVideos, comments, description };
+        return withTranslatedComments({ relatedVideos, comments, description });
       }
       // If we got partial data, save it and try to fill the rest
       if (relatedVideos.length > 0 || comments.length > 0) {
@@ -152,7 +171,7 @@ async function fetchVideoInfo(videoId: string, debug = false) {
           description: chooseBestDescription(description, innertube.description),
         };
         if (debug) out.__debug = { invidiousPartialFrom: base, innertube: innertube.__debug };
-        return out;
+        return withTranslatedComments(out, debug);
       }
       console.warn(`[youtube-video-info] ${base} returned empty data`);
     } catch (err) {
@@ -167,7 +186,40 @@ async function fetchVideoInfo(videoId: string, debug = false) {
     const approx = await approxRelatedFromSearch(videoId, debug ? (innertube.__debug ??= {}) : undefined).catch(() => []);
     if (approx.length) innertube.relatedVideos = approx;
   }
-  return innertube;
+  return withTranslatedComments(innertube, debug);
+}
+
+/**
+ * Tradução pt-BR dos comentários finais (qualquer que seja a fonte):
+ * preserva o original em `originalContent` quando o texto muda, e anota
+ * `lang` (idioma detectado). Em caso de falha da API de tradução, o texto
+ * original permanece — nunca deixa o painel sem comentários.
+ */
+async function withTranslatedComments(result: any, debug = false) {
+  if (!result || !Array.isArray(result.comments) || !result.comments.length) return result;
+  const comments = result.comments.slice(0, 60);
+  const t0 = Date.now();
+  const translated = await translateTextsPtBR(
+    comments.map((c: any) => String(c?.content || "")),
+    { concurrency: 4 },
+  );
+  const merged = comments.map((c: any, i: number) => {
+    const t = translated[i];
+    if (!t) return c;
+    const changed = t.text && t.text !== t.original;
+    if (changed) return { ...c, originalContent: t.original, content: t.text, lang: t.lang };
+    return t.lang ? { ...c, lang: t.lang } : c;
+  });
+  const out: any = { ...result, comments: merged };
+  if (debug) {
+    out.__debug = {
+      ...(out.__debug || {}),
+      commentCount: merged.length,
+      translatedCount: merged.filter((c: any) => c.originalContent).length,
+      translateMs: Date.now() - t0,
+    };
+  }
+  return out;
 }
 
 /** Itens de vídeo de uma página de busca (`twoColumnSearchResultsRenderer`). */
@@ -307,6 +359,50 @@ async function fetchFromInnertube(videoId: string, debug = false): Promise<any> 
 
       let comments: any[] = [];
       try {
+        const parseThreads = (items: any[]): any[] =>
+          (items || [])
+            .filter((c: any) => c?.commentThreadRenderer)
+            .map((c: any) => {
+              const cr = c.commentThreadRenderer.comment.commentRenderer;
+              return {
+                author: cr.authorText?.simpleText || "Anônimo",
+                authorThumbnail: cr.authorThumbnail?.thumbnails?.[0]?.url || "",
+                content: cr.contentText?.runs?.map((r: any) => r.text).join("") || "",
+                likes: parseInt(cr.voteCount?.simpleText?.replace(/\D/g, "") || "0") || 0,
+                publishedTime: cr.publishedTimeText?.runs?.[0]?.text || "",
+                isHearted: !!cr.actionButtons?.commentActionButtonsRenderer?.creatorHeart,
+              };
+            });
+        const findCommentItems = (cData: any): any[] => {
+          const eps = cData?.onResponseReceivedEndpoints || [];
+          for (const ep of eps) {
+            const items =
+              ep?.appendContinuationItemsCommand?.continuationItems ||
+              ep?.reloadContinuationItemsCommand?.continuationItems;
+            if (Array.isArray(items) && items.length) return items;
+          }
+          return [];
+        };
+        const nextToken = (items: any[]): string | null => {
+          for (const it of items || []) {
+            const tok =
+              it?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
+            if (tok) return tok;
+          }
+          return null;
+        };
+        const callNext = async (continuation: string) => {
+          const cRes = await fetch(
+            "https://www.youtube.com/youtubei/v1/next?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+              body: JSON.stringify({ context: body.context, continuation }),
+            }
+          );
+          return cRes.ok ? await cRes.json() : null;
+        };
+
         const engagementPanels = data?.engagementPanels || [];
         for (const panel of engagementPanels) {
           const section = panel?.engagementPanelSectionListRenderer;
@@ -314,34 +410,22 @@ async function fetchFromInnertube(videoId: string, debug = false): Promise<any> 
             const continuation = section?.content?.sectionListRenderer?.contents?.[0]
               ?.itemSectionRenderer?.contents?.[0]?.continuationItemRenderer
               ?.continuationEndpoint?.continuationCommand?.token;
-            
+
             if (continuation) {
-              const cRes = await fetch(
-                "https://www.youtube.com/youtubei/v1/next?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
-                  body: JSON.stringify({ context: body.context, continuation }),
+              const page1 = await callNext(continuation);
+              if (page1) {
+                const items1 = findCommentItems(page1);
+                comments = parseThreads(items1);
+                // 2ª página: mais comentários visíveis no painel (objetivo: 40)
+                const token2 = nextToken(items1);
+                if (token2 && comments.length) {
+                  const page2 = await callNext(token2).catch(() => null);
+                  if (page2) {
+                    const items2 = findCommentItems(page2);
+                    comments = comments.concat(parseThreads(items2));
+                  }
                 }
-              );
-              if (cRes.ok) {
-                const cData = await cRes.json();
-                const commentItems = cData?.onResponseReceivedEndpoints?.[1]
-                  ?.reloadContinuationItemsCommand?.continuationItems || [];
-                comments = commentItems
-                  .filter((c: any) => c.commentThreadRenderer)
-                  .slice(0, 20)
-                  .map((c: any) => {
-                    const cr = c.commentThreadRenderer.comment.commentRenderer;
-                    return {
-                      author: cr.authorText?.simpleText || "Anônimo",
-                      authorThumbnail: cr.authorThumbnail?.thumbnails?.[0]?.url || "",
-                      content: cr.contentText?.runs?.map((r: any) => r.text).join("") || "",
-                      likes: parseInt(cr.voteCount?.simpleText?.replace(/\D/g, "") || "0") || 0,
-                      publishedTime: cr.publishedTimeText?.runs?.[0]?.text || "",
-                      isHearted: !!cr.actionButtons?.commentActionButtonsRenderer?.creatorHeart,
-                    };
-                  });
+                comments = comments.slice(0, 40);
               }
             }
           }
