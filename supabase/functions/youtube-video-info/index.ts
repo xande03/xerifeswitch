@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getClientIp, checkRateLimit, rateLimitResponse } from "../_shared/rateLimiter.ts";
 import { cachedFetch } from "../_shared/serverCache.ts";
+import { parseRelatedFromNext } from "../_shared/innertubeRelated.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -205,29 +206,13 @@ async function fetchFromInnertube(videoId: string): Promise<{ relatedVideos: any
         description = chooseBestDescription(description, playerDescription);
       }
 
-      const items = data?.contents?.twoColumnWatchNextResults?.secondaryResults
-        ?.secondaryResults?.results || [];
-
-
-      const relatedVideos = items
-        .filter((i: any) => i.compactVideoRenderer?.videoId)
-        .slice(0, 15)
-        .map((i: any) => {
-          const r = i.compactVideoRenderer;
-          const thumbs = r.thumbnail?.thumbnails || [];
-          return {
-            videoId: r.videoId,
-            title: r.title?.simpleText || r.title?.runs?.[0]?.text || "",
-            channel: r.longBylineText?.runs?.[0]?.text || r.shortBylineText?.runs?.[0]?.text || "",
-            channelThumbnail: "",
-            thumbnail: thumbs[thumbs.length - 1]?.url || "",
-            duration: r.lengthText?.simpleText || "",
-            views: r.viewCountText?.simpleText || "",
-            publishedTime: r.publishedTimeText?.simpleText || "",
-            lengthSeconds: parseDuration(r.lengthText?.simpleText || ""),
-            description: "",
-          };
-        });
+      // IMPORTANTE: o YouTube trocou o renderer da coluna de recomendacoes de
+      // compactVideoRenderer para lockupViewModel. Filtrar so pela chave antiga fazia
+      // relatedVideos voltar [] para qualquer video -- e o autoplay "proxima
+      // relacionada" do NowPlayingView nunca disparava. A leitura mora em
+      // _shared/innertubeRelated.ts (mesmo modulo coberto por
+      // src/test/innertube-related.test.ts com payload real capturado).
+      const relatedVideos = parseRelatedFromNext(data, 15);
 
       let comments: any[] = [];
       try {
@@ -330,14 +315,6 @@ async function fetchPlayerDescription(videoId: string): Promise<string> {
   return normalizeDescription(data?.videoDetails?.shortDescription || "");
 }
 
-
-function parseDuration(text: string): number {
-  if (!text) return 0;
-  const parts = text.split(":").map(Number);
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-  return 0;
-}
 
 function formatSeconds(s: number): string {
   const h = Math.floor(s / 3600);

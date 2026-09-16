@@ -111,18 +111,36 @@ async function testYouTubeGeneralSearchBasic() {
 async function testCriticalFunctions() {
   console.log('🔍 Testando outras Edge Functions críticas...');
   
+  // As functions leem parâmetro da QUERY STRING (url.searchParams), nao do corpo.
+  // Mandar no corpo devolvia 200 com resultado vazio: um "OK" verde e mentiroso.
+  // Por isso cada teste declara `query` + `expectList`, e o verde so vem com dados.
   const tests = [
     {
       name: 'youtube-search',
-      payload: { query: 'test music', limit: 3 }
+      query: { q: 'ana vitoria', filter: 'music' },
+      expectList: 'results',
+      minItems: 1
     },
     {
-      name: 'youtube-video-info', 
-      payload: { videoId: 'dQw4w9WgXcQ' }
+      name: 'youtube-general-search',
+      query: { q: 'ana vitoria', limit: 5 },
+      expectList: 'results',
+      minItems: 1
     },
     {
-      name: 'ai-chat',
-      payload: { message: 'test', conversationId: 'test-' + Date.now() }
+      name: 'youtube-video-info',
+      query: { videoId: 'dQw4w9WgXcQ' },
+      // regressao conhecida: relatedVideos vinha [] porque o parser so conhecia
+      // compactVideoRenderer (o YouTube hoje entrega lockupViewModel).
+      expectList: 'relatedVideos',
+      minItems: 1,
+      alsoList: { field: 'comments', minItems: 1 }
+    },
+    {
+      name: 'youtube-trending',
+      expectList: 'results',
+      minItems: 1,
+      note: 'ai-chat segue fora do repo: esta deployada mas nao ha supabase/functions/ai-chat'
     }
   ];
 
@@ -132,22 +150,47 @@ async function testCriticalFunctions() {
     try {
       console.log(`   • Testando ${test.name}...`);
       
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/${test.name}`, {
+      const qs = test.query ? '?' + new URLSearchParams(test.query).toString() : '';
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/${test.name}${qs}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(test.payload)
+        body: JSON.stringify({})
       });
 
-      results[test.name] = {
-        status: response.status,
-        ok: response.ok,
-        message: response.ok ? 'OK' : response.statusText
-      };
+      let message = response.ok ? 'OK' : response.statusText;
+      let ok = response.ok;
 
-      console.log(`     ${response.ok ? '✅' : '❌'} ${test.name}: ${response.status}`);
+      // so e OK se vier lista com conteudo - HTTP 200 vazio e falha
+      if (ok && test.expectList) {
+        try {
+          const data = await response.clone().json();
+          const n = Array.isArray(data[test.expectList]) ? data[test.expectList].length : -1;
+          if (n < (test.minItems ?? 1)) {
+            ok = false;
+            message = `HTTP 200 mas ${test.expectList}=${n < 0 ? 'ausente' : n} (esperava >= ${test.minItems ?? 1})`;
+          } else {
+            message = `OK (${test.expectList}: ${n})`;
+            if (test.alsoList) {
+              const m = Array.isArray(data[test.alsoList.field]) ? data[test.alsoList.field].length : -1;
+              if (m < (test.alsoList.minItems ?? 1)) {
+                ok = false;
+                message = `OK, mas ${test.alsoList.field}=${m} (esperava >= ${test.alsoList.minItems ?? 1})`;
+              } else {
+                message += `, ${test.alsoList.field}: ${m}`;
+              }
+            }
+          }
+        } catch (e) {
+          ok = false;
+          message = `resposta nao e JSON valido: ${e.message}`;
+        }
+      }
+
+      results[test.name] = { status: response.status, ok, message };
+      console.log(`     ${ok ? '✅' : '❌'} ${test.name}: ${response.status} ${message}`);
 
     } catch (error) {
       results[test.name] = {
