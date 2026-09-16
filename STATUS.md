@@ -1,8 +1,42 @@
 # Status do Xerife Music
 
-Atualizado em 2026-09-16 (3ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-09-16 (4ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-09-16 (noite) — comentários em pt-BR e overlay minimizado no player
+
+1. **Painel de comentários do Xerife Videos em português** (edge `youtube-video-info`):
+   - **Datas em pt-BR:** o texto relativo do Invidious chegava **no locale da instância**
+     (observado: árabe no inv.nadeko.net — a URL `/api/v1/comments` não honra `hl`).
+     A função agora usa o epoch determinístico `published` →
+     [`supabase/functions/_shared/ptbrRelative.ts`](supabase/functions/_shared/ptbrRelative.ts)
+     (`formatRelativePtBR`, coberto por `src/test/ptbr-relative.test.ts`). No caminho innertube
+     (quando o `/next` responde), o `hl: "pt"` do contexto já entrega pt-BR.
+   - **Tradução automática para pt-BR:** novo `translateTextsPtBR` (MyMemory, endpoint público
+     amigável a datacenter — o `gtx` do Google Tradutor devolve "Sorry" para bot). Concorrência
+     4, timeout 4 s, falha mantém o original. Quando traduz, o comentário carrega
+     `originalContent` + `lang`; a UI mostra o toggle **"Ver original · traduzido
+     automaticamente / Ver tradução"** (`CommentBody` em
+     [`src/components/VideoComments.tsx`](src/components/VideoComments.tsx)).
+   - **Mais comentários:** 2 páginas em ambos os caminhos (Invidious `continuation` e
+     continuation-token do engagement panel do `/next`) → **40 comentários** por vídeo.
+   - **Bonus:** entities HTML do `contentHtml` decodificadas ANTES de traduzir (`&#39;` → `'`).
+   - **Medido ao vivo pós-deploy** (`?videoId=dQw4w9WgXcQ&debug=1`): 15 related (via
+     approx-search, pois o `/next` deu 403 no nó), **40 comments, translatedCount: 40**,
+     datas "há 1 ano"/"há 4 semanas", zero entities pendentes, `translateMs` ≈ 6 s na 1ª carga
+     (cache de 15 min absorve as demais).
+2. **Overlay do player começa oculto e só toggle por toque** ([`src/pages/Index.tsx`](src/pages/Index.tsx)):
+   - Efeito único por `[isPlaying, expanded, playerMode]`: pausado/pré-play/finalizado →
+     controles visíveis (play/seek/tempo); **tocando → ocultos** (antes abria visível por 4 s
+     e ainda re-exibia por 4 s ao retomar após pausa).
+   - Toque em qualquer área do player = toggle (tap catcher). **Guarda anti-duplicado**
+     (`videoOverlayTapGuardRef`): dois toques < 300 ms contam como um — fim do esconde/mostra
+     fantasma em toque acidental.
+3. **CI:** medido `Deploy Edge Functions` success (runs 35110019754 attempt 2 — a attempt 1
+   falhou em `supabase/setup-cli` por erro transitório do GitHub Actions, re-run resolveu —
+   e 35111062938). Função `youtube-video-info` versão nova ao vivo confirmada via
+   Management API (`updated_at` = hora do deploy).
 
 ## Sessão 2026-09-16 — três features entregues
 
