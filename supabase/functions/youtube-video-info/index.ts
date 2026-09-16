@@ -184,10 +184,15 @@ async function fetchFromInnertube(videoId: string, debug = false): Promise<any> 
       }
     );
 
+    if (debug) diag.status = res.status;
+    if (!res.ok && debug) {
+      const bodyText = await res.text().catch(() => "");
+      diag.notOkBody = bodyText.slice(0, 400);
+      return { relatedVideos: [], comments: [], description: "", __debug: diag };
+    }
     if (res.ok) {
       const data = await res.json();
       if (debug) {
-        diag.status = res.status;
         diag.topKeys = Object.keys(data || {});
         diag.secondaryCount = (data?.contents?.twoColumnWatchNextResults?.secondaryResults?.secondaryResults?.results || []).length;
         diag.secondaryTypes = (data?.contents?.twoColumnWatchNextResults?.secondaryResults?.secondaryResults?.results || []).slice(0, 5).map((r: any) => Object.keys(r || {})[0]);
@@ -282,9 +287,12 @@ async function fetchFromInnertube(videoId: string, debug = false): Promise<any> 
     }
   } catch (err) {
     console.warn("[youtube-video-info] Innertube failed:", err);
+    if (debug) diag.exception = String(err);
   }
 
-  return { relatedVideos: [], comments: [], description: "" };
+  return debug
+    ? { relatedVideos: [], comments: [], description: "", __debug: diag }
+    : { relatedVideos: [], comments: [], description: "" };
 }
 
 function normalizeDescription(description?: string): string {
