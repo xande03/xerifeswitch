@@ -1,5 +1,19 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { Search, Wifi, WifiOff, ChevronRight, ChevronDown, Music, TrendingUp, Play, Pause, SkipBack, SkipForward, User, Clock, Sparkles, Plus, Sun, Moon, Flame, Headphones, Disc3, Zap, MonitorPlay, Heart, ListMusic, Bookmark, Trash2, Maximize2, Minimize2, ArrowLeft, Captions, CaptionsOff, Home, RefreshCw, Star } from "lucide-react";
+// Telas/overlays pesados viram chunks async (ver src/lib/deferredScreens.ts):
+// alias com o mesmo nome mantem o JSX intacto, cada sitio ganhou um <Suspense>.
+import {
+  LazyQueueDrawer as QueueDrawer,
+  LazyFloatingPiPPlayer as FloatingPiPPlayer,
+  LazyExploreScreen as ExploreScreen,
+  LazyChannelProfile as ChannelProfile,
+  LazyArtistProfile as ArtistProfile,
+  LazySearchScreen as SearchScreen,
+  LazyFullscreenOverlay as FullscreenOverlay,
+  LazyPodcastScreen as PodcastScreen,
+  schedulePrefetchOnIdle,
+} from "@/lib/deferredScreens";
+import NowPlayingView, { type PlayerMode } from "@/components/NowPlayingView";
 import SeekBar from "@/components/SeekBar";
 import { formatDuration } from "@/data/mockSongs";
 import { useReducedMotionTest } from "@/hooks/useReducedMotionTest";
@@ -23,7 +37,6 @@ import { fetchRelatedQueue, popNextFromQueue, clearSmartQueue, shuffleSmartQueue
 import { fetchRelatedVideoQueue, popNextVideoFromQueue, setSmartVideoQueue } from "@/lib/smartVideoQueue";
 import { fetchArtistAlbumQueue, fetchHistoryBasedQueue } from "@/lib/artistAlbumQueue";
 
-import QueueDrawer from "@/components/QueueDrawer";
 import Logo from "@/components/Logo";
 import ModuleSwitcher, { MODULE_LABEL, type SwitchableModule } from "@/components/ModuleSwitcher";
 
@@ -34,33 +47,25 @@ import { hdThumbnail } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import SongCard from "@/components/SongCard";
 import MiniPlayer from "@/components/MiniPlayer";
-import NowPlayingView, { type PlayerMode } from "@/components/NowPlayingView";
-import FloatingPiPPlayer from "@/components/FloatingPiPPlayer";
 import PiPDiagnostics from "@/components/PiPDiagnostics";
 import { trackPip } from "@/lib/pipTelemetry";
-import ExploreScreen from "@/components/ExploreScreen";
 import VideoHomeScreen, { getWatchLater, removeFromWatchLater } from "@/components/VideoHomeScreen";
 import HubHomeScreen from "@/components/HubHomeScreen";
 import { useModuleMode } from "@/hooks/useModuleMode";
-import ChannelProfile from "@/components/ChannelProfile";
 import { getFavoriteChannels, removeFavoriteChannel, addFavoriteChannel, FAV_CHANNELS_EVENT } from "@/lib/favoriteChannels";
-import ArtistProfile from "@/components/ArtistProfile";
 import BottomNav from "@/components/BottomNav";
 import DesktopSidebar from "@/components/DesktopSidebar";
 import SearchSkeleton from "@/components/SearchSkeleton";
-import SearchScreen from "@/components/SearchScreen";
 import DesktopPlayer from "@/components/DesktopPlayer";
 import SidebarPlayer from "@/components/SidebarPlayer";
 
 import SplashScreen from "@/components/SplashScreen";
-import FullscreenOverlay from "@/components/FullscreenOverlay";
 import HeaderMenu from "@/components/HeaderMenu";
 import { DownloadModal } from "@/components/DownloadModal";
 import { ShareModal } from "@/components/ShareModal";
 import { PlaylistModal } from "@/components/PlaylistModal";
 import { PlaylistDetail } from "@/components/PlaylistDetail";
 
-import PodcastScreen from "@/components/PodcastScreen";
 import LibraryHubScreen from "@/components/LibraryHubScreen";
 
 import { saveEpisodeProgress, getEpisodeProgress, getAllInProgressEpisodes } from "@/lib/podcastStorage";
@@ -233,6 +238,10 @@ const Index = () => {
     } catch {}
     return mockSongs[0];
   });
+  // Os chunks das telas adias (podcast, buscar, canal, artista, fullscreen, fila,
+  // PiP) sao baixados quando a main thread fica livre. O primeiro clique nao
+  // paga o custo do download, mas o primeiro paint nao espera nada disso.
+  useEffect(() => schedulePrefetchOnIdle(), []);
   const [expanded, setExpanded] = useState<boolean>(() => {
     try {
       return localStorage.getItem('demus-player-expanded') === '1';
@@ -2103,6 +2112,7 @@ const Index = () => {
           />
           {/* Fullscreen overlay controls rendered here */}
           {playerState.isFullscreen && (
+          <Suspense fallback={null}>
             <FullscreenOverlay
               song={currentSong}
               isPlaying={playerState.isPlaying}
@@ -2115,6 +2125,7 @@ const Index = () => {
               onSeek={handleSeek}
               onExit={() => exitFullscreen()}
             />
+          </Suspense>
           )}
         </div>
           );
@@ -2242,6 +2253,7 @@ const Index = () => {
 
         {/* Main content */}
         <main className="flex-1 overflow-y-auto pb-4 overscroll-contain lg:px-2" key={activeTab} style={{ animation: 'fade-in 0.25s ease-out' }}>
+        <Suspense fallback={<div className="flex justify-center py-24"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/25 border-t-primary" /></div>}>
           {activeTab === "home" && podcastMode && (
             <PodcastScreen
               onPlayPodcast={(song) => {
@@ -3259,6 +3271,7 @@ const Index = () => {
             </div>
           )}
 
+        </Suspense>
         </main>
 
         {!expanded && (
@@ -3382,6 +3395,7 @@ const Index = () => {
 
         <AnimatePresence>
           {showQueue && (
+            <Suspense fallback={null}>
             <QueueDrawer
               isOpen={showQueue}
               onClose={() => setShowQueue(false)}
@@ -3392,10 +3406,12 @@ const Index = () => {
               onClearQueue={handleClearQueue}
               onReorder={handleReorderQueue}
             />
+            </Suspense>
           )}
         </AnimatePresence>
 
         {showFloatingPiP && !expanded && (
+          <Suspense fallback={null}>
           <FloatingPiPPlayer
             song={currentSong}
             isPlaying={playerState.isPlaying}
@@ -3407,6 +3423,7 @@ const Index = () => {
             onExpand={() => { setShowFloatingPiP(false); setExpanded(true); }}
             onClose={() => setShowFloatingPiP(false)}
           />
+          </Suspense>
         )}
 
         <PiPDiagnostics

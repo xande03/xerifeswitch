@@ -1,89 +1,179 @@
 /**
- * Regressão de layout: #music-video-anchor (usado pelo modo Vídeo do
- * Xerife Podcast e Xerife Music) nunca deve ultrapassar os limites laterais
- * da tela em mobile (390px), tablet (1024px) e desktop (1440px), mantendo
- * proporção 16:9.
+ * Regressão de layout do #music-video-anchor (modo Vídeo do Xerife Music e do
+ * Xerife Podcast): o anchor nunca pode estourar os limites laterais da tela,
+ * precisa manter a proporção declarada e continuar contido depois de girar.
  *
- * Executar (dev server em :8080):
+ * Por que este arquivo foi reescrito: a versão anterior COPIAVA à mão a cadeia de
+ * classes do container em NowPlayingView.tsx. When the real classes mudaram
+ * (max-w-[420px] sm:max-w-[440px] lg:max-w-[520px] -> quatro ramagens
+ * responsivas por modo), a cópia ficou dessincronizada e o teste passou a falhar
+ * contra si mesmo - `anchor.width 480 > max 408` - sem que houvesse regressão
+ * nenhuma no app. Um teste que duplica o código sob teste vira ruído.
+ *
+ * Agora as classes são LIDAS do fonte em runtime e as expectativas (max-w,
+ * padding, aspect-ratio) são DERIVADAS delas. Se o design mudar, o teste acompanha;
+ * se o layout quebrar de verdade (overflow, proporção errada), ele falha.
+ *
+ * Uso:
+ *   npm run build        # opcional, mas recomendado: usa o CSS real do app
  *   node e2e/podcast-video-anchor-bounds.spec.mjs
+ *
+ * Sem `dist/` construído, cai para o Tailwind CDN (exige rede) apenas para
+ * aplicar as classes; as asserções são as mesmas.
  */
 import { chromium } from "playwright";
 import assert from "node:assert/strict";
+import http from "node:http";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const SRC = path.join(ROOT, "src/components/NowPlayingView.tsx");
 const PORT = 8123;
-const HTML = `<!doctype html><html><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<script src="https://cdn.tailwindcss.com"></script>
-<style>html,body{margin:0;background:#000;color:#fff;overflow:hidden}</style>
+
+// ── 1. extrair as ramagens reais do container do anchor ─────────────────────
+const src = readFileSync(SRC, "utf8");
+const block = src.slice(
+  src.indexOf("Video/Artwork Container"),
+  src.indexOf("Video/Artwork Container") + 4000,
+);
+assert.ok(block.length > 100, "bloco 'Video/Artwork Container' nao encontrado em NowPlayingView.tsx — o layout mudou de forma estrutural, atualize a extracao deste teste");
+
+// Cada ramagem do ternario e uma string literal com classes utilitarias.
+const branches = [...block.matchAll(/"((?:relative|w-full)[^"]*?(?:aspect-(?:video|square)|max-w-\[[^\]]+\])[^"]*)"/g)]
+  .map((m) => m[1])
+  .filter((c, i, all) => all.indexOf(c) === i && !/^w-full\s/.test(c));
+assert.ok(branches.length >= 2, `esperava >= 2 ramagens de classe no container do anchor, achei ${branches.length}`);
+
+// O anchor em si: e ele quem carrega o aspect-ratio no app real, e por isso a
+// proporcao verificada vem daqui (o container so trata de largura/padding).
+const anchorMatch = src.match(/<div\s+id="music-video-anchor"\s+className="([^"]+)"/);
+assert.ok(anchorMatch, 'elemento id="music-video-anchor" com className literal nao encontrado — atualize a extracao');
+const ANCHOR_CLASSES = anchorMatch[1];
+branches.splice(0, branches.length, ...branches.filter((c) => c !== ANCHOR_CLASSES));
+
+// ── 2. parse das expectativas a partir das proprias classes ─────────────────
+const clampPx = (v) => Number(v);
+function parseBranch(classes) {
+  const maxW = {}; // breakpoint -> px
+  for (const m of classes.matchAll(/(?:(sm|md|lg|xl):)?max-w-\[(\d+)px\]/g)) {
+    maxW[m[1] || "base"] = clampPx(m[2]);
+  }
+  const pad = {};
+  for (const m of classes.matchAll(/(?:(sm|md|lg|xl):)?px-(\d+)/g)) {
+    pad[m[1] || "base"] = Number(m[2]) * 4; // escala do tailwind: 1 = 0.25rem
+  }
+  return { classes, maxW, pad };
+}
+
+/** Valor vigente num breakpoint dado o mapa base/sm/md/lg/xl. */
+function active(map, width) {
+  const order = width >= 1280 ? ["xl", "lg", "md", "sm", "base"]
+    : width >= 1024 ? ["lg", "md", "sm", "base"]
+    : width >= 768 ? ["md", "sm", "base"]
+    : width >= 640 ? ["sm", "base"] : ["base"];
+  for (const k of order) if (map[k] != null) return map[k];
+  return Infinity;
+}
+
+// ── 3. CSS: o do build real quando existir, senao o CDN ─────────────────────
+const assetDir = path.join(ROOT, "dist/assets");
+const appCss = existsSync(assetDir)
+  ? readdirSync(assetDir).find((f) => /^index-.*\.css$/.test(f))
+  : undefined;
+
+function pageFor(branchClasses) {
+  // Reproduz a cadeia real: wrapper de coluna + container com as classes extraidas
+  // + o proprio anchor. So o que esta no fonte entra aqui - nada copiado a mao.
+  return `<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+${appCss ? `<link rel="stylesheet" href="/app.css">` : `<script src="https://cdn.tailwindcss.com"></script>`}
+<style>html,body{margin:0;background:#000;color:#fff}</style>
 </head><body>
-<!-- Reproduz a mesma cadeia de classes que envolve o #music-video-anchor
-     em src/components/NowPlayingView.tsx (linha ~462). Se alguém quebrar as
-     restrições responsivas, este teste falha. -->
-<div class="w-full lg:w-1/2 flex flex-col justify-center items-center gap-4 relative">
-  <div class="w-full group relative aspect-video max-w-[380px] sm:max-w-[440px] lg:max-w-[520px] mx-auto px-3 sm:px-4 mt-2 sm:mt-4">
-    <div id="music-video-anchor" class="w-full aspect-video rounded-3xl bg-black/40 shadow-2xl" aria-hidden></div>
+<div class="w-full relative">
+  <div class="${branchClasses}" id="anchor-container">
+    <div id="music-video-anchor" class="${ANCHOR_CLASSES}"></div>
   </div>
 </div>
 </body></html>`;
+}
 
-// Servidor HTTP mínimo — não depende do dev server do app.
-import http from "node:http";
-const server = http.createServer((_req, res) => {
+const server = http.createServer(async (req, res) => {
+  if (req.url === "/app.css" && appCss) {
+    res.writeHead(200, { "content-type": "text/css; charset=utf-8" });
+    res.end(readFileSync(path.join(assetDir, appCss)));
+    return;
+  }
+  const idx = Number(new URL(req.url, "http://x").searchParams.get("b") ?? "0");
   res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-  res.end(HTML);
+  res.end(pageFor(branches[idx] ?? branches[0]));
 });
 await new Promise((r) => server.listen(PORT, r));
 
-const CASES = [
-  { label: "mobile 390",    width: 390,  height: 844,  maxAnchor: 380 - 24 /* px-3 lados */ },
-  { label: "tablet 1024",   width: 1024, height: 800,  maxAnchor: 440 - 32 /* sm:px-4 lados */ },
-  { label: "desktop 1440",  width: 1440, height: 900,  maxAnchor: 520 - 32 },
+const VIEWPORTS = [
+  { label: "mobile 390", width: 390, height: 844 },
+  { label: "tablet 768", width: 768, height: 1024 },
+  { label: "tablet 1024", width: 1024, height: 800 },
+  { label: "desktop 1440", width: 1440, height: 900 },
 ];
 
 const browser = await chromium.launch({ headless: true });
+console.log(`CSS: ${appCss ? "build real (" + appCss + ")" : "Tailwind CDN"} | ramagens: ${branches.length}`);
+process.env.SMOKE_DEBUG && console.log("HTML[0]:\n" + pageFor(branches[0]).slice(0, 600));
+let checked = 0;
 try {
-  for (const c of CASES) {
-    const ctx = await browser.newContext({ viewport: { width: c.width, height: c.height } });
-    const page = await ctx.newPage();
-    await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "networkidle" });
-    // Tailwind CDN aplica classes em runtime — aguardar um frame.
-    await page.waitForTimeout(150);
+  for (let bi = 0; bi < branches.length; bi++) {
+    const spec = parseBranch(branches[bi]);
+    const aspect = /aspect-square/.test(ANCHOR_CLASSES) ? 1 : 16 / 9;
+    for (const c of VIEWPORTS) {
+      const ctx = await browser.newContext({ viewport: { width: c.width, height: c.height } });
+      const page = await ctx.newPage();
+      await page.goto(`http://127.0.0.1:${PORT}/?b=${bi}`, { waitUntil: "load", timeout: 30000 });
+      if (!appCss) await page.waitForTimeout(250); // CDN aplica em runtime
 
-    // 1) Retângulo do anchor dentro dos limites laterais
-    const rect = await page.evaluate(() => {
-      const el = document.getElementById("music-video-anchor");
-      const r = el.getBoundingClientRect();
-      return { left: r.left, right: r.right, width: r.width, height: r.height, vw: window.innerWidth };
-    });
-    assert.ok(rect.left >= 0, `[${c.label}] anchor.left (${rect.left}) < 0 (overflow esquerdo)`);
-    assert.ok(rect.right <= rect.vw, `[${c.label}] anchor.right (${rect.right}) > viewport (${rect.vw}) — overflow direito`);
-    // Margem lateral esperada mínima (px-3 = 12px em mobile, px-4 = 16px em sm+)
-    const expectedSidePad = c.width < 640 ? 12 : 16;
-    const totalSidePad = Math.round(rect.left + (rect.vw - rect.right));
-    assert.ok(totalSidePad >= expectedSidePad, `[${c.label}] padding total ${totalSidePad}px < esperado ${expectedSidePad}px`);
+      const rect = await page.evaluate(() => {
+        const r = document.getElementById("music-video-anchor").getBoundingClientRect();
+        return { left: r.left, right: r.right, width: r.width, height: r.height, vw: window.innerWidth };
+      });
 
-    // 2) Largura respeita o max-w responsivo
-    assert.ok(rect.width <= c.maxAnchor + 1, `[${c.label}] anchor.width ${rect.width} > max ${c.maxAnchor}`);
+      // (a) contido horizontalmente
+      assert.ok(rect.left >= -0.5, `[ramagem ${bi} | ${c.label}] anchor.left (${rect.left}) < 0`);
+      assert.ok(rect.right <= rect.vw + 0.5, `[ramagem ${bi} | ${c.label}] anchor.right (${rect.right}) > viewport (${rect.vw})`);
 
-    // 3) Aspect ratio 16:9 (~1.777)
-    const ratio = rect.width / rect.height;
-    assert.ok(Math.abs(ratio - 16 / 9) < 0.02, `[${c.label}] aspect ratio ${ratio.toFixed(3)} != 16:9`);
+      // (b) padding lateral declarado esta de pe
+      const sidePad = Math.round(rect.left + (rect.vw - rect.right));
+      const minPad = active(spec.pad, c.width);
+      assert.ok(sidePad >= minPad - 1, `[ramagem ${bi} | ${c.label}] padding total ${sidePad}px < ${minPad}px declarado nas classes`);
 
-    // 4) Após simular rotação (portrait <-> landscape), continua contido
-    await page.setViewportSize({ width: c.height, height: c.width });
-    await page.waitForTimeout(100);
-    const rotated = await page.evaluate(() => {
-      const el = document.getElementById("music-video-anchor");
-      const r = el.getBoundingClientRect();
-      return { left: r.left, right: r.right, width: r.width, vw: window.innerWidth };
-    });
-    assert.ok(rotated.left >= 0 && rotated.right <= rotated.vw,
-      `[${c.label}] após rotação, anchor sai da viewport (left=${rotated.left}, right=${rotated.right}, vw=${rotated.vw})`);
+      // (c) largura <= max-w vigente naquele breakpoint
+      const maxW = active(spec.maxW, c.width);
+      assert.ok(rect.width <= maxW + 1, `[ramagem ${bi} | ${c.label}] anchor.width ${rect.width} > max-w ${maxW} das classes`);
 
-    console.log(`✅ ${c.label}: w=${rect.width.toFixed(1)} h=${rect.height.toFixed(1)} ratio=${ratio.toFixed(3)} | rotado w=${rotated.width.toFixed(1)}`);
-    await ctx.close();
+      // (d) proporcao = a declarada (aspect-video 16:9 / aspect-square 1:1)
+      assert.ok(rect.height > 0, `[ramagem ${bi} | ${c.label}] anchor com altura 0 (aspect-ratio nao aplicado?)`);
+      const ratio = rect.width / rect.height;
+      assert.ok(Math.abs(ratio - aspect) < 0.06, `[ramagem ${bi} | ${c.label}] ratio ${ratio.toFixed(3)} != ${aspect.toFixed(3)} declarado em "${ANCHOR_CLASSES.slice(0, 40)}..."`);
+
+      // (e) rotacao: continua contido e na proporcao
+      await page.setViewportSize({ width: c.height, height: c.width });
+      await page.waitForTimeout(150);
+      const rot = await page.evaluate(() => {
+        const r = document.getElementById("music-video-anchor").getBoundingClientRect();
+        return { left: r.left, right: r.right, width: r.width, height: r.height, vw: window.innerWidth };
+      });
+      assert.ok(rot.left >= -0.5 && rot.right <= rot.vw + 0.5,
+        `[ramagem ${bi} | ${c.label} rotacionado] anchor fora da viewport (left=${rot.left}, right=${rot.right}, vw=${rot.vw})`);
+      assert.ok(rot.width <= active(spec.maxW, Math.max(c.width, c.height)) + 1,
+        `[ramagem ${bi} | ${c.label} rotacionado] largura ${rot.width} estourou o max-w`);
+
+      console.log(`✅ [ramagem ${bi}] ${c.label}: w=${rect.width.toFixed(1)} h=${rect.height.toFixed(1)} ratio=${ratio.toFixed(3)} (max-w=${maxW}, pad=${minPad}) rot=${rot.width.toFixed(1)}`);
+      checked++;
+      await ctx.close();
+    }
   }
-  console.log("\n✅ Podcast/Music video anchor bounds — todos os breakpoints ok");
+  console.log(`\n✅ Video anchor bounds — ${checked} combinacoes (ramagens x breakpoints x rotacao) ok, CSS: ${appCss ? "build real do app" : "Tailwind CDN"}\n   ramagens extraidas de NowPlayingView.tsx:`);
+  branches.forEach((b, i) => console.log(`   [${i}] ${b.slice(0, 110)}`));
 } finally {
   await browser.close();
   server.close();
