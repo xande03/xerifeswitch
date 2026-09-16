@@ -67,6 +67,8 @@ import { PlaylistModal } from "@/components/PlaylistModal";
 import { PlaylistDetail } from "@/components/PlaylistDetail";
 
 import LibraryHubScreen from "@/components/LibraryHubScreen";
+import ListeningStatsScreen from "@/components/ListeningStatsScreen";
+import { useListeningTracker } from "@/hooks/useListeningTracker";
 
 import { saveEpisodeProgress, getEpisodeProgress, getAllInProgressEpisodes } from "@/lib/podcastStorage";
 import ProfileButton from "@/components/ProfileButton";
@@ -79,7 +81,7 @@ import album3 from "@/assets/album-3.jpg";
 import album4 from "@/assets/album-4.jpg";
 
 
-type Tab = "home" | "search" | "library" | "offline" | "profile" | "history" | "playlists" | "podcast" | "libraryhub";
+type Tab = "home" | "search" | "library" | "offline" | "profile" | "history" | "playlists" | "podcast" | "libraryhub" | "stats";
 type SearchFilter = "all" | "songs" | "artists" | "albums";
 type HomeMode = "hub" | "music" | "video";
 
@@ -742,6 +744,22 @@ const Index = () => {
   const ct = isPlayingOffline ? offlineCurrentTime : (playerState.currentTime || 0);
   const dur = isPlayingOffline ? (offlineDuration || currentSong.duration) : (playerState.duration || currentSong.duration);
   const isPlaying = isPlayingOffline ? offlineIsPlaying : playerState.isPlaying;
+
+  // Estatísticas de escuta: acumula segundos reais de reprodução por faixa/artista
+  useListeningTracker(
+    currentSong
+      ? {
+          id: currentSong.id,
+          title: currentSong.title,
+          artist: currentSong.artist,
+          cover: currentSong.cover,
+          duration: currentSong.duration,
+          type: (currentSong as { type?: "music" | "video" | "podcast" }).type ?? "music",
+        }
+      : null,
+    ct,
+    isPlaying,
+  );
 
   // Keep video overlay controls visible while paused (or before playback starts):
   // users need to see play/seek/time when the video isn't actively playing.
@@ -3069,8 +3087,30 @@ const Index = () => {
                     if (mod === "podcast") podNav("history");
                     else setActiveTab("history");
                     break;
+                  case "stats":
+                    setActiveTab("stats");
+                    break;
                 }
               }}
+            />
+          )}
+
+          {activeTab === "stats" && (
+            <ListeningStatsScreen
+              onPlayTrack={(t) =>
+                handleSelect({
+                  id: t.id,
+                  youtubeId: t.youtubeId,
+                  title: t.title,
+                  artist: t.artist,
+                  album: "",
+                  cover: t.cover,
+                  duration: t.duration,
+                  votes: 0,
+                  isDownloaded: false,
+                  type: t.type,
+                })
+              }
             />
           )}
 

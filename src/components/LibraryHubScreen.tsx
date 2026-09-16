@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { Download, Heart, Bookmark, ListMusic, Clock, Headphones, Music, MonitorPlay, Library, ChevronRight, Star } from "lucide-react";
+import { Download, Heart, Bookmark, ListMusic, Clock, Headphones, Music, MonitorPlay, Library, ChevronRight, Star, BarChart3 } from "lucide-react";
 import { getFavoritesMetadata, getHistory, getPlaylists } from "@/lib/localStorage";
+import { getUniqueTrackCount } from "@/lib/listeningStats";
 import { getWatchLater } from "@/components/VideoHomeScreen";
 import { getFavoriteEpisodes, getSubscriptions, PODCAST_SUBS_EVENT } from "@/lib/podcastStorage";
 import { getAllSavedSongs } from "@/lib/indexedDB";
 import { getFavoriteChannels, FAV_CHANNELS_EVENT } from "@/lib/favoriteChannels";
 
 export type LibraryFilter = "music" | "podcast" | "video";
-export type LibraryToolId = "downloads" | "liked" | "watchlater" | "playlists" | "podcasts" | "history" | "favchannels";
+export type LibraryToolId = "downloads" | "liked" | "watchlater" | "playlists" | "podcasts" | "history" | "favchannels" | "stats";
 
 
 interface LibraryHubScreenProps {
@@ -42,6 +43,7 @@ const LibraryHubScreen = ({ onHomeModeChange, onOpenTool, initialFilter }: Libra
     historyPodcast: 0,
     podcastShows: 0,
     favChannels: 0,
+    statsTracks7d: 0,
   });
 
   useEffect(() => {
@@ -62,8 +64,9 @@ const LibraryHubScreen = ({ onHomeModeChange, onOpenTool, initialFilter }: Libra
         try { downloadsMusic = (await getAllSavedSongs()).length; } catch {}
         const podcastShows = getSubscriptions().length;
         const favChannels = getFavoriteChannels().length;
+        const statsTracks7d = getUniqueTrackCount("7d", filter === "podcast" ? "podcast" : filter === "video" ? "video" : "music");
         if (!cancelled) {
-          setCounts({ downloadsMusic, likedMusic, likedVideo, likedPodcast, watchLater, playlists, historyMusic, historyVideo, historyPodcast, podcastShows, favChannels });
+          setCounts({ downloadsMusic, likedMusic, likedVideo, likedPodcast, watchLater, playlists, historyMusic, historyVideo, historyPodcast, podcastShows, favChannels, statsTracks7d });
         }
       } catch {}
     };
@@ -100,6 +103,7 @@ const LibraryHubScreen = ({ onHomeModeChange, onOpenTool, initialFilter }: Libra
     if (id === "podcasts") return counts.podcastShows;
     if (id === "favchannels") return filter === "podcast" ? counts.podcastShows : counts.favChannels;
     if (id === "history") return filter === "music" ? counts.historyMusic : filter === "video" ? counts.historyVideo : counts.historyPodcast;
+    if (id === "stats") return counts.statsTracks7d;
     return 0;
   };
 
@@ -117,6 +121,7 @@ const LibraryHubScreen = ({ onHomeModeChange, onOpenTool, initialFilter }: Libra
     { id: "playlists", label: "Playlists", description: "Suas coleções", icon: ListMusic, gradient: "from-violet-500/30 to-purple-500/5", filters: ["music", "video"], count: countFor("playlists") },
     { id: "favchannels", label: "Favoritos", description: filter === "podcast" ? "Canais de podcast favoritados" : "Canais que você favoritou", icon: Star, gradient: "from-yellow-500/30 to-amber-500/5", filters: ["podcast", "video"], count: countFor("favchannels") },
     { id: "history", label: "Histórico", description: "Reproduções recentes", icon: Clock, gradient: "from-slate-500/30 to-zinc-500/5", filters: ["music", "podcast", "video"], count: countFor("history") },
+    { id: "stats", label: "Estatísticas", description: "Tempo ouvido e seus tops (7 dias)", icon: BarChart3, gradient: "from-orange-500/30 to-amber-500/5", filters: ["music", "podcast", "video"], count: countFor("stats") },
   ];
 
   const visible = tiles.filter((t) => t.filters.includes(filter));

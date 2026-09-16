@@ -3,7 +3,7 @@ import { Home, Search, Heart, Compass, ThumbsUp, Library } from "lucide-react";
 import { getFavoritesMetadata } from "@/lib/localStorage";
 import { getFavoriteEpisodes } from "@/lib/podcastStorage";
 
-type Tab = "home" | "search" | "library" | "offline" | "profile" | "history" | "playlists" | "podcast" | "libraryhub";
+type Tab = "home" | "search" | "library" | "offline" | "profile" | "history" | "playlists" | "podcast" | "libraryhub" | "stats";
 type HomeMode = "hub" | "music" | "video";
 
 interface BottomNavProps {
