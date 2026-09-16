@@ -137,6 +137,14 @@ async function testCriticalFunctions() {
       alsoList: { field: 'comments', minItems: 1 }
     },
     {
+      name: 'youtube-playlist',
+      query: { playlistId: 'PL0ao6cotJFFU34ZCy3XJBAJNPsZdGbb5F', maxPages: 1 },
+      // funcao da sessao 2026-09-16: parser WEB validado contra /browse real
+      // (itens chegam como lockupViewModel, como em relatedVideos).
+      expectList: 'tracks',
+      minItems: 1
+    },
+    {
       name: 'youtube-trending',
       expectList: 'results',
       minItems: 1,

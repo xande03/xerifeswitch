@@ -1,6 +1,6 @@
 # Status do Xerife Music
 
-Atualizado em 2026-09-16 (2ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-09-16 (3ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
 
@@ -30,9 +30,36 @@ Medido neste checkout após as mudanças: `npm run check` ✅ (typecheck + **83 
    é **nova, ainda não deployada** (bloqueio do secret — item 2 abaixo). Até lá o cliente cai
    no fallback `youtube-album-tracks?browseId=VL<id>`, que funciona para conteúdo do YouTube
    Music (medido ao vivo: playlists só do youtube.com retornam vazio pelo caminho antigo).
-   O parser da função nova foi validado contra o YouTube real fora do deploy: itens hoje vêm
+   O parser da função nova foi validado contra o YouTube real: itens hoje vêm
    como `lockupViewModel` (a mesma migração que quebrou `relatedVideos`), e a coleta +
    paginação retornaram 200 faixas em 2 requisições numa playlist pública real.
+   **UPDATE (mesmo dia, pós-deploy):** `youtube-playlist` está no ar — medido ao vivo pós-deploy:
+   `POST {playlistId: "PL0ao6…", maxPages: 3}` → título "Samba e Pagode 2026…", 200 faixas
+   com duração/artista/capa via parser `web`.
+
+## Sessão 2026-09-16 (tarde) — deploy destravado e relatedVideos no ar
+
+1. **CI de deploy consertado**: secret `SUPABASE_ACCESS_TOKEN` criado no repositório e o
+   workflow ganhou `workflow_dispatch` (deploy manual pela UI/API do GitHub). As três runs
+   desta sessão terminaram em `success`. Todas as 11 funções do repo estão deployadas
+   (confirmado via Management API: 12 funções ativas no projeto, incl. `youtube-playlist`).
+2. **Causa raiz real do `relatedVideos: 0` descoberta** (só aparecia no runtime, nunca no
+   sandbox): o YouTube devolve **HTTP 403 "Sorry…"** para o endpoint `/youtubei/v1/next`
+   quando a chamada sai de **IP de datacenter** (Supabase Edge), enquanto `/search` e
+   `/browse` respondem normalmente da mesma rede — por isso `youtube-general-search`/
+   `youtube-playlist` funcionavam e o `/next` não. Diagnóstico feito com a flag `?debug=1`
+   adicionada à `youtube-video-info` (bypassa o cache e devolve `__debug` com o que o
+   runtime vê).
+3. **Defesa em dois níveis** deployada e medida ao vivo: (a) mantido o `/next` com parser
+   `lockupViewModel` — passa quando o nó de saída tem reputação boa; (b) **NOVO fallback**
+   `approxRelatedFromSearch`: oEmbed público (artista+título) → `youtubei /search` →
+   `parseVideoItemsList`, excluindo o próprio vídeo. Resultado medido ao vivo pós-deploy:
+   **15 relacionadas + 20 comentários** para `dQw4w9WgXcQ`, `9bZkp7q19f0` e `JGwWNGJdvx8`;
+   `npm run verify:edge` → **🎉 TODAS AS VERIFICAÇÕES PASSARAM** (incl. youtube-video-info
+   com relatedVideos ≥ 1). Observação: a instância Invidious `inv.nadeko.net` voltou ao ar
+   e hoje serve comentários (caminho parcial do Invidious ativo).
+4. `parseVideoItemsList` agora ignora lockups de canal/playlist (`contentType` ≠ VIDEO),
+   evitando falsos positivos quando o parser roda sobre resultados de **busca**.
 
 ## Verificações
 
@@ -67,34 +94,29 @@ Medido neste checkout após as mudanças: `npm run check` ✅ (typecheck + **83 
   `canonical` foi removido de `index.html` e o `server.url` foi removido de
   `capacitor.config.ts` — o shell nativo agora serve `dist/` local (antes abria a página de
   erro da Lovable).
-- **CI de deploy das functions**: ⚠️ **quebrado**. `.github/workflows/deploy-edge-functions.yml`
-  exige `SUPABASE_ACCESS_TOKEN`, e o repositório tem **zero** secrets configurados
-  (`GET /actions/secrets` → `total_count: 0`). As três últimas execuções falharam
-  (2026-07-28). Enquanto isso, mexer em `supabase/functions/**` no `main` **não** chega em
-  produção.
+- **CI de deploy das functions**: ✅ **funcionando**. `SUPABASE_ACCESS_TOKEN` configurado
+  como secret do repositório (2026-09-16); o workflow também aceita `workflow_dispatch`
+  (deploy manual) e dispara ao mexer no próprio yml. Runs desta sessão: 3× `success`.
 
 ## Bugs conhecidos (todos confirmados por medição; estado de cada um indicado)
 
-1. **`relatedVideos` sempre vazio → autoplay de relacionada quebrado.**
-   *Corrigido no repositório, NÃO deployado.* Causa: `youtube-video-info` lia só
-   `compactVideoRenderer`, e o YouTube entrega `lockupViewModel` hoje (as 6 instâncias
-   Invidious listadas como fonte primária estão mortas/bloqueadas: TLS, NXDOMAIN,
-   `403 Endpoint disabled`, `401` — logo o fallback nunca recebia relacionadas).
-   O parser agora vive em [`supabase/functions/_shared/innertubeRelated.ts`](supabase/functions/_shared/innertubeRelated.ts),
-   coberto por `src/test/innertube-related.test.ts` com **payload real capturado** do
-   `/youtubei/v1/next`. Medido após o fix, ao vivo: 15 relacionadas com título, canal,
-   duração e thumbnail para `dQw4w9WgXcQ`, `9bZkp7q19f0` e `JGwWNGJdvx8` (antes: 0).
-   `npm run verify:edge` hoje acusa ❌ nisso — é o estado correto até o deploy.
-2. **Deploy bloqueado**: adicione o secret para o CI conseguir publicar.
-   ```bash
-   gh secret set SUPABASE_ACCESS_TOKEN --repo xande03/xerifeswitch   # valor do dashboard Supabase
-   ```
-   Sem isso, qualquer mudança em `supabase/functions/**` fica presa no repositório.
-3. **`ai-chat` existe na nuvem, não no repo** — está deployada e responde 200, mas não há
+1. **`relatedVideos` sempre vazio → autoplay de relacionada quebrado.** ✅ **RESOLVIDO EM
+   PRODUÇÃO** (2026-09-16). Duas causas empilhadas: (a) `youtube-video-info` lia só
+   `compactVideoRenderer` e o YouTube entrega `lockupViewModel` (parser em
+   [`supabase/functions/_shared/innertubeRelated.ts`](supabase/functions/_shared/innertubeRelated.ts),
+   coberto por `src/test/innertube-related.test.ts` com payload real); (b) o YouTube dá
+   **403 "Sorry" no `/next` para IPs de datacenter** — mitigado com o fallback
+   oEmbed→`/search` (ver seção da sessão). Medido ao vivo: 15 relacionadas + 20 comentários
+   em 3 vídeos; `verify:edge` verde.
+2. **`ai-chat` existe na nuvem, não no repo** — está deployada e responde 200, mas não há
    `supabase/functions/ai-chat/`. Está fora do versionamento e do deploy automático
-   (nenhum código em `src/` a invoca hoje).
-   Simétrico: **`youtube-playlist` existe no repo, não na nuvem** (nova na sessão
-   2026-09-16; aguardando o mesmo deploy do item 2).
+   (nenhum código em `src/` a invoca hoje). **Atenção**: o próximo deploy em massa do CI
+   não a remove (o supabase só publica o que está no repo), mas ela segue sem backup
+   versionado — vale trazer o código da nuvem para o repo quando alguém for mexer nela.
+3. **Descrições de vídeo ainda podem vir vazias** (`description: ""` medido em
+   `dQw4w9WgXcQ`): a fonte primária (`/next` e `/player`) sofre o mesmo bloqueio 403 de
+   datacenter. Impacto baixo (descrição só é exibida em podcasts; a UI tem fallback) — por
+   isso ficou sem mitigação nesta sessão.
 4. Falso negativo corrigido no verificador: `youtube-search`/`youtube-video-info` eram
    chamados com parâmetro **no corpo**, e as funções lêem da **query string** — o que
    produzia `200 OK` para uma chamada vaziosa (verde mentiroso) e `400` para o caso certo.
