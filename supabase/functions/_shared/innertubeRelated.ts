@@ -153,8 +153,13 @@ export function parseVideoItemsList(items: any[], max = 15): RelatedVideoLite[] 
   for (const item of items) {
     if (out.length >= max) break;
     if (!item || typeof item !== "object") continue;
-    if (item.lockupViewModel) push(fromLockup(item.lockupViewModel));
-    else if (item.richItemRenderer?.content?.lockupViewModel) push(fromLockup(item.richItemRenderer.content.lockupViewModel));
+    const lockup = item.lockupViewModel ?? item.richItemRenderer?.content?.lockupViewModel;
+    if (lockup) {
+      // Lockups também representam canais/playlists (ex.: busca); aqui só vídeos.
+      const ctype: string = lockup.contentType || "";
+      if (ctype && !ctype.includes("VIDEO")) continue;
+      push(fromLockup(lockup));
+    }
     else if (item.compactVideoRenderer) push(fromCompactOrLegacy(item.compactVideoRenderer));
     else if (item.videoRenderer) push(fromCompactOrLegacy(item.videoRenderer));
     else if (item.gridVideoRenderer) push(fromCompactOrLegacy(item.gridVideoRenderer));

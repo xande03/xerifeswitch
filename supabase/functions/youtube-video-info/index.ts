@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getClientIp, checkRateLimit, rateLimitResponse } from "../_shared/rateLimiter.ts";
 import { cachedFetch } from "../_shared/serverCache.ts";
-import { parseRelatedFromNext } from "../_shared/innertubeRelated.ts";
+import { parseRelatedFromNext, parseVideoItemsList } from "../_shared/innertubeRelated.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,7 +47,7 @@ serve(async (req) => {
     // Server-side cache: same videoId shares results across users for 15 min
     const result = debug
       ? await fetchVideoInfo(videoId, true)
-      : await cachedFetch(`video:v2:${videoId}`, () => fetchVideoInfo(videoId), { ttlMs: 15 * 60 * 1000 });
+      : await cachedFetch(`video:v3:${videoId}`, () => fetchVideoInfo(videoId), { ttlMs: 15 * 60 * 1000 });
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -140,6 +140,12 @@ async function fetchVideoInfo(videoId: string, debug = false) {
         console.log(`[youtube-video-info] Partial from ${base}: ${relatedVideos.length} related, ${comments.length} comments — will try innertube for missing`);
         // Try innertube to fill in missing data
         const innertube = await fetchFromInnertube(videoId, debug);
+        if (relatedVideos.length === 0 && innertube.relatedVideos.length === 0) {
+          // /next bloqueado (403 "Sorry" de datacenter) → aproxima relacionadas
+          // por busca do artista+título (oembed + /search, ambos respondem do edge)
+          const approx = await approxRelatedFromSearch(videoId, debug ? innertube.__debug : undefined).catch(() => []);
+          if (approx.length) innertube.relatedVideos = approx;
+        }
         const out: any = {
           relatedVideos: relatedVideos.length > 0 ? relatedVideos : innertube.relatedVideos,
           comments: comments.length > 0 ? comments : innertube.comments,
@@ -157,7 +163,71 @@ async function fetchVideoInfo(videoId: string, debug = false) {
 
   // Fallback: full innertube
   const innertube = await fetchFromInnertube(videoId, debug);
+  if (innertube.relatedVideos.length === 0) {
+    const approx = await approxRelatedFromSearch(videoId, debug ? (innertube.__debug ??= {}) : undefined).catch(() => []);
+    if (approx.length) innertube.relatedVideos = approx;
+  }
   return innertube;
+}
+
+/** Itens de vídeo de uma página de busca (`twoColumnSearchResultsRenderer`). */
+function collectSearchItems(data: any): any[] {
+  const sections =
+    data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents || [];
+  const items: any[] = [];
+  for (const s of sections) {
+    const isl = s?.itemSectionRenderer?.contents;
+    if (Array.isArray(isl)) items.push(...isl);
+  }
+  return items;
+}
+
+/**
+ * Mediação de último recurso para `relatedVideos` quando o `/next` é barrado
+ * (YouTube devolve 403 "Sorry" para IPs de datacenter, enquanto `/search` e
+ * `/browse` passam): descobre artista+título via oEmbed público e busca
+ * "${channel} ${title}" — as primeiras ocorrências aproximam bem as
+ * "recomendadas". Exclui o próprio vídeo da lista.
+ */
+async function approxRelatedFromSearch(videoId: string, diag?: Record<string, any>) {
+  const oRes = await fetch(
+    `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`,
+    { signal: AbortSignal.timeout(5000) },
+  );
+  if (!oRes.ok) return [];
+  const o = await oRes.json();
+  const channel = String(o?.author_name || "");
+  const title = String(o?.title || "")
+    .replace(/\((?:official|oficial|lyric[s]?|audio|áudio|hd|4k|remaster(?:ed)?|clip|clipe|video)[^)]*\)/gi, "")
+    .replace(/\[(?:official|oficial|lyric[s]?|audio|áudio|hd|4k|remaster(?:ed)?|clip|clipe|video)[^\]]*\]/gi, "")
+    .replace(/[-–—]\s*(?:official|oficial|lyric[s]?|audio|áudio|hd|4k|remaster(?:ed)?|clip|clipe|video).*/gi, "")
+    .trim();
+  const q = `${channel} ${title}`.trim();
+  if (!q) return [];
+  if (diag) diag.approxQuery = q;
+
+  const sRes = await fetch(
+    "https://www.youtube.com/youtubei/v1/search?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0" },
+      body: JSON.stringify({
+        context: { client: { clientName: "WEB", clientVersion: "2.20240101.00.00", hl: "pt", gl: "BR" } },
+        query: q,
+      }),
+      signal: AbortSignal.timeout(8000),
+    },
+  );
+  if (!sRes.ok) {
+    if (diag) diag.approxSearchStatus = sRes.status;
+    return [];
+  }
+  const data = await sRes.json();
+  const related = parseVideoItemsList(collectSearchItems(data), 16)
+    .filter((v) => v.videoId !== videoId)
+    .slice(0, 15);
+  if (diag) diag.servedBy = related.length ? "approx-search" : "none";
+  return related;
 }
 
 async function fetchFromInnertube(videoId: string, debug = false): Promise<any> {
