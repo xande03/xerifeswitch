@@ -127,12 +127,20 @@ async function fetchVideoInfo(videoId: string, debug = false) {
             }
           } catch { /* uma página já basta */ }
         }
+        const decodeEntities = (s: string) =>
+          (s || "")
+            .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+            .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+            .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+            .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
         comments = rawComments
           .slice(0, 40)
           .map((c: any) => ({
             author: c.author || "Anônimo",
             authorThumbnail: c.authorThumbnails?.[0]?.url || "",
-            content: c.contentHtml?.replace(/<[^>]*>/g, "") || c.content || "",
+            content: decodeEntities(
+              (c.contentHtml?.replace(/<[^>]*>/g, "") || c.content || ""),
+            ),
             likes: c.likeCount || 0,
             // `publishedText` vem NO LOCALE DA INSTÂNCIA (obs.: árabe no nadeko).
             // O epoch `published` é determinístico → data relativa pt-BR aqui.
