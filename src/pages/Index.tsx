@@ -1968,6 +1968,10 @@ const Index = () => {
                   if (now - videoOverlayTapGuardRef.current < 300) return;
                   videoOverlayTapGuardRef.current = now;
                   if (showVideoOverlayControls) {
+                    // Pausado/finalizado o overlay NÃO pode esconder: é exatamente nesse
+                    // estado que o YouTube desenha título/canal/logo — as máscaras precisam
+                    // continuar cobrindo. Durante a reprodução esconde normal (4s auto-hide).
+                    if (!isPlaying) { revealVideoOverlay(); return; }
                     if (videoOverlayTimerRef.current) { clearTimeout(videoOverlayTimerRef.current); videoOverlayTimerRef.current = null; }
                     setShowVideoOverlayControls(false);
                   } else {
@@ -1982,8 +1986,19 @@ const Index = () => {
                   showVideoOverlayControls ? 'opacity-100' : 'opacity-0'
                 }`}
               >
-                {/* Dimming gradient behind controls */}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60 pointer-events-none" />
+                {/* MÁSCARAS DE MARCA DO EMBED — o iframe do YouTube é cross-domain: não dá
+                    para esconder via CSS/API o título, o avatar do canal, o logo ou as
+                    sugestões "Mais vídeos" que O YOUTUBE desenha ao pausar/terminar/hover.
+                    playerVars já está no máximo (controls:0, modestbranding, rel:0...).
+                    Solução: gradientes opacos sobre exatamente as faixas onde ele desenha;
+                    os NOSSOS controles ficam por cima (z-[220]). */}
+                {/* faixa superior: título do vídeo + avatar/nome do canal do YouTube */}
+                <div className="absolute inset-x-0 top-0 h-[76px] bg-gradient-to-b from-black via-black/60 to-transparent pointer-events-none" />
+                {/* faixa inferior: gradiente suave cobrindo sugestões "Mais vídeos"... */}
+                <div className="absolute inset-x-0 bottom-0 h-[104px] bg-gradient-to-t from-black via-black/70 to-transparent pointer-events-none" />
+                {/* ... + barra sólida atrás dos nossos botões: o logo "YouTube" (canto dir.)
+                    e o compartilhar (canto esq.) não escapam — vira painel dos nossos controles */}
+                <div className="absolute inset-x-0 bottom-0 h-[52px] bg-black/85 pointer-events-none" />
 
                 {/* Back / minimize (top-left) */}
                 <button
