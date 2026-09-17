@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 
 
-type Tab = "home" | "search" | "library" | "offline" | "profile" | "history" | "playlists" | "podcast" | "libraryhub" | "stats";
+export type Tab = "home" | "search" | "library" | "offline" | "profile" | "history" | "playlists" | "podcast" | "libraryhub" | "stats";
 type HomeMode = "hub" | "music" | "video";
 
 const COLOR_OPTIONS = [
@@ -56,7 +56,7 @@ interface DesktopSidebarProps {
 }
 
 
-const musicTabs: { id: Tab; icon: typeof Home; label: string }[] = [
+export const musicTabs: { id: Tab; icon: typeof Home; label: string }[] = [
   { id: "home", icon: Home, label: "Início" },
   { id: "search", icon: Search, label: "Buscar" },
   { id: "library", icon: Heart, label: "Favoritas" },
@@ -65,7 +65,7 @@ const musicTabs: { id: Tab; icon: typeof Home; label: string }[] = [
   { id: "playlists", icon: ListMusic, label: "Playlists" },
 ];
 
-const videoTabs: { id: Tab; icon: typeof Home; label: string }[] = [
+export const videoTabs: { id: Tab; icon: typeof Home; label: string }[] = [
   { id: "home", icon: Home, label: "Início" },
   { id: "search", icon: Compass, label: "Explorar" },
   { id: "library", icon: ThumbsUp, label: "Gostei" },
@@ -74,7 +74,7 @@ const videoTabs: { id: Tab; icon: typeof Home; label: string }[] = [
   { id: "playlists", icon: ListMusic, label: "Playlists" },
 ];
 
-const podcastTabs: { id: Tab; icon: typeof Home; label: string }[] = [
+export const podcastTabs: { id: Tab; icon: typeof Home; label: string }[] = [
   { id: "home", icon: Home, label: "Início" },
   { id: "search", icon: Compass, label: "Explorar" },
   { id: "library", icon: Heart, label: "Curtidas" },
@@ -254,7 +254,7 @@ const DesktopSidebar = ({
   return (
     <aside
       data-sidebar-collapsed={collapsed}
-      className="hidden md:flex flex-col w-20 lg:w-[260px] h-full bg-sidebar border-r border-sidebar-border flex-shrink-0 transition-[width] duration-300 ease-in-out relative"
+      className="hidden md:flex lg:hidden flex-col w-20 lg:w-[260px] h-full bg-sidebar border-r border-sidebar-border flex-shrink-0 transition-[width] duration-300 ease-in-out relative"
     >
       {/* Logo = toggle do menu: clicar na estrela do app recolhe/expande a sidebar
           (substitui o botão dedicado; mesmo estado/persistência de antes) */}

@@ -1,8 +1,39 @@
 # Status do Xerife Music
 
-Atualizado em 2026-09-16 (4ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-09-17 (5ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-09-17 — desktop sem sidebar: ilha dinâmica no topo + player flutuante
+
+Layout desktop (≥lg/1024) redesenhado conforme o preview aprovado:
+
+1. **A sidebar lateral sai de cena em lg+** (`hidden md:flex lg:hidden` no
+   [`DesktopSidebar`](src/components/DesktopSidebar.tsx)) — entre 768 e 1023px ela
+   continua exatamente como antes (rail/mini-rail). Mobile/tablet (<md) intocado.
+2. **Ilha dinâmica** ([`DesktopTopIsland`](src/components/DesktopTopIsland.tsx)) no
+   centro do header do topo (`hidden lg:flex`): pílula `bg-card/90 backdrop-blur`
+   com **o trio de módulos nas suas cores** (Music verde / Vídeos vermelho /
+   Podcast roxo — ícone sempre, label no ativo em xl), divisor e **as mesmas
+   sessões de antes** (Início, Buscar, Favoritas, Biblioteca, Histórico, Playlists)
+   com badge de curtidos preservado; rótulo completo no item ativo e em todos os
+   itens a partir de `xl`. Usa as mesmas fontes de dados (`musicTabs/videoTabs/
+   podcastTabs` exportadas da sidebar) e os mesmos handlers do app
+   (`handleNavChange`, `handleSwitch`) — **nenhum conteúdo foi removido**.
+3. **Player reposicionado**: o painel que morava na base da sidebar (capa/thumb,
+   transporte, liker/cifra/vídeo/download/share, barra de progresso) agora flutua
+   numa **cápsula centralizada na base** (`fixed bottom-4`, w-320px, card blur,
+   z-[80]) em lg+. O JSX do player foi extraído para consts
+   (`sidebarPlayerExpandedNode/sidebarPlayerCollapsedNode`) e é reusado nos dois
+   lugares sem duplicar lógica. O conteúdo ganha `lg:pb=[400px]` de clearance
+   para a cápsula não cobrir o fim das listas.
+4. **Also nesta sessão** (commits anteriores do dia): transição de módulo com
+   wipe + anéis/partículas em parallax no `ModuleSwitcher`, mascaramento
+   permanente fail-closed do branding do iframe do YouTube no player, correções
+   de comentários (tradução pt-BR, datas), overlay do player oculto por padrão.
+
+Medido neste checkout após as mudanças: `npm run typecheck` ✅, `npm run test`
+**89 testes** ✅, `npm run build` ✅.
 
 ## Sessão 2026-09-16 (noite) — comentários em pt-BR e overlay minimizado no player
 

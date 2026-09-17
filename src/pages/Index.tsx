@@ -56,6 +56,7 @@ import { useModuleMode } from "@/hooks/useModuleMode";
 import { getFavoriteChannels, removeFavoriteChannel, addFavoriteChannel, FAV_CHANNELS_EVENT } from "@/lib/favoriteChannels";
 import BottomNav from "@/components/BottomNav";
 import DesktopSidebar from "@/components/DesktopSidebar";
+import DesktopTopIsland from "@/components/DesktopTopIsland";
 import SearchSkeleton from "@/components/SearchSkeleton";
 import DesktopPlayer from "@/components/DesktopPlayer";
 import SidebarPlayer from "@/components/SidebarPlayer";
@@ -1788,6 +1789,58 @@ const Index = () => {
 
 
 
+  // Player do desktop: usado na sidebar (md) E na cápsula flutuante (lg+),
+  // onde a sidebar vira a ilha do topo.
+  const sidebarPlayerExpandedNode = (
+    <SidebarPlayer
+      song={currentSong}
+      isPlaying={isPlaying}
+      currentTime={ct}
+      duration={dur}
+      volume={volume}
+      onTogglePlay={handleTogglePlay}
+      onNext={handleNext}
+      onPrev={handlePrev}
+      onExpand={() => setExpanded(true)}
+      onSeek={handleSeek}
+      onVolumeChange={setVolumeState}
+      isShuffled={isShuffled}
+      onShuffle={handleShuffle}
+      isLiked={votedSongs.has(currentSong.id)}
+      onLike={() => handleVote(currentSong)}
+      playerMode={playerMode}
+      module={podcastMode ? "podcast" : homeMode === "video" ? "video" : "music"}
+      onLyrics={() => {
+        if (playerMode === "lyrics") { setPlayerMode("audio"); return; }
+        setPlayerMode("lyrics");
+        setExpanded(true);
+      }}
+      onVideo={() => {
+        if (playerMode === "video") { setPlayerMode("audio"); return; }
+        setPlayerMode("video");
+        setExpanded(true);
+      }}
+      onDownload={() => handleDownload(currentSong)}
+      onShare={() => handleShare(currentSong)}
+    />
+  );
+  const sidebarPlayerCollapsedNode = (
+    <SidebarPlayer
+      collapsed
+      song={currentSong}
+      isPlaying={isPlaying}
+      currentTime={ct}
+      duration={dur}
+      volume={volume}
+      onTogglePlay={handleTogglePlay}
+      onNext={handleNext}
+      onPrev={handlePrev}
+      onExpand={() => setExpanded(true)}
+      onSeek={handleSeek}
+      onVolumeChange={setVolumeState}
+    />
+  );
+
   return (
     <MotionConfig reducedMotion="user">
       <>
@@ -1835,59 +1888,18 @@ const Index = () => {
           isLoadingUser={false}
           currentZoom={appZoom}
           onUpdateName={updateName}
-          playerSlot={
-            <SidebarPlayer
-              song={currentSong}
-              isPlaying={isPlaying}
-              currentTime={ct}
-              duration={dur}
-              volume={volume}
-              onTogglePlay={handleTogglePlay}
-              onNext={handleNext}
-              onPrev={handlePrev}
-              onExpand={() => setExpanded(true)}
-              onSeek={handleSeek}
-              onVolumeChange={setVolumeState}
-              isShuffled={isShuffled}
-              onShuffle={handleShuffle}
-              isLiked={votedSongs.has(currentSong.id)}
-              onLike={() => handleVote(currentSong)}
-              playerMode={playerMode}
-              module={podcastMode ? "podcast" : homeMode === "video" ? "video" : "music"}
-              onLyrics={() => {
-                if (playerMode === "lyrics") { setPlayerMode("audio"); return; }
-                setPlayerMode("lyrics");
-                setExpanded(true);
-              }}
-              onVideo={() => {
-                if (playerMode === "video") { setPlayerMode("audio"); return; }
-                setPlayerMode("video");
-                setExpanded(true);
-              }}
-              onDownload={() => handleDownload(currentSong)}
-              onShare={() => handleShare(currentSong)}
-
-
-
-            />
-          }
-          collapsedPlayerSlot={
-            <SidebarPlayer
-              collapsed
-              song={currentSong}
-              isPlaying={isPlaying}
-              currentTime={ct}
-              duration={dur}
-              volume={volume}
-              onTogglePlay={handleTogglePlay}
-              onNext={handleNext}
-              onPrev={handlePrev}
-              onExpand={() => setExpanded(true)}
-              onSeek={handleSeek}
-              onVolumeChange={setVolumeState}
-            />
-          }
+          playerSlot={sidebarPlayerExpandedNode}
+          collapsedPlayerSlot={sidebarPlayerCollapsedNode}
         />
+
+        {/* Player flutuante do DESKTOP LARGO (lg+, ≥1024px): em telas desktop a
+            sidebar vira a ILHA DINÂMICA no topo (DesktopTopIsland); o painel do
+            player (capa/thumbnail, título, transporte, barra de progresso) reúso
+            vem para esta cápsula centralizada na base — libera as laterais E a
+            vertical para o conteúdo, sem perder nenhum controle. */}
+        <div className="hidden lg:block fixed bottom-4 left-1/2 -translate-x-1/2 z-[80] w-[320px] rounded-[26px] border border-border/70 bg-card/95 backdrop-blur-xl shadow-2xl shadow-black/45 overflow-hidden">
+          {sidebarPlayerExpandedNode}
+        </div>
 
 
         {/* Main column */}
@@ -2265,8 +2277,20 @@ const Index = () => {
             </span>
           </button>
 
+          {/* ILHA DINÂMICA (desktop lg+, ≥1024px): módulos nas suas cores +
+              sessões do módulo ativo — substitui o menu lateral nesses
+              breakpoints, liberando as laterais e a vertical para o conteúdo */}
+          <div className="hidden lg:flex flex-1 min-w-0 justify-center px-3">
+            <DesktopTopIsland
+              active={navActiveTab}
+              onChange={handleNavChange}
+              currentModule={currentModule}
+              onModuleSelect={handleSwitch}
+            />
+          </div>
+
           {/* Right cluster: Tools → Switcher → Profile */}
-          <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+          <div className="flex items-center gap-2 sm:gap-3 ml-auto shrink-0">
 
             {!isOnline && (
               <span className="flex items-center text-xs text-primary" aria-label="Offline">
@@ -2328,7 +2352,7 @@ const Index = () => {
 
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto pb-4 overscroll-contain lg:px-2" key={activeTab} style={{ animation: 'fade-in 0.25s ease-out' }}>
+        <main className="flex-1 overflow-y-auto pb-4 lg:pb-[400px] overscroll-contain lg:px-2" key={activeTab} style={{ animation: 'fade-in 0.25s ease-out' }}>
         <Suspense fallback={<div className="flex justify-center py-24"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/25 border-t-primary" /></div>}>
           {activeTab === "home" && podcastMode && (
             <PodcastScreen
