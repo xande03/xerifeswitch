@@ -37,23 +37,50 @@ interface Props {
 
 const MODULE_IDS = Object.keys(MODULE_LABEL) as SwitchableModule[];
 
+/** Direções das partículas em parallax (dx, dy em px a partir do ponto clicado) */
+const FX_DOTS: { dx: number; dy: number; s: number; o: number; d: number }[] = [
+  { dx: 130, dy: -50, s: 7, o: 0.9, d: 0.7 },
+  { dx: 170, dy: 40, s: 5, o: 0.7, d: 0.85 },
+  { dx: -120, dy: -70, s: 6, o: 0.8, d: 0.8 },
+  { dx: -160, dy: 60, s: 5, o: 0.6, d: 0.95 },
+  { dx: 100, dy: 110, s: 8, o: 0.75, d: 1.0 },
+  { dx: -90, dy: 130, s: 6, o: 0.85, d: 1.05 },
+  { dx: 50, dy: -150, s: 5, o: 0.65, d: 0.75 },
+  { dx: -60, dy: -140, s: 7, o: 0.8, d: 0.9 },
+  { dx: 180, dy: -100, s: 4, o: 0.55, d: 1.1 },
+  { dx: -180, dy: 110, s: 6, o: 0.6, d: 1.15 },
+];
+
+/** Anéis expansivos em velocidades diferentes = sensação de parallax/depth */
+const FX_RINGS = [
+  { size: 240, dur: "0.55s", delay: "0s", opacity: 0.55 },
+  { size: 520, dur: "0.75s", delay: "0.06s", opacity: 0.38 },
+  { size: 920, dur: "0.95s", delay: "0.12s", opacity: 0.24 },
+];
+
 const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props) {
   const [open, setOpen] = useState(false);
   const [transitionTo, setTransitionTo] = useState<SwitchableModule | null>(null);
+  /** Origem do wipe/anéis: ponto onde o usuário clicou (centro como fallback) */
+  const [fxOrigin, setFxOrigin] = useState<{ x: number; y: number } | null>(null);
   const { isLight } = useTheme();
   const activeTones = getModuleTones(MODULE_COLOR[active], isLight);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const handle = useCallback(
-    (m: SwitchableModule) => {
+    (m: SwitchableModule, x?: number, y?: number) => {
       setOpen(false);
       // Devolve o foco ao gatilho ao fechar via seleção.
       window.setTimeout(() => triggerRef.current?.focus(), 0);
       if (m === active) return;
+      setFxOrigin({
+        x: typeof x === "number" ? x : window.innerWidth / 2,
+        y: typeof y === "number" ? y : window.innerHeight * 0.45,
+      });
       setTransitionTo(m);
-      window.setTimeout(() => onSelect(m), 220);
-      window.setTimeout(() => setTransitionTo(null), 620);
+      window.setTimeout(() => onSelect(m), 240);
+      window.setTimeout(() => { setTransitionTo(null); setFxOrigin(null); }, 850);
     },
     [onSelect, active],
   );
@@ -89,33 +116,94 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
     <>
 
 
-    {/* Tela de passagem entre sessões */}
-    {transitionTo && (
+    {/* Tela de passagem entre sessões — wipe circular a partir do clique +
+        anéis/partículas em PARALLAX + ícone herói. Todo o conjunto sai via
+        keyframe xerife-fx-out antes do unmount (~850ms). */}
+    {transitionTo && fxOrigin && (
       <div
         aria-hidden
-        className="fixed inset-0 z-[100] flex items-center justify-center backdrop-blur-xl animate-fade-in motion-reduce:animate-none"
+        data-module-fx
+        className="fixed inset-0 z-[100] overflow-hidden"
         style={{
-          backgroundColor: "hsl(var(--background) / 0.85)",
-          backgroundImage: `radial-gradient(circle at 50% 45%, hsl(${MODULE_COLOR[transitionTo]} / 0.28), transparent 62%)`,
-        }}
+          animation: "xerife-fx-out 0.85s ease both",
+          backgroundColor: "hsl(var(--background) / 0.72)",
+          backdropFilter: "blur(4px)",
+          ["--fx-x" as unknown as string]: `${fxOrigin.x}px`,
+          ["--fx-y" as unknown as string]: `${fxOrigin.y}px`,
+        } as React.CSSProperties}
       >
-        <div className="flex flex-col items-center gap-3 animate-scale-in motion-reduce:animate-none">
-          <span
-            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl"
+        {/* Wipe circular na cor do módulo, a partir do ponto tocado/clicado */}
+        <div
+          className="xerife-fx-wipe fixed inset-0"
+          style={{
+            backgroundColor: `hsl(${MODULE_COLOR[transitionTo]} / 0.16)`,
+            backgroundImage: `radial-gradient(circle at var(--fx-x) var(--fx-y), hsl(${MODULE_COLOR[transitionTo]} / 0.34), transparent 58%)`,
+            animation: "xerife-fx-wipe 0.62s cubic-bezier(0.22, 0.61, 0.36, 1) both",
+          }}
+        />
+
+        {/* Anéis em parallax (velocidades diferentes) saindo do ponto do clique */}
+        {FX_RINGS.map((r, i) => (
+          <div
+            key={`ring-${i}`}
+            className="xerife-fx-ring fixed rounded-full"
             style={{
-              color: transitionTones.fg,
-              backgroundColor: transitionTones.bg,
-              boxShadow: `0 0 0 1px ${transitionTones.ring}, 0 18px 45px -18px hsl(${MODULE_COLOR[transitionTo]} / 0.7)`,
+              left: fxOrigin.x,
+              top: fxOrigin.y,
+              width: r.size,
+              height: r.size,
+              boxShadow: `inset 0 0 0 3px hsl(${MODULE_COLOR[transitionTo]} / ${r.opacity})`,
+              animation: `xerife-fx-ring ${r.dur} cubic-bezier(0.22, 0.61, 0.36, 1) ${r.delay} both`,
             }}
-          >
-            <TransitionIcon size={28} strokeWidth={2.2} />
-          </span>
+          />
+        ))}
+
+        {/* Partículas em parallax dispersando do clique */}
+        {FX_DOTS.map((p, i) => (
           <span
-            className="text-sm font-semibold tracking-wide"
-            style={{ color: transitionTones.fg }}
-          >
-            Xerife {MODULE_LABEL[transitionTo]}
-          </span>
+            key={`dot-${i}`}
+            className="xerife-fx-dot fixed rounded-full"
+            style={{
+              left: fxOrigin.x,
+              top: fxOrigin.y,
+              width: p.s,
+              height: p.s,
+              backgroundColor: `hsl(${MODULE_COLOR[transitionTo]} / ${p.o})`,
+              boxShadow: `0 0 ${p.s * 2}px hsl(${MODULE_COLOR[transitionTo]} / 0.9)`,
+              animation: `xerife-fx-dot ${p.d}s cubic-bezier(0.22, 0.61, 0.36, 1) both`,
+              ["--fx-dx" as unknown as string]: `${p.dx}px`,
+              ["--fx-dy" as unknown as string]: `${p.dy}px`,
+            } as React.CSSProperties}
+          />
+        ))}
+
+        {/* Ícone herói central com pop + float, e label com tracking animado */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <span
+              className="xerife-fx-icon-pop inline-flex items-center justify-center w-[72px] h-[72px] rounded-[22px]"
+              style={{
+                color: transitionTones.fg,
+                backgroundColor: transitionTones.bg,
+                boxShadow: `0 0 0 1.5px ${transitionTones.ring}, 0 22px 55px -18px hsl(${MODULE_COLOR[transitionTo]} / 0.8), 0 0 60px -10px hsl(${MODULE_COLOR[transitionTo]} / 0.5)`,
+                animation: "xerife-fx-icon-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.08s both",
+              }}
+            >
+              <span style={{ animation: "xerife-fx-icon-float 1.1s ease-in-out 0.55s infinite" }} className="xerife-fx-icon-float inline-flex">
+                <TransitionIcon size={32} strokeWidth={2.2} />
+              </span>
+            </span>
+            <span
+              className="xerife-fx-label-in text-[15px] font-bold tracking-wide"
+              style={{
+                color: transitionTones.fg,
+                animation: "xerife-fx-label-in 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) 0.18s both",
+                textShadow: `0 2px 18px hsl(${MODULE_COLOR[transitionTo]} / 0.6)`,
+              }}
+            >
+              Xerife {MODULE_LABEL[transitionTo]}
+            </span>
+          </div>
         </div>
       </div>
     )}
@@ -215,7 +303,7 @@ const ModuleSwitcher = memo(function ModuleSwitcher({ active, onSelect }: Props)
                 ref={(el) => {
                   itemRefs.current[idx] = el;
                 }}
-                onClick={() => handle(id)}
+                onClick={(e) => handle(id, e.clientX, e.clientY)}
                 aria-pressed={isActive}
                 aria-current={isActive ? "true" : undefined}
                 className="group relative flex flex-col items-center justify-center gap-1.5 px-1.5 py-3 min-h-[4.25rem] rounded-xl transition-all duration-200 ease-out hover:bg-muted/60 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover animate-enter motion-reduce:transition-none motion-reduce:animate-none motion-reduce:active:scale-100"

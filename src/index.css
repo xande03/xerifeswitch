@@ -788,3 +788,44 @@ aside[data-sidebar-collapsed="true"] nav button {
   text-align: left !important;
   justify-content: flex-start !important;
 }
+
+/* ══ FX de transição entre sessões (Xerife Music / Vídeos / Podcasts) ══
+   Wipe circular a partir do ponto clicado + anéis e partículas em parallax
+   + ícone herói. Toque e clique disparam igual (coordenadas do cliente). */
+@keyframes xerife-fx-wipe {
+  from { clip-path: circle(0% at var(--fx-x, 50%) var(--fx-y, 50%)); }
+  to   { clip-path: circle(160% at var(--fx-x, 50%) var(--fx-y, 50%)); }
+}
+@keyframes xerife-fx-ring {
+  from { transform: translate(-50%, -50%) scale(0.05); opacity: 0.9; }
+  70%  { opacity: 0.35; }
+  to   { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+@keyframes xerife-fx-icon-pop {
+  0%   { transform: scale(0.35) rotate(-12deg); opacity: 0; }
+  55%  { transform: scale(1.14) rotate(4deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes xerife-fx-icon-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-7px); }
+}
+@keyframes xerife-fx-label-in {
+  from { transform: translateY(12px); opacity: 0; letter-spacing: 0.12em; }
+  to   { transform: translateY(0); opacity: 1; letter-spacing: 0.03em; }
+}
+@keyframes xerife-fx-dot {
+  from { transform: translate(-50%, -50%) scale(1); opacity: 0.85; }
+  to   { transform: translate(calc(-50% + var(--fx-dx)), calc(-50% + var(--fx-dy))) scale(0.2); opacity: 0; }
+}
+/* Saída suave do conjunto inteiro antes do unmount (~820ms) */
+@keyframes xerife-fx-out {
+  0%, 72% { opacity: 1; }
+  100%    { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xerife-fx-wipe, .xerife-fx-ring, .xerife-fx-icon-pop,
+  .xerife-fx-icon-float, .xerife-fx-label-in, .xerife-fx-dot {
+    animation: none !important;
+  }
+}
