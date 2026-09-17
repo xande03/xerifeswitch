@@ -2001,23 +2001,6 @@ const Index = () => {
 
           {expanded && playerMode === "video" && <QualityBadge />}
 
-          {/* CAMADA PERMANENTE DE MÁSCARA DE BRANDING (fail-closed, z-[100]) — NÃO depende
-              de overlay/catcher/taps existirem: renderiza sempre que o player de vídeo
-              está expandido incluso fullscreen/rail, e fica visível exatamente nos estados
-              em que o YouTube consegue desenhar UI própria (título, canal, logo, "Mais
-              vídeos"): pausado/finalizado, intro-grace após o play ou controles visíveis.
-              Na reprodução pura some = tela 100% limpa. Cobre exatamente as faixas do
-              branding, CSS/API não alcançam (iframe cross-domain). */}
-          {expanded && playerMode === "video" && (
-            <div className="absolute inset-0 z-[100] pointer-events-none">
-              {/* faixa superior: título + avatar/canal do YouTube */}
-              <div className="absolute inset-x-0 top-0 h-[76px] bg-gradient-to-b from-black via-black/85 to-transparent pointer-events-none" />
-              {/* faixa inferior: sugestões "Mais vídeos" */}
-              <div className="absolute inset-x-0 bottom-0 h-[110px] bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-none" />
-              {/* barra sólida: logo "YouTube" (dir) + compartilhar (esq) — fica atras dos nossos controles */}
-              <div className="absolute inset-x-0 bottom-0 h-[56px] bg-black/90 pointer-events-none" />
-            </div>
-          )}
           {/* Overlay controls on top of the actual YouTube player */}
           {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && (
             <>
