@@ -1972,6 +1972,28 @@ const Index = () => {
 
 
           {expanded && playerMode === "video" && <QualityBadge />}
+
+          {/* CAMADA PERMANENTE DE MÁSCARA DE BRANDING (fail-closed, z-[100]) — NÃO depende
+              de overlay/catcher/taps existirem: renderiza sempre que o player de vídeo
+              está expandido incluso fullscreen/rail, e fica visível exatamente nos estados
+              em que o YouTube consegue desenhar UI própria (título, canal, logo, "Mais
+              vídeos"): pausado/finalizado, intro-grace após o play ou controles visíveis.
+              Na reprodução pura some = tela 100% limpa. Cobre exatamente as faixas do
+              branding, CSS/API não alcançam (iframe cross-domain). */}
+          {expanded && playerMode === "video" && (
+            <div
+              className={`absolute inset-0 z-[100] pointer-events-none transition-opacity duration-300 ${
+                !isPlaying || videoIntroGrace || showVideoOverlayControls ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              {/* faixa superior: título + avatar/canal do YouTube */}
+              <div className="absolute inset-x-0 top-0 h-[76px] bg-gradient-to-b from-black via-black/85 to-transparent pointer-events-none" />
+              {/* faixa inferior: sugestões "Mais vídeos" */}
+              <div className="absolute inset-x-0 bottom-0 h-[110px] bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-none" />
+              {/* barra sólida: logo "YouTube" (dir) + compartilhar (esq) — fica atras dos nossos controles */}
+              <div className="absolute inset-x-0 bottom-0 h-[56px] bg-black/90 pointer-events-none" />
+            </div>
+          )}
           {/* Overlay controls on top of the actual YouTube player */}
           {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && (
             <>
@@ -2002,26 +2024,8 @@ const Index = () => {
                 className="absolute inset-0 z-[210] bg-transparent cursor-default"
                 style={{ WebkitTapHighlightColor: 'transparent' }}
               />
-              {/* CAMADA DE MÁSCARAS DE MARCA (estado visível PRÓPRIO, z-[213]) — o iframe
-                  do YouTube é cross-domain e não permite esconder título/canal/logo/"Mais
-                  vídeos" via CSS/API; cobrimos as faixas onde ele desenha. Acesa SEMPRE que:
-                  (a) controles visíveis (inclui keepOpen de pausado/finalizado), ou
-                  (b) intro-grace de 3,5 s após cada play/seek-resume — senão o branding
-                  escaparia justamente nos segundos após o play com a tela limpa. Depois do
-                  grace, some totalmente: reprodução 100% limpa, garantida. */}
-              <div
-                className={`absolute inset-0 pointer-events-none transition-opacity duration-300 z-[213] ${
-                  (showVideoOverlayControls || videoIntroGrace) ? 'opacity-100' : 'opacity-0'
-                }`}
-              >
-                {/* faixa superior: título + avatar/nome do canal do YouTube */}
-                <div className="absolute inset-x-0 top-0 h-[72px] bg-gradient-to-b from-black via-black/80 to-transparent pointer-events-none" />
-                {/* faixa inferior: sugestões "Mais vídeos" acima da barra sólida */}
-                <div className="absolute inset-x-0 bottom-0 h-[104px] bg-gradient-to-t from-black via-black/75 to-transparent pointer-events-none" />
-                {/* barra sólida: cobre logo "YouTube" (dir.) e compartilhar (esq.); funciona
-                    como painel atrás dos nossos controles quando estes estão visíveis */}
-                <div className="absolute inset-x-0 bottom-0 h-[52px] bg-black/90 pointer-events-none" />
-              </div>
+              {/* (as MÁSCARAS de branding foram promovidas a camada permanente, logo acima
+                  do QualityBadge — ela NÃO depende deste overlay existir) */}
               <div
                 className={`absolute inset-0 pointer-events-none transition-opacity duration-300 z-[215] ${
                   showVideoOverlayControls ? 'opacity-100' : 'opacity-0'
