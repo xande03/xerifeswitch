@@ -264,6 +264,12 @@ const Index = () => {
   const videoOverlayKeepOpenRef = useRef(false);
   /** Guarda contra toggle duplicado: dois toques dentro desta janela contam como um. */
   const videoOverlayTapGuardRef = useRef(0);
+  /** Grace do "intro" do YouTube: nos ~2-3s seguintes a CADA play/seek, o iframe desenha
+   *  título/logo fazendo fade nativo. Mantemos as máscaras ACESAS nesse intervalo —
+   *  independente do overlay dos nossos controles — senão o branding escapa. */
+  const [videoIntroGrace, setVideoIntroGrace] = useState(false);
+  const videoIntroGraceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevVideoPlayingRef = useRef(false);
   const revealVideoOverlay = useCallback((opts?: { sticky?: boolean }) => {
     setShowVideoOverlayControls(true);
     if (videoOverlayTimerRef.current) {
@@ -783,6 +789,21 @@ const Index = () => {
       setShowVideoOverlayControls(false);
     }
   }, [isPlaying, expanded, playerMode, revealVideoOverlay]);
+
+  // Grace do intro do YouTube: arma 3,5 s de máscaras a CADA transição pausado→tocando
+  // (inclui trocar de vídeo e seek-resume — momentos em que o intro pode reexibir).
+  useEffect(() => {
+    if (prevVideoPlayingRef.current === isPlaying) return;
+    prevVideoPlayingRef.current = isPlaying;
+    if (isPlaying && expanded && playerMode === "video") {
+      setVideoIntroGrace(true);
+      if (videoIntroGraceTimerRef.current) clearTimeout(videoIntroGraceTimerRef.current);
+      videoIntroGraceTimerRef.current = setTimeout(() => setVideoIntroGrace(false), 3500);
+    }
+  }, [isPlaying, expanded, playerMode]);
+  useEffect(() => () => {
+    if (videoIntroGraceTimerRef.current) clearTimeout(videoIntroGraceTimerRef.current);
+  }, []);
   const { trendingSongs, isLoading: trendingLoading } = useTrendingMusic();
   useNativeCapabilities(isPlaying);
   
@@ -1981,25 +2002,31 @@ const Index = () => {
                 className="absolute inset-0 z-[210] bg-transparent cursor-default"
                 style={{ WebkitTapHighlightColor: 'transparent' }}
               />
+              {/* CAMADA DE MÁSCARAS DE MARCA (estado visível PRÓPRIO, z-[213]) — o iframe
+                  do YouTube é cross-domain e não permite esconder título/canal/logo/"Mais
+                  vídeos" via CSS/API; cobrimos as faixas onde ele desenha. Acesa SEMPRE que:
+                  (a) controles visíveis (inclui keepOpen de pausado/finalizado), ou
+                  (b) intro-grace de 3,5 s após cada play/seek-resume — senão o branding
+                  escaparia justamente nos segundos após o play com a tela limpa. Depois do
+                  grace, some totalmente: reprodução 100% limpa, garantida. */}
+              <div
+                className={`absolute inset-0 pointer-events-none transition-opacity duration-300 z-[213] ${
+                  (showVideoOverlayControls || videoIntroGrace) ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                {/* faixa superior: título + avatar/nome do canal do YouTube */}
+                <div className="absolute inset-x-0 top-0 h-[72px] bg-gradient-to-b from-black via-black/80 to-transparent pointer-events-none" />
+                {/* faixa inferior: sugestões "Mais vídeos" acima da barra sólida */}
+                <div className="absolute inset-x-0 bottom-0 h-[104px] bg-gradient-to-t from-black via-black/75 to-transparent pointer-events-none" />
+                {/* barra sólida: cobre logo "YouTube" (dir.) e compartilhar (esq.); funciona
+                    como painel atrás dos nossos controles quando estes estão visíveis */}
+                <div className="absolute inset-x-0 bottom-0 h-[52px] bg-black/90 pointer-events-none" />
+              </div>
               <div
                 className={`absolute inset-0 pointer-events-none transition-opacity duration-300 z-[215] ${
                   showVideoOverlayControls ? 'opacity-100' : 'opacity-0'
                 }`}
               >
-                {/* MÁSCARAS DE MARCA DO EMBED — o iframe do YouTube é cross-domain: não dá
-                    para esconder via CSS/API o título, o avatar do canal, o logo ou as
-                    sugestões "Mais vídeos" que O YOUTUBE desenha ao pausar/terminar/hover.
-                    playerVars já está no máximo (controls:0, modestbranding, rel:0...).
-                    Solução: gradientes opacos sobre exatamente as faixas onde ele desenha;
-                    os NOSSOS controles ficam por cima (z-[220]). */}
-                {/* faixa superior: título do vídeo + avatar/nome do canal do YouTube */}
-                <div className="absolute inset-x-0 top-0 h-[76px] bg-gradient-to-b from-black via-black/60 to-transparent pointer-events-none" />
-                {/* faixa inferior: gradiente suave cobrindo sugestões "Mais vídeos"... */}
-                <div className="absolute inset-x-0 bottom-0 h-[104px] bg-gradient-to-t from-black via-black/70 to-transparent pointer-events-none" />
-                {/* ... + barra sólida atrás dos nossos botões: o logo "YouTube" (canto dir.)
-                    e o compartilhar (canto esq.) não escapam — vira painel dos nossos controles */}
-                <div className="absolute inset-x-0 bottom-0 h-[52px] bg-black/85 pointer-events-none" />
-
                 {/* Back / minimize (top-left) */}
                 <button
                   onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); playerState.isFullscreen ? exitFullscreen() : setExpanded(false); }}
