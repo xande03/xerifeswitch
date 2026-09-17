@@ -25,6 +25,10 @@ interface FullscreenOverlayProps {
    *  do embed do YouTube (título/canal/logo/sugestões). No fullscreen de MÚSICA
    *  permanece false — lá nada do iframe aparece. */
   videoMode?: boolean;
+  /** TRUE quando o vídeo TERMINOU: cobre o iframe com preto opaco até o
+   *  autoplay do app carregar o próximo — a endscreen do YouTube (grade de
+   *  sugestões + replay) nunca aparece no centro da tela cheia. */
+  isEnded?: boolean;
 }
 
 const MIN_SCALE = 1;
@@ -34,6 +38,7 @@ const FullscreenOverlay = ({
   song, isPlaying, currentTime, duration, progress,
   onTogglePlay, onNext, onPrev, onSeek, onExit,
   videoMode = false,
+  isEnded = false,
 }: FullscreenOverlayProps) => {
   const [showControls, setShowControls] = useState(true);
   const [zoom, setZoom] = useState<{ scale: number; x: number; y: number }>({ scale: 1, x: 0, y: 0 });
@@ -370,6 +375,16 @@ const FullscreenOverlay = ({
     >
       {/* (as máscaras de branding do YouTube agora são renderizadas como camada PERMANENTE
           dentro de #yt-fullscreen-container pelo `Index` — e não por este overlay) */}
+
+      {/* CAPA OPACA de fim de vídeo: com o vídeo TERMINADO o YouTube desenha a
+          endscreen (grade de sugestões + replay) no CENTRO do iframe — região
+          que o overflow masking não cobre. Cobre tudo de preto até o autoplay
+          do app assumir — só o nosso UI permanece visível. */}
+      {videoMode && isEnded && (
+        /* Primeiro filho do overlay: fica por cima do vídeo (e sob todos os
+           controles seguintes — voltar, seek, transporte — que renderizam depois) */
+        <div className="absolute inset-0 z-[205] bg-black pointer-events-none" aria-hidden />
+      )}
 
       {/* Máscara do BOTÃO CENTRAL do YouTube + botão play do app (somente vídeo):
           pausado/finalizado o embed desenha o play vermelho no centro do iframe —

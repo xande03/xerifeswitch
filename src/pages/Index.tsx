@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
-import { Search, Wifi, WifiOff, ChevronRight, ChevronDown, Music, TrendingUp, Play, Pause, SkipBack, SkipForward, User, Clock, Sparkles, Plus, Sun, Moon, Flame, Headphones, Disc3, Zap, MonitorPlay, Heart, ListMusic, Bookmark, Trash2, Maximize2, Minimize2, ArrowLeft, Captions, CaptionsOff, Home, RefreshCw, Star, Link2 } from "lucide-react";
+import { Search, Wifi, WifiOff, ChevronRight, ChevronDown, Music, TrendingUp, Play, Pause, SkipBack, SkipForward, User, Clock, Sparkles, Plus, Sun, Moon, Flame, Headphones, Disc3, Zap, MonitorPlay, Heart, ListMusic, Bookmark, Trash2, Maximize2, Minimize2, ArrowLeft, Captions, CaptionsOff, Home, RefreshCw, Star, Link2, Loader2 } from "lucide-react";
 // Telas/overlays pesados viram chunks async (ver src/lib/deferredScreens.ts):
 // alias com o mesmo nome mantem o JSX intacto, cada sitio ganhou um <Suspense>.
 import {
@@ -2021,6 +2021,18 @@ const Index = () => {
             </div>
           )}
 
+          {/* CAPA OPACA de fim de vídeo (fail-closed): ao terminar, o YouTube
+              desenha sua ENDSCREEN dentro do iframe — replay + grade de vídeos
+              sugeridos no CENTRO, área que o overflow masking não cobre. Enquanto
+              isEnded, cobrimos o frame inteiro com preto o + nosso spinner até
+              o autoplay do app carregar o próximo item (rede do próprio
+              NowPlayingView). z-[214] abaixo dos nossos controles (215). */}
+          {expanded && playerMode === "video" && playerState.isEnded && (
+            <div className="absolute inset-0 z-[214] bg-black flex items-center justify-center pointer-events-none" aria-hidden>
+              <Loader2 className="animate-spin text-white/70" size={32} />
+            </div>
+          )}
+
           {/* Overlay controls on top of the actual YouTube player */}
           {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && (
             <>
@@ -2227,6 +2239,7 @@ const Index = () => {
               onSeek={handleSeek}
               onExit={() => exitFullscreen()}
               videoMode={playerMode === "video"}
+              isEnded={playerState.isEnded}
             />
           </Suspense>
           )}
