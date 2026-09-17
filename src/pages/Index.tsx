@@ -57,6 +57,7 @@ import { getFavoriteChannels, removeFavoriteChannel, addFavoriteChannel, FAV_CHA
 import BottomNav from "@/components/BottomNav";
 import DesktopSidebar from "@/components/DesktopSidebar";
 import DesktopTopIsland from "@/components/DesktopTopIsland";
+import DesktopPlayerIsland from "@/components/DesktopPlayerIsland";
 import SearchSkeleton from "@/components/SearchSkeleton";
 import DesktopPlayer from "@/components/DesktopPlayer";
 import SidebarPlayer from "@/components/SidebarPlayer";
@@ -1892,14 +1893,24 @@ const Index = () => {
           collapsedPlayerSlot={sidebarPlayerCollapsedNode}
         />
 
-        {/* Player flutuante do DESKTOP LARGO (lg+, ≥1024px): em telas desktop a
-            sidebar vira a ILHA DINÂMICA no topo (DesktopTopIsland); o painel do
-            player (capa/thumbnail, título, transporte, barra de progresso) reúso
-            vem para esta cápsula centralizada na base — libera as laterais E a
-            vertical para o conteúdo, sem perder nenhum controle. */}
-        <div className="hidden lg:block fixed bottom-4 left-1/2 -translate-x-1/2 z-[80] w-[320px] rounded-[26px] border border-border/70 bg-card/95 backdrop-blur-xl shadow-2xl shadow-black/45 overflow-hidden">
-          {sidebarPlayerExpandedNode}
-        </div>
+        {/* Player do DESKTOP LARGO (lg+, ≥1024px) como ILHA DINÂMICA em pílula
+            no rodapé (capa à esquerda + transporte/seek à direita). Em md a
+            cápsula deriva do painel dentro do menu lateral. */}
+        <DesktopPlayerIsland
+          song={currentSong}
+          isPlaying={isPlaying}
+          currentTime={ct}
+          duration={dur}
+          progress={dur > 0 ? ct / dur : 0}
+          onTogglePlay={handleTogglePlay}
+          onNext={handleNext}
+          onPrev={handlePrev}
+          onSeek={handleSeek}
+          onExpand={() => setExpanded(true)}
+          isLiked={votedSongs.has(currentSong.id)}
+          onLike={() => handleVote(currentSong)}
+          podcastMode={podcastMode}
+        />
 
 
         {/* Main column */}
@@ -2254,7 +2265,7 @@ const Index = () => {
 
           return (
         <header
-          className="relative flex items-center gap-3 sm:gap-4 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 lg:py-5 flex-shrink-0 bg-background"
+          className="relative flex items-center gap-3 sm:gap-4 px-4 sm:px-6 lg:px-4 xl:px-6 py-3 sm:py-4 lg:py-4 flex-shrink-0 bg-background"
           style={{
             paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)',
             paddingLeft: 'max(1rem, env(safe-area-inset-left))',
@@ -2352,7 +2363,7 @@ const Index = () => {
 
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto pb-4 lg:pb-[400px] overscroll-contain lg:px-2" key={activeTab} style={{ animation: 'fade-in 0.25s ease-out' }}>
+        <main className="flex-1 overflow-y-auto pb-4 lg:pb-28 overscroll-contain lg:px-2" key={activeTab} style={{ animation: 'fade-in 0.25s ease-out' }}>
         <Suspense fallback={<div className="flex justify-center py-24"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/25 border-t-primary" /></div>}>
           {activeTab === "home" && podcastMode && (
             <PodcastScreen

@@ -69,10 +69,10 @@ const DesktopTopIsland = ({ active, onChange, currentModule, onModuleSelect }: P
     <nav
       data-desktop-island
       aria-label="Navegação principal (desktop)"
-      className="hidden lg:flex items-center gap-1 rounded-full border border-border/70 bg-card/90 backdrop-blur-xl shadow-lg shadow-black/25 px-1.5 py-1 max-w-full overflow-hidden"
+      className="hidden lg:flex items-center gap-1.5 xl:gap-2 rounded-full border border-border/70 bg-card/90 backdrop-blur-xl shadow-lg shadow-black/25 px-2.5 py-1.5 max-w-full"
     >
       {/* ─ Trio de módulos (sempre nas cores de cada módulo) ─ */}
-      <div className="flex items-center gap-1 shrink-0" role="group" aria-label="Sessões do app">
+      <div className="flex items-center gap-1.5 xl:gap-2 shrink-0" role="group" aria-label="Sessões do app">
         {MODULES.map((m) => {
           const Icon = MODULE_ICON[m];
           const tones = getModuleTones(MODULE_COLOR[m], isLight);
@@ -84,8 +84,8 @@ const DesktopTopIsland = ({ active, onChange, currentModule, onModuleSelect }: P
                   onClick={() => onModuleSelect(m)}
                   aria-pressed={isActive}
                   aria-label={`Sessão Xerife ${MODULE_LABEL[m]}`}
-                  className={`flex items-center justify-center gap-1.5 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                    isActive ? "px-2.5 h-9" : "w-9 h-9 hover:scale-105 active:scale-95"
+                  className={`flex items-center justify-center gap-2 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    isActive ? "px-3 h-10" : "w-10 h-10 hover:scale-105 active:scale-95"
                   }`}
                   style={{
                     color: isActive ? "white" : tones.fg,
@@ -95,9 +95,9 @@ const DesktopTopIsland = ({ active, onChange, currentModule, onModuleSelect }: P
                       : `inset 0 0 0 1px ${tones.ring}`,
                   }}
                 >
-                  <Icon size={16} strokeWidth={isActive ? 2.4 : 2} className="shrink-0" />
+                  <Icon size={18} strokeWidth={isActive ? 2.4 : 2} className="shrink-0" />
                   {isActive && (
-                    <span className="hidden xl:inline text-[11px] font-bold whitespace-nowrap">
+                    <span className="text-[11.5px] font-bold whitespace-nowrap tracking-tight">
                       {MODULE_LABEL[m]}
                     </span>
                   )}
@@ -111,8 +111,8 @@ const DesktopTopIsland = ({ active, onChange, currentModule, onModuleSelect }: P
         })}
       </div>
 
-      {/* Divisor */}
-      <div className="w-px h-6 bg-border/80 shrink-0 mx-0.5" aria-hidden />
+      {/* Divisor — separação generosa entre área de sessões e módulos do app */}
+      <div className="w-px h-7 bg-border/80 shrink-0 mx-2.5 xl:mx-3.5" aria-hidden />
 
       {/* ─ Sessões do módulo ativo ─ */}
       {mainTabs.map(({ id, icon: Icon, label }) => {
@@ -131,15 +131,14 @@ const DesktopTopIsland = ({ active, onChange, currentModule, onModuleSelect }: P
                       : { color: activeTones.fg, backgroundColor: activeTones.bg, boxShadow: `inset 0 0 0 1.5px ${activeTones.ring}` }
                     : undefined
                 }
-                className={`relative flex items-center justify-center gap-1.5 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                className={`relative flex items-center justify-center gap-2 rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   isActive
-                    ? "px-3 h-9 font-semibold"
-                    : "w-9 h-9 text-sidebar-foreground/65 hover:text-sidebar-foreground hover:bg-sidebar-accent/70 hover:scale-[1.04] active:scale-95"
+                    ? "px-3.5 h-10 font-semibold"
+                    : "px-2.5 h-10 xl:px-3 text-sidebar-foreground/65 hover:text-sidebar-foreground hover:bg-sidebar-accent/70 hover:scale-[1.03] active:scale-95"
                 }`}
               >
-                <Icon size={17} strokeWidth={isActive ? 2.3 : 1.9} className="shrink-0" />
-                {/* Rótulo sempre visível no ativo; em xl todos mostram */}
-                <span className={`text-[12px] whitespace-nowrap ${isActive ? "" : "hidden xl:inline"}`}>
+                <Icon size={18} strokeWidth={isActive ? 2.3 : 1.9} className="shrink-0" />
+                <span className={`text-[12.5px] whitespace-nowrap tracking-tight ${isActive ? "" : "hidden 2xl:inline"}`}>
                   {label}
                 </span>
                 {id === "library" && likedCount > 0 && (
