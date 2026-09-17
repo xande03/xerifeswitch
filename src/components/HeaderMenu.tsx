@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { Settings, Music, MonitorPlay, Sun, Moon, Palette, Cast, X, Clock, ListMusic, ZoomIn, Plus, Minus, Sparkles, User, LogIn, LogOut, SlidersHorizontal, Download, EyeOff, Eye, ChevronDown, Lock } from "lucide-react";
+import { Settings, Music, MonitorPlay, Sun, Moon, Palette, Cast, X, ListMusic, ZoomIn, Plus, Minus, Sparkles, User, LogIn, LogOut, SlidersHorizontal, Download, EyeOff, Eye, ChevronDown, Lock } from "lucide-react";
 
 import AppHeartbeatStatus from "@/components/AppHeartbeatStatus";
 import LockScreenSetupGuide from "@/components/LockScreenSetupGuide";
@@ -153,14 +153,8 @@ const HeaderMenu = ({
               <div className={`w-8 h-4 rounded-full transition-colors relative ${reducedMotion ? 'bg-primary' : 'bg-secondary'}`}>
                 <div className={`absolute top-1 w-2 h-2 rounded-full bg-white transition-all ${reducedMotion ? 'right-1' : 'left-1'}`} />
               </div>
-            </button>
-
-
-
-
-            <FullscreenAutoHidePref />
+              </button>
           </div>
-
 
 
 
@@ -280,70 +274,4 @@ const HeaderMenu = ({
 };
 
 export default HeaderMenu;
-
-const AUTOHIDE_OPTIONS = [2000, 3500, 5000, 8000] as const;
-const AUTOHIDE_KEY = "demus-fs-autohide-ms";
-const AUTOHIDE_DEFAULT = 3500;
-
-function readAutoHide(): number {
-  try {
-    const raw = localStorage.getItem(AUTOHIDE_KEY);
-    if (raw == null || raw === "") return AUTOHIDE_DEFAULT;
-    const n = Number(raw);
-    if (!Number.isFinite(n) || !AUTOHIDE_OPTIONS.includes(n as any)) return AUTOHIDE_DEFAULT;
-    return n;
-  } catch {
-    return AUTOHIDE_DEFAULT;
-  }
-}
-
-function FullscreenAutoHidePref() {
-  const [ms, setMs] = useState<number>(() => readAutoHide());
-
-  // Persist + broadcast on change
-  useEffect(() => {
-    try { localStorage.setItem(AUTOHIDE_KEY, String(ms)); } catch {}
-    window.dispatchEvent(new CustomEvent("demus:fs-autohide-changed", { detail: ms }));
-  }, [ms]);
-
-  // Reflect external changes (other tabs / programmatic updates)
-  useEffect(() => {
-    const onExternal = (e: Event) => {
-      const next = Number((e as CustomEvent).detail);
-      if (AUTOHIDE_OPTIONS.includes(next as any) && next !== ms) setMs(next);
-    };
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === AUTOHIDE_KEY) setMs(readAutoHide());
-    };
-    window.addEventListener("demus:fs-autohide-changed", onExternal as EventListener);
-    window.addEventListener("storage", onStorage);
-    return () => {
-      window.removeEventListener("demus:fs-autohide-changed", onExternal as EventListener);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, [ms]);
-
-  return (
-    <div className="w-full flex flex-wrap items-center justify-between gap-y-1.5 gap-x-3 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-secondary transition-colors">
-      <div className="flex items-center gap-3 min-w-0">
-        <Clock size={16} className="text-muted-foreground flex-shrink-0" />
-        <span className="truncate">Auto-ocultar (tela cheia)</span>
-      </div>
-      <div className="flex items-center gap-1 flex-wrap">
-        {AUTOHIDE_OPTIONS.map((opt) => (
-          <button
-            key={opt}
-            onClick={() => setMs(opt)}
-            className={`px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${
-              ms === opt ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:bg-accent"
-            }`}
-          >
-            {opt / 1000}s
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 

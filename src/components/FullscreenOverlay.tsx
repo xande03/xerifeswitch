@@ -4,19 +4,10 @@ import { track as trackMetric } from "@/lib/playbackMetrics";
 import { Song, formatDuration } from "@/data/mockSongs";
 import SeekBar from "@/components/SeekBar";
 
-const AUTOHIDE_OPTS = [2000, 3500, 5000, 8000] as const;
-const AUTOHIDE_DEFAULT = 3500;
-function readAutoHideMs(): number {
-  try {
-    const raw = localStorage.getItem("demus-fs-autohide-ms");
-    if (raw == null || raw === "") return AUTOHIDE_DEFAULT;
-    const n = Number(raw);
-    if (!Number.isFinite(n) || !AUTOHIDE_OPTS.includes(n as any)) return AUTOHIDE_DEFAULT;
-    return n;
-  } catch {
-    return AUTOHIDE_DEFAULT;
-  }
-}
+/** Delay fixo para auto-ocultar os controles do fullscreen (3,5 s).
+ *  A preferência "Auto-ocultar (tela cheia)" foi removida das Configurações —
+ *  comportamento agora é único para todos os usuários. */
+const AUTOHIDE_DEFAULT_MS = 3500;
 
 
 interface FullscreenOverlayProps {
@@ -43,7 +34,6 @@ const FullscreenOverlay = ({
   const [zoom, setZoom] = useState<{ scale: number; x: number; y: number }>({ scale: 1, x: 0, y: 0 });
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const lastTapRef = useRef<number>(0);
-  const autoHideMsRef = useRef<number>(readAutoHideMs());
 
   // ── Quality selector (persisted; mirrors VideoInfoBar) ──
   const QUALITY_OPTIONS: { value: string; label: string }[] = [
@@ -146,7 +136,7 @@ const FullscreenOverlay = ({
   const resetTimer = useCallback(() => {
     setShowControls(true);
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setShowControls(false), autoHideMsRef.current);
+    timerRef.current = setTimeout(() => setShowControls(false), AUTOHIDE_DEFAULT_MS);
   }, []);
 
   const handleSurfaceClick = useCallback(() => {
@@ -290,13 +280,6 @@ const FullscreenOverlay = ({
       setTimeout(() => { clearTransform(); scheduledRef.current = false; }, 700);
     };
     const onVisibility = () => { if (!document.hidden) { resetTimer(); onOrientation(); } };
-    const onAutoHidePref = (e: Event) => {
-      const next = Number((e as CustomEvent).detail);
-      if (Number.isFinite(next) && AUTOHIDE_OPTS.includes(next as any)) {
-        autoHideMsRef.current = next;
-        resetTimer();
-      }
-    };
     const orientationMql = typeof window !== "undefined" && window.matchMedia
       ? window.matchMedia("(orientation: landscape)")
       : null;
@@ -309,7 +292,6 @@ const FullscreenOverlay = ({
     try { (window as any).visualViewport?.addEventListener?.("resize", onOrientation); } catch {}
     try { orientationMql?.addEventListener?.("change", onOrientation); } catch {}
     document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("demus:fs-autohide-changed", onAutoHidePref as EventListener);
 
 
     
@@ -327,7 +309,6 @@ const FullscreenOverlay = ({
       try { (window as any).visualViewport?.removeEventListener?.("resize", onOrientation); } catch {}
       try { orientationMql?.removeEventListener?.("change", onOrientation); } catch {}
       document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("demus:fs-autohide-changed", onAutoHidePref as EventListener);
 
 
 
