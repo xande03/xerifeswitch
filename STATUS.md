@@ -1,8 +1,47 @@
 # Status do Xerife Music
 
-Atualizado em 2026-09-17 (5ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-09-18 (6ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-09-18 — player de vídeo 100% limpo + ilha do player oculta durante reprodução
+
+1. **Só existem os controles do Xerife no player de vídeo** (voltar ao painel,
+   prev/play/next, seekbar, CC, tela cheia, PiP, trocar clipe). O que faltava foi
+   eliminado nesta sessão:
+   - **Legendas desligadas por padrão** — `loadCaptionsPref` retornava `true` sem
+     preferência salva: todo vídeo nascia legendado. Agora o default é OFF; quem
+     quiser liga pelo botão CC (a escolha persiste em `demus_captions_enabled`).
+   - **Legendas re-forçadas a cada troca de vídeo** (`loadVideo`/`loadVideoAt`,
+     imediato + timeout 1,2 s): o YouTube reseta os módulos `captions`/`cc` do
+     player no load — sem isso elas "renasciam" mesmo desligadas. playerVars
+     ganharam `cc_lang_pref: "pt"` + `hl: "pt-BR"` (CC ligado vem em português).
+   - **Botão play vermelho central do embed mascarado**: pausado/finalizado/pré-play
+     o YouTube desenha o botão play no CENTRO do iframe — o overflow masking
+     (±72px) só cobre topo/base. Disco preto opaco permanente (z-212,
+     `pointer-events-none`) no player principal e no fullscreen; em reprodução a
+     máscara sai e o vídeo fica 100% limpo. No fullscreen, o disco ganha o botão
+     play do app por cima (alvo grande de reprodução).
+   - **PiP nativo (Document PiP) sem controles do YouTube**: `controls=1` → `0`,
+     `loop=1&playlist=<id>` (endscreen nunca chega) e iframe `pointer-events:none`.
+     O PiP flutuante (`FloatingPiPPlayer`) também ganhou `loop` — o preview reinicia
+     em vez de mostrar "Mais vídeos".
+2. **Ilha do player (pílula desktop) oculta ao reproduzir**: `DesktopPlayerIsland`
+   agora renderiza somente com `!expanded` (antes só saía de cena no modo vídeo).
+   Ao clicar em uma música ou vídeo, o painel cheio assume e a pílula não flutua
+   mais POR CIMA do `NowPlayingView` (`z-80 > z-50`) duplicando o transporte. Ela
+   volta automaticamente quando o usuário vai para outro painel ou módulo (voltar,
+   artista/canal, biblioteca, trocar módulo, PiP) — todos esses caminhos fecham o
+   painel (`expanded=false`).
+3. **Validado no Chromium** (1440×900): pílula sai do DOM ao expandir o painel de
+   música e volta ao recolher; página de vídeo abre sem pílula e com a máscara
+   central no DOM; botão CC presente e desligado por padrão. (Observação: a rede do
+   ambiente bloqueia YouTube/Invidious — reprodução real medida apenas pelos
+   checks abaixo.)
+
+Medido neste checkout após as mudanças: `npm run typecheck` ✅, `npm run test`
+**89 testes** ✅, `npm run build` ✅, `npm run e2e:anchor` ✅ (16 combinações),
+`npm run smoke` ✅. Commit `7622c19`.
 
 ## Sessão 2026-09-17 — desktop sem sidebar: ilha dinâmica no topo + player flutuante
 
