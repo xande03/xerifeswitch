@@ -1895,22 +1895,27 @@ const Index = () => {
 
         {/* Player do DESKTOP LARGO (lg+, ≥1024px) como ILHA DINÂMICA em pílula
             no rodapé (capa à esquerda + transporte/seek à direita). Em md a
-            cápsula deriva do painel dentro do menu lateral. */}
-        <DesktopPlayerIsland
-          song={currentSong}
-          isPlaying={isPlaying}
-          currentTime={ct}
-          duration={dur}
-          progress={dur > 0 ? ct / dur : 0}
-          onTogglePlay={handleTogglePlay}
-          onNext={handleNext}
-          onPrev={handlePrev}
-          onSeek={handleSeek}
-          onExpand={() => setExpanded(true)}
-          isLiked={votedSongs.has(currentSong.id)}
-          onLike={() => handleVote(currentSong)}
-          podcastMode={podcastMode}
-        />
+            cápsula deriva do painel dentro do menu lateral.
+            OCULTADA sempre que o player de VÍDEO estiver ativo (rail minimizado
+            no topo, expandido ou em outro painel/módulo): nesse cenário o vídeo
+            já tem sua própria janela de controles/máscaras na tela. */}
+        {!(expanded && playerMode === "video") && (
+          <DesktopPlayerIsland
+            song={currentSong}
+            isPlaying={isPlaying}
+            currentTime={ct}
+            duration={dur}
+            progress={dur > 0 ? ct / dur : 0}
+            onTogglePlay={handleTogglePlay}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            onSeek={handleSeek}
+            onExpand={() => setExpanded(true)}
+            isLiked={votedSongs.has(currentSong.id)}
+            onLike={() => handleVote(currentSong)}
+            podcastMode={podcastMode}
+          />
+        )}
 
 
         {/* Main column */}
@@ -2004,11 +2009,7 @@ const Index = () => {
               Na reprodução pura some = tela 100% limpa. Cobre exatamente as faixas do
               branding, CSS/API não alcançam (iframe cross-domain). */}
           {expanded && playerMode === "video" && (
-            <div
-              className={`absolute inset-0 z-[100] pointer-events-none transition-opacity duration-300 ${
-                !isPlaying || videoIntroGrace || showVideoOverlayControls ? "opacity-100" : "opacity-0"
-              }`}
-            >
+            <div className="absolute inset-0 z-[100] pointer-events-none">
               {/* faixa superior: título + avatar/canal do YouTube */}
               <div className="absolute inset-x-0 top-0 h-[76px] bg-gradient-to-b from-black via-black/85 to-transparent pointer-events-none" />
               {/* faixa inferior: sugestões "Mais vídeos" */}
