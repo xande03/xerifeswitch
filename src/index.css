@@ -483,17 +483,7 @@ html, body {
   z-index: 0 !important;
   background: black !important;
 }
-#yt-fullscreen-container:fullscreen #yt-player iframe,
-#yt-fullscreen-container:-webkit-full-screen #yt-player iframe,
-.pseudo-fullscreen #yt-player iframe,
-.pseudo-fullscreen iframe {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  border-radius: 0 !important;
-  z-index: 0 !important;
-}
+/* (id-absorver: vide nota acima) */
 
 /* ===========================================================
    Landscape mobile fullscreen: garante que o vídeo preencha
@@ -539,13 +529,8 @@ html, body {
   }
 }
 
-/* O iframe do YouTube deve sempre preencher o #yt-player (evita vídeo
-   pequeno/descentralizado quando o YT API define width/height fixos). */
-#yt-player iframe {
-  width: 100% !important;
-  height: 100% !important;
-  display: block;
-}
+/* (regra-filha removida: #yt-player JÁ É o iframe — a API do YouTube
+    substitui a div-alvo. Dimensionamento agora no bloco de overflow masking) */
 
 
 /* iOS: ensure horizontal scroll/snap carousels respond to swipes
@@ -842,18 +827,23 @@ aside[data-sidebar-collapsed="true"] nav button {
    o tempo todo, inclusive pausado/finalizado. Em conjunto com os playerVars
    oficiais (controls:0, modestbranding:1, rel:0, iv_load_policy:3 no
    useYouTubePlayer), sobra só a reprodução. */
-#yt-player iframe {
-  /* Em vez de ZOOM (que cortava o vídeo): deslocamento vertical puro.
-     O iframe é uma caixa 16:9 dentro de uma caixa 16:9 — com altura extra de
-     144px e subindo 72px, as faixas INTERNAS do chrome do YouTube (título/
-     avatar no topo; setas de share, "Mais vídeos" e logo na base) caem FORA
-     da área visível do container (overflow: hidden). Como essas faixas são
-     internas ao próprio iframe, elas simplesmente não existem na tela — não
-     há timer, e NÃO têm como "voltar depois de um tempo". O vídeo ocupa o
-     exato retângulo 16:9 do container: zero zoom, zero corte de conteúdo. */
+#yt-fullscreen-container:not(:fullscreen):not(.pseudo-fullscreen) #yt-player,
+#yt-fullscreen-container:not(-webkit-full-screen):not(.pseudo-fullscreen) #yt-player {
+  /* O mask de overflow CORRETO (escopo: player NÃO-fullscreen; em fullscreen
+     o letterbox 16:9 próprio permanece + o overlay cobre tudo): a YT IFrame
+     Player API SUBSTITUI a div-alvo (#yt-player) pelo próprio
+     <iframe id="yt-player"> — seletores do tipo "#yt-player iframe" não têm
+     alvo (o iframe não tem filho). Por isso o deslocamento aplica DIRETAMENTE
+     aqui: o iframe nasce 144px mais alto e sobe 72px; como container e vídeo
+     são 16:9, o conteúdo preenche o exato retângulo visível (zero zoom, zero
+     corte), enquanto as faixas INTERNAS do chrome do YouTube (título/avatar
+     no topo; setas de share, "Mais vídeos" e logo na base) ficam FORA da área
+     visível e o container (overflow: hidden) as descarta. Geométrico, sem
+     timers: não "volta". */
   position: absolute !important;
   left: 0 !important;
   top: -72px !important;
   width: 100% !important;
   height: calc(100% + 144px) !important;
+  display: block;
 }
