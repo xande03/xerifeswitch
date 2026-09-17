@@ -4,6 +4,7 @@ import { Music, MonitorPlay, Play, Clock, Sparkles, ChevronRight, Headphones, Fi
 import { getHistory, getLastPlayback, type HistoryEntry } from "@/lib/localStorage";
 import { hdThumbnail } from "@/lib/utils";
 import Logo from "@/components/Logo";
+import AdSlot from "@/components/AdSlot";
 
 export interface HubMusicItem {
   id: string;
@@ -102,6 +103,12 @@ const HubHomeScreen = ({ onEnterMusic, onEnterVideo, onPlayMusic, onPlayVideo, g
           Retome de onde parou ou entre em um dos módulos.
         </p>
       </motion.div>
+
+      {/* Slot de anúncio hospedado ("Recomendado") — in-visit, sem anúncios
+          das músicas: nunca dentro do player; ocupa o corredor do feed. */}
+      <div className="px-3 sm:px-4">
+        <AdSlot slot="feed-home" variant="row" className="mt-4" />
+      </div>
 
 
       {/* Entry cards */}

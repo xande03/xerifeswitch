@@ -10,6 +10,7 @@ import { fetchVideoInfo, type Comment, type VideoInfo } from "@/lib/youtubeVideo
 import VideoCard from "./VideoCard";
 import RelatedVideos from "./RelatedVideos";
 import VideoComments from "./VideoComments";
+import AdSlot from "./AdSlot";
 import VideoCategorySelector, { VIDEO_CATEGORIES, type VideoCategory } from "./VideoCategorySelector";
 import { useAutoRefreshChannel } from "@/hooks/useAutoRefreshChannel";
 import NewContentBadge from "./NewContentBadge";
@@ -622,6 +623,14 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
                   animate="visible"
                   variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
                 >
+                  {/* Slot de anúncio hospedado — ocupa uma linha inteira do
+                      grid (reproduz Ilmihanel sponsorado/recomendado); nunca
+                      dentro do player/de vídeos em reprodução. */}
+                  {viewMode !== "list" && (
+                    <div className="md:col-span-2 lg:col-span-3 xl:col-span-3">
+                      <AdSlot slot="explorar" variant="row" />
+                    </div>
+                  )}
                   {displayVideos.map((video) => (
                     <motion.div
                       key={video.videoId}
@@ -800,7 +809,10 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
                     <p className="text-sm text-muted-foreground">Nenhuma playlist formada</p>
                   </div>
                 ) : (
-                  playlists.map((pl, pi) => (
+                  <>
+                  {/* Slot de anúncio hospedado do grid de playlists ("Recomendado") */}
+                  <AdSlot slot="grid-playlists" variant="row" className="mb-1" />
+                  {playlists.map((pl, pi) => (
                     <motion.div
                       key={pi}
                       className="space-y-3"
@@ -839,7 +851,8 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
                         ))}
                       </HorizontalScroll>
                     </motion.div>
-                  ))
+                  ))}
+                  </>
                 )}
               </motion.div>
             )}

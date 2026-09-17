@@ -191,6 +191,9 @@ const Index = () => {
   // PodcastScreen via `xerife:podcast-nav`, while Biblioteca opens the hub
   // pre-filtered to Podcasts. This keeps the lilac accent locked in.
   const handleNavChange = (tab: Tab) => {
+    // Cada navegação rodaja o sorteio dos slots de anúncio ("recomendado")
+    // — new visit, nova ficha, sem anúncio repetido entre feed/playlists/explorar.
+    window.dispatchEvent(new Event("xerife:ads-refresh"));
     if (podcastMode) {
       if (tab === "home") {
         setChannelView(null); setArtistView(null);
