@@ -284,7 +284,7 @@ const DesktopSidebar = ({
 
 
       {/* Main nav */}
-      <nav className="flex-shrink-0 overflow-y-auto px-3 pt-2 pb-2 space-y-1 lg:space-y-0.5">
+      <nav className="flex-shrink-0 overflow-y-auto px-3 lg:px-3.5 pt-3 pb-2 space-y-1.5 lg:space-y-2">
         {mainTabs.map(({ id, icon: Icon, label }) => (
           <Tooltip key={id} delayDuration={200}>
             <TooltipTrigger asChild>
@@ -292,26 +292,26 @@ const DesktopSidebar = ({
                 onClick={() => onChange(id)}
                 aria-label={label}
                 style={active === id && podcastMode ? { color: "hsl(var(--module-accent))", backgroundColor: "hsl(var(--module-accent) / 0.15)" } : undefined}
-                className={`w-full flex flex-col lg:flex-row items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2.5 lg:py-2 rounded-2xl lg:rounded-xl text-[10px] lg:text-[12.5px] font-semibold transition-all duration-200 group relative ${
+                className={`w-full flex flex-col lg:flex-row items-center gap-2 lg:gap-4 px-2 lg:px-4 py-2.5 lg:py-3 rounded-2xl text-[10px] lg:text-[14px] lg:leading-none font-semibold transition-all duration-200 group relative ${
                   active === id
-                    ? "bg-primary/15 text-primary shadow-sm shadow-primary/5"
+                    ? "bg-primary/15 text-primary shadow-sm shadow-primary/10 lg:ring-1 lg:ring-primary/25"
                     : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                 }`}
               >
 
                 {active === id && (
-                  <div className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-primary rounded-r-full" style={podcastMode ? { backgroundColor: "hsl(var(--module-accent))" } : undefined} />
+                  <div className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 w-[3.5px] h-7 bg-primary rounded-r-full shadow-[0_0_8px] shadow-primary/50" style={podcastMode ? { backgroundColor: "hsl(var(--module-accent))" } : undefined} />
                 )}
                 <div
                   style={active === id && podcastMode ? { color: "hsl(var(--module-accent))", backgroundColor: "hsl(var(--module-accent) / 0.2)" } : undefined}
-                  className={`relative flex items-center justify-center w-8 h-8 lg:w-7 lg:h-7 rounded-xl transition-all duration-200 ${
+                  className={`relative flex items-center justify-center w-8 h-8 lg:w-9 lg:h-9 rounded-xl transition-all duration-200 ${
                   active === id
-                    ? "bg-primary/20 text-primary scale-105"
+                    ? "bg-primary/20 text-primary scale-105 lg:shadow-[0_0_14px_-2px] lg:shadow-primary/30"
                     : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80 group-hover:bg-sidebar-accent group-hover:scale-105"
                 }`}>
                   <Icon
-                    size={active === id ? 20 : 18}
-                    strokeWidth={active === id ? 2.5 : 1.8}
+                    size={active === id ? 22 : 20}
+                    strokeWidth={active === id ? 2.5 : 2}
                     className="transition-all duration-200"
                   />
 
@@ -327,7 +327,7 @@ const DesktopSidebar = ({
                   )}
 
                 </div>
-                <span className="lg:block transition-all font-medium" data-sidebar-fullonly>{label}</span>
+                <span className="lg:block transition-all font-medium lg:tracking-[-0.005em]" data-sidebar-fullonly>{label}</span>
                 {active === id && (
                   <div className="hidden lg:block ml-auto w-2 h-2 rounded-full bg-primary animate-pulse" style={podcastMode ? { backgroundColor: "hsl(var(--module-accent))" } : undefined} data-sidebar-fullonly />
                 )}
