@@ -371,6 +371,25 @@ const FullscreenOverlay = ({
       {/* (as máscaras de branding do YouTube agora são renderizadas como camada PERMANENTE
           dentro de #yt-fullscreen-container pelo `Index` — e não por este overlay) */}
 
+      {/* Máscara do BOTÃO CENTRAL do YouTube + botão play do app (somente vídeo):
+          pausado/finalizado o embed desenha o play vermelho no centro do iframe —
+          o overflow masking corta topo/base, mas não o centro. Disco preto opaco
+          no centro o cobre; por cima, o botão play do app vira o alvo grande de
+          reprodução (mesma gramática do overlay principal). O conjunto não
+          captura toque (o surface toggle continua funcionando), só o botão. */}
+      {videoMode && !isPlaying && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div aria-hidden className="absolute w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-black" />
+          <button
+            onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
+            className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white pointer-events-auto active:scale-90 transition-transform"
+            aria-label="Reproduzir"
+          >
+            <Play size={30} fill="currentColor" className="ml-1" />
+          </button>
+        </div>
+      )}
+
       {/* Top bar — respeita safe-area (notch / Dynamic Island) sem afetar o vídeo,
           que continua ocupando 100vw/100vh via letterbox central. */}
       <div

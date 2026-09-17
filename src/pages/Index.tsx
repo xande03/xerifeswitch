@@ -1897,10 +1897,14 @@ const Index = () => {
         {/* Player do DESKTOP LARGO (lg+, ≥1024px) como ILHA DINÂMICA em pílula
             no rodapé (capa à esquerda + transporte/seek à direita). Em md a
             cápsula deriva do painel dentro do menu lateral.
-            OCULTADA sempre que o player de VÍDEO estiver ativo (rail minimizado
-            no topo, expandido ou em outro painel/módulo): nesse cenário o vídeo
-            já tem sua própria janela de controles/máscaras na tela. */}
-        {!(expanded && playerMode === "video") && (
+            OCULTADA sempre que um PAINEL DE REPRODUÇÃO está aberto (expanded):
+            ao clicar em uma música ou vídeo o painel cheio assume a tela — a
+            pílula flutuaria POR CIMA do NowPlayingView (z-80 > z-50),
+            duplicando o transporte do próprio painel. Ela volta automaticamente
+            quando o usuário vai para outro painel ou módulo (voltar ao painel,
+            abrir artista/canal, biblioteca, trocar de módulo, PiP), pois todos
+            esses caminhos fecham o painel de reprodução (expanded=false). */}
+        {!expanded && (
           <DesktopPlayerIsland
             song={currentSong}
             isPlaying={isPlaying}
@@ -2001,6 +2005,22 @@ const Index = () => {
 
 
           {expanded && playerMode === "video" && <QualityBadge />}
+
+          {/* Máscara do BOTÃO CENTRAL do YouTube (fail-closed): pausado, finalizado
+              ou antes do primeiro play, o embed desenha o botão play vermelho
+              (~68×48) no centro exato do iframe — o overflow masking corta as
+              faixas de cima/baixo, mas não o centro. Disco preto opaco no mesmo
+              centro, em camada PERMANENTE (não depende do overlay dos nossos
+              controles nem da opacidade dele): o botão do YouTube nunca aparece.
+              Só existe quando NÃO está tocando — em reprodução o YouTube não
+              desenha nada no centro e o vídeo fica 100% limpo. z-[212]: acima
+              do tap-catcher (210), abaixo do overlay dos controles (215), e
+              pointer-events-none para os toques seguirem para o catcher. */}
+          {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && !isPlaying && (
+            <div aria-hidden className="absolute inset-0 z-[212] flex items-center justify-center pointer-events-none">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-black" />
+            </div>
+          )}
 
           {/* Overlay controls on top of the actual YouTube player */}
           {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && (

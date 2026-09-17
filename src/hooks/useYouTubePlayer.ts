@@ -286,11 +286,16 @@ function resumeAudioContext() {
 
 const CAPTIONS_PREF_KEY = "demus_captions_enabled";
 function loadCaptionsPref(): boolean {
+  // Default LIGADA→DESLIGADA (2026-09-18): sem preferência salva, legendas ficam
+  // OCULTAS — o player mostra somente os controles do próprio app. Quem quiser
+  // legendas liga pelo botão CC (overlay do player / tela cheia), e a escolha
+  // persiste. Antes o default era true, o que fazia todo vídeo novo nascer
+  // legendado mesmo sem o usuário ter pedido.
   try {
     const v = localStorage.getItem(CAPTIONS_PREF_KEY);
-    if (v === null) return true;
+    if (v === null) return false;
     return v === "1" || v === "true";
-  } catch { return true; }
+  } catch { return false; }
 }
 
 const QUALITY_PREF_KEY = "demus_video_quality";
@@ -751,6 +756,10 @@ export function useYouTubePlayer(containerId: string) {
           playsinline: 1,
           iv_load_policy: 3,
           cc_load_policy: 0,
+          // Legendas: desligadas por padrão e, quando o usuário liga, preferem
+          // português. `hl` também pinta a UI interna do embed em pt-BR.
+          cc_lang_pref: "pt",
+          hl: "pt-BR",
           fs: 1,
           disablekb: 1,
           origin: window.location.origin,
@@ -1195,6 +1204,31 @@ export function useYouTubePlayer(containerId: string) {
     };
   }, []); // Run always to track position even if paused (but player API only returns ct if ready)
 
+  /**
+   * Aplica a preferência de legendas ao embed (loadModule/unloadModule + setOption).
+   * Precisa existir ANTES de loadVideo/loadVideoAt: ambos re-forçam o estado após
+   * cada troca de faixa, porque o YouTube reseta os módulos internos do player
+   * ao carregar um vídeo novo — sem isso, legendas "mortas" renasciam sozinhas.
+   */
+  const applyCaptionsState = useCallback((enabled: boolean) => {
+    try {
+      const p: any = playerRef.current;
+      if (!p) return;
+      if (enabled) {
+        p.loadModule?.('captions');
+        p.loadModule?.('cc');
+        try { p.setOption?.('captions', 'reload', true); } catch {}
+      } else {
+        p.unloadModule?.('captions');
+        p.unloadModule?.('cc');
+        try { p.setOption?.('captions', 'track', {}); } catch {}
+        try { p.setOption?.('cc', 'track', {}); } catch {}
+      }
+    } catch (e) {
+      console.warn('applyCaptionsState error:', e);
+    }
+  }, []);
+
   const loadVideo = useCallback((videoId: string) => {
     // Troca de faixa invalida qualquer alvo de alinhamento da faixa anterior.
     stopClipSyncWatch();
@@ -1241,10 +1275,17 @@ export function useYouTubePlayer(containerId: string) {
       applyVolumeToPlayer(targetVolumeRef.current);
       setTimeout(() => applyVolumeToPlayer(targetVolumeRef.current), 200);
 
+      // Re-força a preferência de legendas: o YouTube reseta os módulos internos
+      // (captions/cc) ao carregar um vídeo novo — logo após o load ele pode
+      // reexibir legendas mesmo com a preferência desligada. Reforço imediato
+      // + outro dentro da janela de 1,2s (mesmo prazo do re-cap de qualidade).
+      applyCaptionsState(loadCaptionsPref());
+
       // Reforça a trava após o load (YT reseta parâmetros internos ao trocar
       // de vídeo) e devolve o iframe ao tamanho visual normal.
       setTimeout(() => {
         enforceQualityCap(playerRef.current, loadQualityPref());
+        applyCaptionsState(loadCaptionsPref());
         if (iframe && restoreIframe) {
           iframe.style.width = restoreIframe.w || "100%";
           iframe.style.height = restoreIframe.h || "100%";
@@ -1256,7 +1297,7 @@ export function useYouTubePlayer(containerId: string) {
       setState((s) => ({ ...s, videoId, currentTime: 0, isEnded: false }));
       console.log('[YT] Loading new video:', videoId, 'quality-lock:', savedQ);
     }
-  }, [applyVolumeToPlayer, clearUserPausedFlag]);
+  }, [applyVolumeToPlayer, applyCaptionsState, clearUserPausedFlag]);
 
   /**
    * Xerife Music — troca o clipe do modo Vídeo preservando o instante de
@@ -1289,8 +1330,13 @@ export function useYouTubePlayer(containerId: string) {
         try { p.loadVideoById(videoId); } catch {}
       }
       setState((s) => ({ ...s, videoId, currentTime: Math.max(0, startSeconds || 0), isEnded: false }));
+      // Re-força a preferência de legendas (YT reseta módulos no load — ver loadVideo).
+      applyCaptionsState(loadCaptionsPref());
       // Re-enforce cap + volume shortly after
-      setTimeout(() => enforceQualityCap(playerRef.current, loadQualityPref()), 1200);
+      setTimeout(() => {
+        enforceQualityCap(playerRef.current, loadQualityPref());
+        applyCaptionsState(loadCaptionsPref());
+      }, 1200);
       // O YouTube ancora em keyframe, nao no segundo pedido: abre a janela de
       // observacao para corrigir o pouso com no maximo 2 seeks discretos.
       startClipSyncWatch(Math.max(0, startSeconds || 0));
@@ -1309,7 +1355,7 @@ export function useYouTubePlayer(containerId: string) {
       applyLoad();
       applyVolumeToPlayer(originalVol);
     }
-  }, [applyVolumeToPlayer, clearUserPausedFlag, startClipSyncWatch]);
+  }, [applyVolumeToPlayer, applyCaptionsState, clearUserPausedFlag, startClipSyncWatch]);
 
   /**
    * Pré-carrega o clipe oficial em um iframe oculto para aquecer o cache do
@@ -1483,8 +1529,11 @@ export function useYouTubePlayer(containerId: string) {
           const pipIframe = pipWindow.document.createElement('iframe');
           const videoId = state.videoId;
           if (videoId) {
-            pipIframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&controls=1`;
-            pipIframe.style.cssText = 'width:100%;height:100%;border:none;';
+            // controls=0: a janela PiP é preview — nenhum controle do YouTube.
+            // loop+playlist reinicia o preview ao terminar, evitando a tela de
+            // "Mais vídeos"/endscreen do embed dentro da janela flutuante.
+            pipIframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&loop=1&playlist=${videoId}`;
+            pipIframe.style.cssText = 'width:100%;height:100%;border:none;pointer-events:none;';
             pipIframe.allow = 'autoplay; encrypted-media; picture-in-picture';
             pipWindow.document.body.style.margin = '0';
             pipWindow.document.body.style.overflow = 'hidden';
@@ -1959,25 +2008,6 @@ export function useYouTubePlayer(containerId: string) {
     };
   }, []);
 
-
-  const applyCaptionsState = useCallback((enabled: boolean) => {
-    try {
-      const p: any = playerRef.current;
-      if (!p) return;
-      if (enabled) {
-        p.loadModule?.('captions');
-        p.loadModule?.('cc');
-        try { p.setOption?.('captions', 'reload', true); } catch {}
-      } else {
-        p.unloadModule?.('captions');
-        p.unloadModule?.('cc');
-        try { p.setOption?.('captions', 'track', {}); } catch {}
-        try { p.setOption?.('cc', 'track', {}); } catch {}
-      }
-    } catch (e) {
-      console.warn('applyCaptionsState error:', e);
-    }
-  }, []);
 
   const toggleCaptions = useCallback(() => {
     setState((s) => {

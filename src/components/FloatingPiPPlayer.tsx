@@ -93,9 +93,11 @@ const FloatingPiPPlayer = ({
           {/* Overflow masking sem zoom: o iframe é 128px mais alto e sobe
               64px — as faixas internas de branding do YouTube (título/logo/
               "Mais vídeos") ficam FORA do retângulo visível (overflow hidden),
-              SEM cortar/zoarar o vídeo 16:9 dentro de 16:9 */}
+              SEM cortar/zoarar o vídeo 16:9 dentro de 16:9. loop+playlist
+              reinicia o preview ao terminar: a endscreen ("Mais vídeos") nunca
+              chega a aparecer na janela flutuante. */}
           <iframe
-            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&enablejsapi=0&mute=1`}
+            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&enablejsapi=0&mute=1&loop=1&playlist=${videoId}`}
             className="w-full pointer-events-none absolute left-0"
             style={{ top: "-72px", height: "calc(100% + 144px)" }}
             allow="autoplay; encrypted-media; picture-in-picture"
