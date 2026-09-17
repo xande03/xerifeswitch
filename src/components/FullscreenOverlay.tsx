@@ -21,6 +21,10 @@ interface FullscreenOverlayProps {
   onPrev: () => void;
   onSeek: (fraction: number) => void;
   onExit: () => void;
+  /** TRUE em fullscreen de VÍDEO: ativa keepOpen-pausado e as máscaras de branding
+   *  do embed do YouTube (título/canal/logo/sugestões). No fullscreen de MÚSICA
+   *  permanece false — lá nada do iframe aparece. */
+  videoMode?: boolean;
 }
 
 const MIN_SCALE = 1;
@@ -29,11 +33,17 @@ const MAX_SCALE = 4;
 const FullscreenOverlay = ({
   song, isPlaying, currentTime, duration, progress,
   onTogglePlay, onNext, onPrev, onSeek, onExit,
+  videoMode = false,
 }: FullscreenOverlayProps) => {
   const [showControls, setShowControls] = useState(true);
   const [zoom, setZoom] = useState<{ scale: number; x: number; y: number }>({ scale: 1, x: 0, y: 0 });
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const lastTapRef = useRef<number>(0);
+  /** Grace do intro do YouTube: após cada play o iframe exibe título/logo por ~2-3 s.
+   *  Nesse intervalo as máscaras de branding ficam acesas mesmo com controles ocultos. */
+  const [introGrace, setIntroGrace] = useState(false);
+  const introGraceTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const prevPlayingRef = useRef<boolean>(isPlaying);
 
   // ── Quality selector (persisted; mirrors VideoInfoBar) ──
   const QUALITY_OPTIONS: { value: string; label: string }[] = [
@@ -139,9 +149,41 @@ const FullscreenOverlay = ({
     timerRef.current = setTimeout(() => setShowControls(false), AUTOHIDE_DEFAULT_MS);
   }, []);
 
+  // MODO VÍDEO (keepOpen): pausado/finalizado os controles NÃO podem esconder —
+  // é quando o YouTube desenha título/canal/logo por conta própria. Sem isso o
+  // branding ficava exposto com o overlay adormecido (bug reportado).
+  useEffect(() => {
+    if (videoMode && !isPlaying) {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      setShowControls(true);
+    }
+  }, [videoMode, isPlaying]);
+
+  // Grace do intro do YouTube (3,5 s após cada transição pausado→tocando):
+  // mantém as máscaras de branding acesas no período do fade nativo do iframe.
+  useEffect(() => {
+    if (!videoMode) return;
+    if (prevPlayingRef.current === isPlaying) return;
+    prevPlayingRef.current = isPlaying;
+    if (isPlaying) {
+      setIntroGrace(true);
+      if (introGraceTimerRef.current) clearTimeout(introGraceTimerRef.current);
+      introGraceTimerRef.current = setTimeout(() => setIntroGrace(false), 3500);
+    }
+  }, [videoMode, isPlaying]);
+  useEffect(() => () => {
+    if (introGraceTimerRef.current) clearTimeout(introGraceTimerRef.current);
+  }, []);
+
   const handleSurfaceClick = useCallback(() => {
     // Ignore taps that were part of a pinch/pan gesture.
     if (gestureActiveRef.current) return;
+    // MODO VÍDEO pausado: overlay visível NUNCA esconde — esconder liberaria o
+    // branding do YouTube que aparece por conta própria durante a pausa.
+    if (videoMode && !isPlaying && showControls) {
+      lastTapRef.current = 0;
+      return;
+    }
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
       // Double-tap: if zoomed, reset zoom instead of hiding controls.
@@ -165,7 +207,7 @@ const FullscreenOverlay = ({
       resetTimer();
       return true;
     });
-  }, [resetTimer]);
+  }, [resetTimer, videoMode, isPlaying, showControls]);
 
   // ── Pointer handlers for pinch + pan ──
   const onPointerDown = useCallback((e: React.PointerEvent) => {
@@ -345,6 +387,23 @@ const FullscreenOverlay = ({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
+      {/* MÁSCARAS DE BRANDING DO YOUTUBE (somente modo vídeo) — o iframe desenha
+          título/canal (topo) e logo/compartilhar/sugestões (rodapé) ao pausar; aqui
+          eles ficam cobertos pelas bandas opacas. Acesa quando: controles visíveis
+          (keepOpen garante isso pausado), intro-grace de 3,5 s após o play, ou
+          pausado por cinto duplo. Some junto dos controles na reprodução limpa. */}
+      {videoMode && (
+        <div
+          className={`absolute inset-0 pointer-events-none transition-opacity duration-300 ${
+            showControls || introGrace || !isPlaying ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <div className="absolute inset-x-0 top-0 h-[72px] bg-gradient-to-b from-black via-black/80 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-[110px] bg-gradient-to-t from-black via-black/75 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-[56px] bg-black/90" />
+        </div>
+      )}
+
       {/* Top bar — respeita safe-area (notch / Dynamic Island) sem afetar o vídeo,
           que continua ocupando 100vw/100vh via letterbox central. */}
       <div

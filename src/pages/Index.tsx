@@ -2195,6 +2195,7 @@ const Index = () => {
               onPrev={handlePrev}
               onSeek={handleSeek}
               onExit={() => exitFullscreen()}
+              videoMode={playerMode === "video"}
             />
           </Suspense>
           )}
