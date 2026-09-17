@@ -97,7 +97,7 @@ const FloatingPiPPlayer = ({
           <iframe
             src={`https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&enablejsapi=0&mute=1`}
             className="w-full pointer-events-none absolute left-0"
-            style={{ top: "-64px", height: "calc(100% + 128px)" }}
+            style={{ top: "-72px", height: "calc(100% + 144px)" }}
             allow="autoplay; encrypted-media; picture-in-picture"
             allowFullScreen={false}
             title={song.title}
