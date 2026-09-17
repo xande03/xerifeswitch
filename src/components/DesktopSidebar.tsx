@@ -334,9 +334,6 @@ const DesktopSidebar = ({
 
                 </div>
                 <span className="lg:block transition-all font-medium lg:tracking-[-0.005em]" data-sidebar-fullonly>{label}</span>
-                {active === id && (
-                  <div className="hidden lg:block ml-auto w-2 h-2 rounded-full bg-primary animate-pulse" style={podcastMode ? { backgroundColor: "hsl(var(--module-accent))" } : undefined} data-sidebar-fullonly />
-                )}
               </button>
             </TooltipTrigger>
             <TooltipContent side="right" className="text-xs font-semibold">
