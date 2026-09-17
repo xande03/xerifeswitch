@@ -10,6 +10,7 @@ import HeaderMenu from "@/components/HeaderMenu";
 import xerifeHubLogo from "@/assets/xerife-hub-logo.png";
 import { useTheme } from "@/hooks/useTheme";
 import { getModuleTones } from "@/lib/moduleTones";
+import { logoColorsForTheme } from "@/lib/logoThemeColors";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 
@@ -242,6 +243,9 @@ const DesktopSidebar = ({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [toolsOpen]);
 
+  // A estrela de identidade acompanha a "Cor do ícone" escolhida no menu
+  const logoColors = logoColorsForTheme(colorTheme);
+
   const isPodcast = podcastMode || active === "podcast";
   const pillHub = homeMode === "hub" && !isPodcast;
   const pillMusic = homeMode === "music" && !isPodcast;
@@ -263,18 +267,20 @@ const DesktopSidebar = ({
         className="w-full flex items-center gap-3 px-5 py-7 lg:py-6 justify-center lg:justify-start cursor-pointer select-none rounded-2xl hover:bg-sidebar-accent/40 active:scale-[0.98] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group/logo"
       >
         <span className="hidden lg:flex" data-sidebar-fullonly>
-          <Logo size={52} showText tooltipLabel="Clique para recolher o menu" />
+          <Logo size={52} showText tooltipLabel="Clique para recolher o menu" colorFrom={logoColors.from} colorTo={logoColors.to} />
         </span>
         <Logo
           size={48}
           className="lg:hidden transition-transform duration-200 group-hover/logo:scale-105"
           tooltipLabel={collapsed ? "Clique para expandir o menu" : "Clique para recolher o menu"}
+          colorFrom={logoColors.from} colorTo={logoColors.to}
         />
         {collapsed && (
           <Logo
             size={48}
             className="hidden lg:block transition-transform duration-200 group-hover/logo:scale-105"
             tooltipLabel="Clique para expandir o menu"
+            colorFrom={logoColors.from} colorTo={logoColors.to}
           />
         )}
       </button>

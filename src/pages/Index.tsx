@@ -23,6 +23,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { mockSongs, Song, sortByVotes } from "@/data/mockSongs";
 import { getCycleId } from "@/lib/refreshCycle";
+import { logoColorsForTheme } from "@/lib/logoThemeColors";
 import { saveSong, getAllSavedSongs, StoredSong, getSong } from "@/lib/indexedDB";
 import { getDeviceId, getVotedSongs, addVotedSong, removeVotedSong, saveQueueState, getQueueState, saveCurrentSong, getCurrentSongId, saveVolume, getVolume, addToHistory, getHistory, clearHistory, type HistoryEntry, getFavoritesMetadata, saveFavoriteMetadata, removeFavoriteMetadata, getPlaylists, savePlaylist, deletePlaylist, addSongToPlaylist, Playlist, saveMediaType, getMediaType, getSearchHistory } from "@/lib/localStorage";
 import { useYouTubePlayer } from "@/hooks/useYouTubePlayer";
@@ -309,6 +310,8 @@ const Index = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { isDark, toggle: toggleTheme } = useTheme();
   const [colorTheme, setColorTheme] = useState(() => localStorage.getItem('demus-color') || 'default');
+  /** Gradiente da estrela do app (topo) conforme a cor escolhida em Configurações → "Cor do ícone" */
+  const logoColors = logoColorsForTheme(colorTheme);
   const [ambientColors, setAmbientColors] = useState<{primary: string, secondary: string} | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFilter, setSearchFilter] = useState<SearchFilter>("all");
@@ -2209,7 +2212,7 @@ const Index = () => {
             className="flex items-center gap-2.5 sm:gap-3 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-lg"
             aria-label={`Ir para o início de Xerife ${MODULE_LABEL[currentModule]}`}
           >
-            <Logo size={40} colorFrom="#60a5fa" colorTo="#1e3a8a" tooltipLabel={`Xerife ${MODULE_LABEL[currentModule]}`} />
+            <Logo size={40} colorFrom={logoColors.from} colorTo={logoColors.to} tooltipLabel={`Xerife ${MODULE_LABEL[currentModule]}`} />
             <span className={`font-display font-black text-[22px] sm:text-[26px] lg:text-[28px] tracking-tight leading-none ${mc.text}`}>
               {MODULE_LABEL[currentModule]}
             </span>

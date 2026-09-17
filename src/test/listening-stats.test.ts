@@ -12,7 +12,10 @@ import {
 } from "@/lib/listeningStats";
 
 const DAY = 86_400_000;
-const NOW = new Date("2026-09-16T15:00:00").getTime();
+// Hoje ao MEIO-DIA no fuso local: garante que o registro ("hoje") caia sempre
+// no dia corrente do ambiente de teste, qualquer que seja o fuso da máquina
+// (antes: timestamp fixo em 2026-09-14 → falha sozinho no dia seguinte).
+const NOW = (() => { const d = new Date(); d.setHours(12, 0, 0, 0); return d.getTime(); })();
 
 const track = (id: string, over: Partial<TrackRef> = {}): TrackRef => ({
   id,
