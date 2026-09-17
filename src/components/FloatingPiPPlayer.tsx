@@ -89,10 +89,14 @@ const FloatingPiPPlayer = ({
     >
       {/* Video embed */}
       {videoId ? (
-        <div className="relative w-full aspect-video bg-black" onClick={toggleControlsVisibility}>
+        <div className="relative w-full aspect-video bg-black overflow-hidden" onClick={toggleControlsVisibility}>
+          {/* Crop masking: iframe ~9% maior que o container — as faixas de
+              branding do YouTube (título/logo/"Mais vídeos") ficam fora do
+              retângulo visível (overflow hidden) */}
           <iframe
-            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&controls=0&modestbranding=1&rel=0&enablejsapi=0&mute=1`}
+            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&enablejsapi=0&mute=1`}
             className="w-full h-full pointer-events-none"
+            style={{ transform: "scale(1.09)", transformOrigin: "center center" }}
             allow="autoplay; encrypted-media; picture-in-picture"
             allowFullScreen={false}
             title={song.title}

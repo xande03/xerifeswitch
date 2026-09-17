@@ -1323,7 +1323,7 @@ export function useYouTubePlayer(containerId: string) {
     try {
       const f = document.createElement("iframe");
       f.id = id;
-      f.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=0&mute=1&controls=0&modestbranding=1`;
+      f.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=0&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3`;
       f.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;border:0;";
       f.setAttribute("aria-hidden", "true");
       f.setAttribute("tabindex", "-1");

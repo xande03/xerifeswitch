@@ -829,3 +829,20 @@ aside[data-sidebar-collapsed="true"] nav button {
     animation: none !important;
   }
 }
+
+/* =========================================================================
+   MASCARAMENTO POR OVERFLOW ("crop masking") do player de vídeo do YouTube
+   =========================================================================
+   Técnica documentada para esconder o chrome do iframe (título/avatar do
+   canal, setas de share, sugestões "Mais vídeos", logo): o iframe cross-domain
+   não aceita CSS, então EM VEZ de desenhar faixas por cima, o próprio iframe
+   nasce ~9% MAIOR que o container (transform: scale) — as bordas onde o
+   YouTube pinta os seus indicadores ficam FORA do retângulo visível e o
+   wraper (overflow: hidden) as descarta. Sem timers, sem estados: escondido
+   o tempo todo, inclusive pausado/finalizado. Em conjunto com os playerVars
+   oficiais (controls:0, modestbranding:1, rel:0, iv_load_policy:3 no
+   useYouTubePlayer), sobra só a reprodução. */
+#yt-player iframe {
+  transform: scale(1.09);
+  transform-origin: center center;
+}

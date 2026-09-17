@@ -1791,22 +1791,6 @@ const Index = () => {
 
 
 
-  // Branding do iframe do YouTube (título, avatar, setas de share, "Mais vídeos",
-  // logo): como o tap-catcher bloqueia todos os eventos do mouse sobre o iframe,
-  // o chrome nativo do YT NÃO esconde sozinho — ele ficaria desenhado pra sempre
-  // (mas sem ação). Por isso as máscaras de branding acionam 4s após o início da
-  // reprodução (comportamento natural do YT: chrome some após ~4s) e ficam
-  // sempre ativas quando pausado/finalizado.
-  const [videoBrandMaskShown, setVideoBrandMaskShown] = useState(false);
-  useEffect(() => {
-    if (!isPlaying || playerMode !== "video" || !expanded) {
-      setVideoBrandMaskShown(false);
-      return;
-    }
-    const t = setTimeout(() => setVideoBrandMaskShown(true), 4000);
-    return () => clearTimeout(t);
-  }, [isPlaying, playerMode, expanded, currentSong?.id ?? currentSong]);
-
   // Player do desktop: usado na sidebar (md) E na cápsula flutuante (lg+),
   // onde a sidebar vira a ilha do topo.
   const sidebarPlayerExpandedNode = (
@@ -2018,26 +2002,6 @@ const Index = () => {
 
           {expanded && playerMode === "video" && <QualityBadge />}
 
-          {/* Máscaras de branding do iframe do YouTube (título/avatar, setas de
-              share, "Mais vídeos", logo): visíveis enquanto PAUSADO/finalizado,
-              durante o intro-grace após o play e passados 4s de reprodução (o
-              chrome nativo do YT ficaria preso na tela por causa do tap-catcher,
-              que bloqueia o auto-hide do YouTube — sem ação). pointer-events:
-              none — cliques continuam só nos nossos controles. */}
-          {expanded && playerMode === "video" && (
-            <div
-              className={`absolute inset-0 z-[100] pointer-events-none transition-opacity duration-500 ${
-                !isPlaying || videoIntroGrace || showVideoOverlayControls || videoBrandMaskShown ? "opacity-100" : "opacity-0"
-              }`}
-            >
-              {/* faixa superior: título + avatar/canal do YouTube */}
-              <div className="absolute inset-x-0 top-0 h-[76px] bg-gradient-to-b from-black via-black/85 to-transparent" />
-              {/* faixa inferior: sugestões "Mais vídeos" + setas de share */}
-              <div className="absolute inset-x-0 bottom-0 h-[110px] bg-gradient-to-t from-black via-black/80 to-transparent" />
-              {/* barra sólida: logo "YouTube" (dir) — fica atrás dos nossos controles */}
-              <div className="absolute inset-x-0 bottom-0 h-[56px] bg-black/90" />
-            </div>
-          )}
           {/* Overlay controls on top of the actual YouTube player */}
           {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && (
             <>
