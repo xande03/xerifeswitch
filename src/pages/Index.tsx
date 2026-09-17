@@ -59,7 +59,6 @@ import DesktopSidebar from "@/components/DesktopSidebar";
 import DesktopTopIsland from "@/components/DesktopTopIsland";
 import DesktopPlayerIsland from "@/components/DesktopPlayerIsland";
 import SearchSkeleton from "@/components/SearchSkeleton";
-import DesktopPlayer from "@/components/DesktopPlayer";
 import SidebarPlayer from "@/components/SidebarPlayer";
 
 import SplashScreen from "@/components/SplashScreen";
