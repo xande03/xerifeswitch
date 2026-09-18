@@ -419,35 +419,35 @@ const FullscreenOverlay = ({
         <div className="absolute inset-0 z-[205] bg-black pointer-events-none" aria-hidden />
       )}
 
-      {/* Máscara do BOTÃO CENTRAL do YouTube + botão play do app (somente vídeo):
-          DISCO: keyed no estado REAL da superfície (videoSurfaceIdle) — cue,
-          pausado, finalizado, travado ou pós-erro o embed desenha o play no
-          centro do iframe; o overflow masking corta topo/base, mas não o centro.
-          Cobrindo pelo estado real (e não pelo estado otimista do app), o botão
-          do YouTube nunca vaza mesmo quando a reprodução falha silenciosamente.
-          ═══ MESMO ESTADO DOS CONTROLES (bug do "botão que não minimiza") ═══
-          O conjunto SÓ existe com showControls TRUE: os controles escondem
-          TODOS JUNTOS (3,5 s) quando o vídeo roda de verdade, e NADA nosso
-          fica no centro com os controles minimizados. É seguro porque o
-          keepOpen mantém showControls=true em TODO estado em que o YouTube
-          desenha chrome central (pausado, cue, buffering, travado) — sempre
-          que a máscara é necessária, os controles estão lá.
-          SIZING: com os controles visíveis, o disco (w-24/w-28) fica sob o
-          botão central grande do app — UM só círculo na tela.
-          O conjunto não captura toque (o surface toggle continua
-          funcionando), só o botão. */}
-      {videoMode && videoSurfaceIdle && showControls && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      {/* Disco-base + BOTÃO CENTRAL COM AÇÃO REAL (somente vídeo):
+          ═══ UNIFICAÇÃO 2026-09-18 (4) — FIM DA "FIGURA SEM AÇÃO" ═══
+          Antes: o disco nu renderizava com videoSurfaceIdle (travado/live) mesmo
+          TOCANDO, sem botão em cima — um "desenho" no centro SEM AÇÃO. Agora:
+          o conjunto existe SEMPRE em modo vídeo, esmaece JUNTO com os controles
+          (showControls, 4s) e o botão central em cima do disco tem AÇÃO REAL —
+          PAUSE quando tocando (toque = pausar), PLAY quando pausado (toque =
+          reproduzir). Mesmo tamanho (w-24/w-28) = UM só círculo, sempre clicável.
+          Fail-closed: em todo estado em que o YouTube desenha chrome central
+          (pausado, cue, buffering, travado — keepOpen mantém showControls), o
+          disco cobre o botão nativo dele; o botão nativo nunca vaza.
+          O conjunto não captura toque quando oculto (o surface toggle segue
+          funcionando); visível, só o botão captura. */}
+      {videoMode && (
+        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-300 ${
+          showControls ? "opacity-100" : "opacity-0"
+        }`}>
           <div aria-hidden className="absolute w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-black" />
-          {!isPlaying && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
-              className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white pointer-events-auto active:scale-90 transition-transform"
-              aria-label="Reproduzir"
-            >
-              <Play size={40} fill="currentColor" className="ml-1" />
-            </button>
-          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
+            className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white active:scale-90 transition-transform ${
+              showControls ? "pointer-events-auto" : "pointer-events-none"
+            }`}
+            aria-label={isPlaying ? "Pausar" : "Reproduzir"}
+          >
+            {isPlaying
+              ? <Pause size={40} fill="currentColor" />
+              : <Play size={40} fill="currentColor" className="ml-1" />}
+          </button>
         </div>
       )}
 
