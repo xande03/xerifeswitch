@@ -856,50 +856,20 @@ aside[data-sidebar-collapsed="true"] nav button {
 }
 
 /* ===========================================================
-   DESKTOP (lg+): moldura do app com respiro vertical
+   DESKTOP (lg+): app em TELA CHEIA (full-bleed) — pedido FINAL
    ===========================================================
-   Pedido (2026-09-18): "no modo desktop, diminuir um pouco a
-   largura vertical do escopo do app". Em telas ≥1024px o app deixa
-   de encostar no topo/base da janela: fica 14px menor de cada lado,
-   com cantos arredondados e ring/sombra sutis — cara de janela de
-   app nativa. No mobile/tablet nada muda (edge-to-edge preservado).
-
-   --app-frame-inset: a distância do frame às bordas da janela.
-   Elementos fixed que pertencem ao app (não ao vídeo fullscreen)
-   usam a var para acompanhar o frame:
-   - .app-frame   → o contêiner raiz do app (Index.tsx)
-   - .frame-inset → painéis fixed que cobrem o app (NowPlayingView
-                    expandido, QueueDrawer, ArtistProfile)
-   Offsets pontuais (ilha do rodapé, rail de vídeo, banner PWA)
-   usam calc(...) + var(--app-frame-inset) nas classes lg:.
-   Fullscreen de VÍDEO (fixed inset-0 z-[10000]), SplashScreen,
-   modais/dialogs e overlays do ModuleSwitcher continuam cobrindo
-   a janela inteira — comportamento correto. */
+   Histórico (2026-09-18): experimentamos uma moldura de "janela de
+   app" (respiro vertical de 14px + inset horizontal) a pedidos; o
+   pedido final foi o oposto — "todo o app deve preencher toda a área".
+   A moldura foi REMOVIDA: .app-frame/.frame-inset voltam ao estado
+   natural (100% da janela, sem margens, raio ou sombra).
+   As vars abaixo permanecem definidas em 0px porque classes lg:
+   pontuais (rail do vídeo, fallback do music-video, ilha do rodapé,
+   banner PWA) usam calc(... + var(--app-frame-inset[-x])) — com 0px
+   elas degradam exatamente para os offsets base (12px/16px). */
 @media (min-width: 1024px) {
   :root {
-    --app-frame-inset: 14px;
-    /* Inset HORIZONTAL (2026-09-18: estreitado a pedidos — "menos estreito"):
-       metade do recuo original. A ALTURA do escopo permanece intacta (14px).
-       clamp: ~2% da janela, de 12px a 36px (1280px ≈ 26px/lado, 1920px = 36px). */
-    --app-frame-inset-x: clamp(12px, 2vw, 36px);
-  }
-  .app-frame {
-    height: calc(100dvh - 2 * var(--app-frame-inset)) !important;
-    margin-top: var(--app-frame-inset);
-    margin-bottom: var(--app-frame-inset);
-    margin-left: var(--app-frame-inset-x);
-    margin-right: var(--app-frame-inset-x);
-    border-radius: 18px;
-    box-shadow:
-      0 0 0 1px hsl(var(--border) / 0.7),
-      0 24px 60px -16px rgb(0 0 0 / 0.35);
-  }
-  .frame-inset {
-    top: var(--app-frame-inset) !important;
-    bottom: var(--app-frame-inset) !important;
-    left: var(--app-frame-inset-x) !important;
-    right: var(--app-frame-inset-x) !important;
-    border-radius: 18px;
-    overflow: hidden;
+    --app-frame-inset: 0px;
+    --app-frame-inset-x: 0px;
   }
 }
