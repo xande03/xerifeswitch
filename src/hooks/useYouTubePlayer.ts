@@ -15,6 +15,15 @@ export interface YouTubePlayerState {
   isReady: boolean;
   isPlaying: boolean;
   isEnded: boolean;
+  /** ESTADO REAL da superfície do embed do YouTube (fail-closed).
+   *  TRUE quando o player NÃO está confirmadamente PLAYING/BUFFERING —
+   *  i.e. cue/unstarted, pausado, finalizado, travado ou pós-erro: é exatamente
+   *  quando o YouTube desenha seu próprio chrome central (botão play/bezel).
+   *  Derivado de getPlayerState() (eventos + polling), NUNCA do estado
+   *  otimista do app — evita o vazamento permanente do botão central quando
+   *  a reprodução falha silenciosamente após playVideo() (stream bloqueada,
+   *  live stream travando, erro sem evento, fundo iOS). */
+  videoSurfaceIdle: boolean;
   currentTime: number;
   duration: number;
   videoId: string | null;
@@ -430,6 +439,7 @@ export function useYouTubePlayer(containerId: string) {
         isReady: false,
         isPlaying: false,
         isEnded: false,
+        videoSurfaceIdle: true,
         currentTime: savedTime ? parseFloat(savedTime) : 0,
         duration: savedDur ? parseFloat(savedDur) : 0,
         videoId: savedVideoId || null,
@@ -441,6 +451,7 @@ export function useYouTubePlayer(containerId: string) {
         isReady: false,
         isPlaying: false,
         isEnded: false,
+        videoSurfaceIdle: true,
         currentTime: 0,
         duration: 0,
         videoId: null,
@@ -661,7 +672,7 @@ export function useYouTubePlayer(containerId: string) {
       ensureProxyAudio().pause();
       player?.pauseVideo?.();
       releaseWakeLock();
-      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: false, isEnded: false }));
+      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: false, isEnded: false, videoSurfaceIdle: true }));
       return;
     }
 
@@ -671,7 +682,7 @@ export function useYouTubePlayer(containerId: string) {
       ensureProxyAudio().play().catch(() => {});
       resumeAudioContext();
       requestWakeLock();
-      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: true, isEnded: isEnded }));
+      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: true, isEnded: isEnded, videoSurfaceIdle: false }));
       return;
     }
 
@@ -682,7 +693,7 @@ export function useYouTubePlayer(containerId: string) {
       ensureProxyAudio().play().catch(() => {});
       resumeAudioContext();
       try { player?.playVideo?.(); } catch {}
-      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: true, isEnded: false }));
+      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: true, isEnded: false, videoSurfaceIdle: !(isPlaying || isBuffering) }));
       return;
     }
 
@@ -690,7 +701,7 @@ export function useYouTubePlayer(containerId: string) {
     silentAudio?.pause();
     ensureProxyAudio().pause();
     releaseWakeLock();
-    setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: false, isEnded: isEnded }));
+    setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: false, isEnded: isEnded, videoSurfaceIdle: true }));
   }, [checkUserPausedFlag]);
 
 
@@ -893,7 +904,7 @@ export function useYouTubePlayer(containerId: string) {
             if (playing && checkUserPausedFlag()) {
               console.log('[YT] Play BLOCKED - persisted user pause flag found');
               playerRef.current?.pauseVideo?.();
-              setState((s) => ({ ...s, isPlaying: false, isEnded: false }));
+              setState((s) => ({ ...s, isPlaying: false, isEnded: false, videoSurfaceIdle: true }));
               return;
             }
 
@@ -936,7 +947,7 @@ export function useYouTubePlayer(containerId: string) {
               // Página visível e acabamos de chamar pause() (dentro de 500ms): legítimo
               if (timeSincePause < 500 && userPausedRef.current) {
                 console.info('[YT] Paused while visible - legitimate user pause');
-                setState((s) => ({ ...s, isPlaying: false, isEnded: false }));
+                setState((s) => ({ ...s, isPlaying: false, isEnded: false, videoSurfaceIdle: true }));
                 return;
               }
             }
@@ -950,7 +961,7 @@ export function useYouTubePlayer(containerId: string) {
                 if (timeSincePause < 1200) {
                   console.info('[YT] Suppressing play - pause acabou de acontecer');
                   playerRef.current?.pauseVideo?.();
-                  setState((s) => ({ ...s, isPlaying: false, isEnded: false, duration: playerRef.current?.getDuration?.() || s.duration }));
+                  setState((s) => ({ ...s, isPlaying: false, isEnded: false, videoSurfaceIdle: true, duration: playerRef.current?.getDuration?.() || s.duration }));
                   return;
                 }
                 console.info('[YT] Limpando flag de pausa antiga — play permitido');
@@ -983,6 +994,10 @@ export function useYouTubePlayer(containerId: string) {
               ...s,
               isPlaying: playing || buffering,
               isEnded: ended,
+              // Superfície real do embed: enquanto o YouTube NÃO confirma
+              // PLAYING/BUFFERING, ele pode (e vai) desenhar seu chrome central
+              // (botão play/bezel) — as máscaras do app precisam estar de pé.
+              videoSurfaceIdle: !playing && !buffering,
               duration: playerRef.current?.getDuration?.() || 0,
             }));
           },
@@ -992,10 +1007,10 @@ export function useYouTubePlayer(containerId: string) {
             shouldBePlayingRef.current = false; setShouldBePlayingGlobal(false);
             // Only auto-advance if we haven't hit too many consecutive errors
             if (errorCountRef.current <= 3) {
-              setState((s) => ({ ...s, isEnded: true, isPlaying: false }));
+              setState((s) => ({ ...s, isEnded: true, isPlaying: false, videoSurfaceIdle: true }));
             } else {
               // Stop trying after 3 consecutive errors to avoid infinite loops
-              setState((s) => ({ ...s, isPlaying: false, isEnded: false }));
+              setState((s) => ({ ...s, isPlaying: false, isEnded: false, videoSurfaceIdle: true }));
             }
           },
         },
@@ -1199,10 +1214,27 @@ export function useYouTubePlayer(containerId: string) {
     intervalRef.current = setInterval(() => {
       const ct = playerRef.current?.getCurrentTime?.() || 0;
       const dur = playerRef.current?.getDuration?.() || 0;
-      
+
+      // Re-sync da verdade da superfície (contra eventos perdidos): se o YT
+      // reverteu silenciosamente para cue/pausado (stream bloqueada, live que
+      // travou, erro sem onError), o estado otimista do app diria "tocando" e
+      // as máscaras centrais ficariam desligadas para sempre — o botão play do
+      // YouTube vazava de forma permanente. Aqui corrigimos em ≤1s.
+      let surfaceIdle: boolean | null = null;
+      try {
+        const st = playerRef.current?.getPlayerState?.();
+        const PSt = window.YT?.PlayerState;
+        if (PSt && st != null) surfaceIdle = !(st === PSt.PLAYING || st === PSt.BUFFERING);
+      } catch {}
+
       // Update local state
-      setState((s) => ({ ...s, currentTime: ct, duration: dur }));
-      
+      setState((s) => ({
+        ...s,
+        currentTime: ct,
+        duration: dur,
+        ...(surfaceIdle != null && s.videoSurfaceIdle !== surfaceIdle ? { videoSurfaceIdle: surfaceIdle } : {}),
+      }));
+
       // Persist to localStorage for app recovery
       if (ct > 0) {
         localStorage.setItem('demus-current-time', ct.toString());

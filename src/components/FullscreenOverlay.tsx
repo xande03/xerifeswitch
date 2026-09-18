@@ -29,6 +29,13 @@ interface FullscreenOverlayProps {
    *  autoplay do app carregar o próximo — a endscreen do YouTube (grade de
    *  sugestões + replay) nunca aparece no centro da tela cheia. */
   isEnded?: boolean;
+  /** ESTADO REAL da superfície do embed (fail-closed): TRUE quando o YouTube
+   *  NÃO está confirmadamente PLAYING/BUFFERING (cue, pausado, finalizado,
+   *  travado, pós-erro). É quando ele desenha o chrome central (botão play/
+   *  bezel) — o disco de máscara precisa estar de pé, mesmo que o estado
+   *  otimista do app diga "tocando" (dessincronia = botão do YouTube vazando
+   *  de forma permanente, bug reportado). */
+  videoSurfaceIdle?: boolean;
 }
 
 const MIN_SCALE = 1;
@@ -39,6 +46,7 @@ const FullscreenOverlay = ({
   onTogglePlay, onNext, onPrev, onSeek, onExit,
   videoMode = false,
   isEnded = false,
+  videoSurfaceIdle = false,
 }: FullscreenOverlayProps) => {
   const [showControls, setShowControls] = useState(true);
   const [zoom, setZoom] = useState<{ scale: number; x: number; y: number }>({ scale: 1, x: 0, y: 0 });
@@ -149,24 +157,25 @@ const FullscreenOverlay = ({
     timerRef.current = setTimeout(() => setShowControls(false), AUTOHIDE_DEFAULT_MS);
   }, []);
 
-  // MODO VÍDEO (keepOpen): pausado/finalizado os controles NÃO podem esconder —
-  // é quando o YouTube desenha título/canal/logo por conta própria. Sem isso o
-  // branding ficava exposto com o overlay adormecido (bug reportado).
+  // MODO VÍDEO (keepOpen): pausado/finalizado/superfície idle (estado REAL do
+  // YT — falha, travamento, cue) os controles NÃO podem esconder — é quando o
+  // YouTube desenha título/canal/logo/botão central por conta própria. Sem
+  // isso o branding ficava exposto com o overlay adormecido (bug reportado).
   useEffect(() => {
-    if (videoMode && !isPlaying) {
+    if (videoMode && (!isPlaying || videoSurfaceIdle)) {
       if (timerRef.current) clearTimeout(timerRef.current);
       setShowControls(true);
     }
-  }, [videoMode, isPlaying]);
+  }, [videoMode, isPlaying, videoSurfaceIdle]);
 
 
 
   const handleSurfaceClick = useCallback(() => {
     // Ignore taps that were part of a pinch/pan gesture.
     if (gestureActiveRef.current) return;
-    // MODO VÍDEO pausado: overlay visível NUNCA esconde — esconder liberaria o
-    // branding do YouTube que aparece por conta própria durante a pausa.
-    if (videoMode && !isPlaying && showControls) {
+    // MODO VÍDEO pausado/superfície idle: overlay visível NUNCA esconde —
+    // esconder liberaria o branding do YouTube que aparece por conta própria.
+    if (videoMode && (!isPlaying || videoSurfaceIdle) && showControls) {
       lastTapRef.current = 0;
       return;
     }
@@ -193,7 +202,7 @@ const FullscreenOverlay = ({
       resetTimer();
       return true;
     });
-  }, [resetTimer, videoMode, isPlaying, showControls]);
+  }, [resetTimer, videoMode, isPlaying, videoSurfaceIdle, showControls]);
 
   // ── Pointer handlers for pinch + pan ──
   const onPointerDown = useCallback((e: React.PointerEvent) => {
@@ -387,21 +396,27 @@ const FullscreenOverlay = ({
       )}
 
       {/* Máscara do BOTÃO CENTRAL do YouTube + botão play do app (somente vídeo):
-          pausado/finalizado o embed desenha o play vermelho no centro do iframe —
-          o overflow masking corta topo/base, mas não o centro. Disco preto opaco
-          no centro o cobre; por cima, o botão play do app vira o alvo grande de
-          reprodução (mesma gramática do overlay principal). O conjunto não
-          captura toque (o surface toggle continua funcionando), só o botão. */}
-      {videoMode && !isPlaying && (
+          DISCO: keyed no estado REAL da superfície (videoSurfaceIdle) — cue,
+          pausado, finalizado, travado ou pós-erro o embed desenha o play no
+          centro do iframe; o overflow masking corta topo/base, mas não o centro.
+          Cobrindo pelo estado real (e não pelo estado otimista do app), o botão
+          do YouTube nunca vaza mesmo quando a reprodução falha silenciosamente.
+          BOTÃO PLAY do app: só no estado pausado/cue confirmado — durante um
+          travamento (isPlaying otimista true) mostramos só o disco, sem botão
+          falso. O conjunto não captura toque (o surface toggle continua
+          funcionando), só o botão. */}
+      {videoMode && videoSurfaceIdle && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div aria-hidden className="absolute w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-black" />
-          <button
-            onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
-            className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white pointer-events-auto active:scale-90 transition-transform"
-            aria-label="Reproduzir"
-          >
-            <Play size={30} fill="currentColor" className="ml-1" />
-          </button>
+          {!isPlaying && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
+              className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white pointer-events-auto active:scale-90 transition-transform"
+              aria-label="Reproduzir"
+            >
+              <Play size={30} fill="currentColor" className="ml-1" />
+            </button>
+          )}
         </div>
       )}
 

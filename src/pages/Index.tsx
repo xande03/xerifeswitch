@@ -781,8 +781,12 @@ const Index = () => {
   // área do vídeo (tap catcher faz toggle) ou quando a reprodução pausa/termina
   // (o usuário precisa enxergar play/seek/tempo). Retomar → oculta de novo, sem
   // flash de 4s: o vídeo é o protagonista.
+  // keepOpen também quando videoSurfaceIdle (estado REAL do YT): se o player
+  // não está confirmadamente tocando/bufferando (live travou, stream falhou,
+  // playVideo ignorado), o YouTube desenha seu chrome central — os controles e
+  // máscaras do app precisam continuar de pé (fail-closed).
   useEffect(() => {
-    const shouldKeepOpen = expanded && playerMode === "video" && !isPlaying;
+    const shouldKeepOpen = expanded && playerMode === "video" && (!isPlaying || playerState.videoSurfaceIdle);
     videoOverlayKeepOpenRef.current = shouldKeepOpen;
     if (videoOverlayTimerRef.current) {
       clearTimeout(videoOverlayTimerRef.current);
@@ -793,7 +797,7 @@ const Index = () => {
     } else if (expanded && playerMode === "video") {
       setShowVideoOverlayControls(false);
     }
-  }, [isPlaying, expanded, playerMode, revealVideoOverlay]);
+  }, [isPlaying, expanded, playerMode, playerState.videoSurfaceIdle, revealVideoOverlay]);
 
   // Grace do intro do YouTube: arma 3,5 s de máscaras a CADA transição pausado→tocando
   // (inclui trocar de vídeo e seek-resume — momentos em que o intro pode reexibir).
@@ -2018,17 +2022,19 @@ const Index = () => {
 
           {expanded && playerMode === "video" && <QualityBadge />}
 
-          {/* Máscara do BOTÃO CENTRAL do YouTube (fail-closed): pausado, finalizado
-              ou antes do primeiro play, o embed desenha o botão play vermelho
-              (~68×48) no centro exato do iframe — o overflow masking corta as
-              faixas de cima/baixo, mas não o centro. Disco preto opaco no mesmo
-              centro, em camada PERMANENTE (não depende do overlay dos nossos
-              controles nem da opacidade dele): o botão do YouTube nunca aparece.
-              Só existe quando NÃO está tocando — em reprodução o YouTube não
-              desenha nada no centro e o vídeo fica 100% limpo. z-[212]: acima
-              do tap-catcher (210), abaixo do overlay dos controles (215), e
-              pointer-events-none para os toques seguirem para o catcher. */}
-          {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && !isPlaying && (
+          {/* Máscara do BOTÃO CENTRAL do YouTube (fail-closed): pausado, finalizado,
+              cue ou QUANDO A REPRODUÇÃO FALHA/TRAVA (live stream, stream bloqueada,
+              playVideo ignorado — estado real do player, videoSurfaceIdle), o embed
+              desenha o botão play (~68×48) no centro exato do iframe — o overflow
+              masking corta as faixas de cima/baixo, mas não o centro. Disco preto
+              opaco no mesmo centro, em camada PERMANENTE (não depende do overlay
+              dos nossos controles nem da opacidade dele): o botão do YouTube nunca
+              aparece. Keyed no estado REAL (getPlayerState via eventos+polling),
+              NUNCA no estado otimista do app — era exatamente essa dessincronia
+              que deixava o botão central do YouTube exposto permanentemente.
+              z-[212]: acima do tap-catcher (210), abaixo do overlay dos controles
+              (215), e pointer-events-none para os toques seguirem para o catcher. */}
+          {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && playerState.videoSurfaceIdle && (
             <div aria-hidden className="absolute inset-0 z-[212] flex items-center justify-center pointer-events-none">
               <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-black" />
             </div>
@@ -2063,10 +2069,11 @@ const Index = () => {
                   if (now - videoOverlayTapGuardRef.current < 300) return;
                   videoOverlayTapGuardRef.current = now;
                   if (showVideoOverlayControls) {
-                    // Pausado/finalizado o overlay NÃO pode esconder: é exatamente nesse
-                    // estado que o YouTube desenha título/canal/logo — as máscaras precisam
-                    // continuar cobrindo. Durante a reprodução esconde normal (4s auto-hide).
-                    if (!isPlaying) { revealVideoOverlay(); return; }
+                    // Pausado/finalizado/superfície idle (falha ou travamento) o overlay
+                    // NÃO pode esconder: é exatamente nesse estado que o YouTube desenha
+                    // título/canal/logo/botão central — as máscaras precisam continuar
+                    // cobrindo. Durante a reprodução real esconde normal (4s auto-hide).
+                    if (!isPlaying || playerState.videoSurfaceIdle) { revealVideoOverlay(); return; }
                     if (videoOverlayTimerRef.current) { clearTimeout(videoOverlayTimerRef.current); videoOverlayTimerRef.current = null; }
                     setShowVideoOverlayControls(false);
                   } else {
@@ -2253,6 +2260,7 @@ const Index = () => {
               onExit={() => exitFullscreen()}
               videoMode={playerMode === "video"}
               isEnded={playerState.isEnded}
+              videoSurfaceIdle={playerState.videoSurfaceIdle}
             />
           </Suspense>
           )}
