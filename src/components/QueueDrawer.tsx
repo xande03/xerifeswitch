@@ -101,7 +101,7 @@ const QueueDrawer = ({
       animate={{ y: 0 }}
       exit={{ y: "100%" }}
       transition={{ type: "spring", damping: 28, stiffness: 300 }}
-      className="fixed inset-0 z-[55] bg-background flex flex-col"
+      className="frame-inset fixed inset-0 z-[55] bg-background flex flex-col"
       style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {/* Header */}

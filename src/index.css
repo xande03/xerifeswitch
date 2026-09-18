@@ -854,3 +854,46 @@ aside[data-sidebar-collapsed="true"] nav button {
   border: 0 !important;
   pointer-events: none !important;
 }
+
+/* ===========================================================
+   DESKTOP (lg+): moldura do app com respiro vertical
+   ===========================================================
+   Pedido (2026-09-18): "no modo desktop, diminuir um pouco a
+   largura vertical do escopo do app". Em telas ≥1024px o app deixa
+   de encostar no topo/base da janela: fica 14px menor de cada lado,
+   com cantos arredondados e ring/sombra sutis — cara de janela de
+   app nativa. No mobile/tablet nada muda (edge-to-edge preservado).
+
+   --app-frame-inset: a distância do frame às bordas da janela.
+   Elementos fixed que pertencem ao app (não ao vídeo fullscreen)
+   usam a var para acompanhar o frame:
+   - .app-frame   → o contêiner raiz do app (Index.tsx)
+   - .frame-inset → painéis fixed que cobrem o app (NowPlayingView
+                    expandido, QueueDrawer, ArtistProfile)
+   Offsets pontuais (ilha do rodapé, rail de vídeo, banner PWA)
+   usam calc(...) + var(--app-frame-inset) nas classes lg:.
+   Fullscreen de VÍDEO (fixed inset-0 z-[10000]), SplashScreen,
+   modais/dialogs e overlays do ModuleSwitcher continuam cobrindo
+   a janela inteira — comportamento correto. */
+@media (min-width: 1024px) {
+  :root {
+    --app-frame-inset: 14px;
+  }
+  .app-frame {
+    height: calc(100dvh - 2 * var(--app-frame-inset)) !important;
+    margin-top: var(--app-frame-inset);
+    margin-bottom: var(--app-frame-inset);
+    border-radius: 18px;
+    box-shadow:
+      0 0 0 1px hsl(var(--border) / 0.7),
+      0 24px 60px -16px rgb(0 0 0 / 0.35);
+  }
+  .frame-inset {
+    top: var(--app-frame-inset) !important;
+    bottom: var(--app-frame-inset) !important;
+    left: var(--app-frame-inset) !important;
+    right: var(--app-frame-inset) !important;
+    border-radius: 18px;
+    overflow: hidden;
+  }
+}

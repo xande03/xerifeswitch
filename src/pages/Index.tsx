@@ -1865,7 +1865,9 @@ const Index = () => {
 
       
 
-      <div className={`flex bg-background overflow-hidden h-screen ${reducedMotionActive ? 'force-reduced-motion' : ''}`} style={{ height: '100dvh' }} data-theme={colorTheme}>
+      {/* app-frame: no desktop (lg+) encolhe 14px no topo/base (moldura com
+          respiro vertical — ver index.css). Mobile segue edge-to-edge. */}
+      <div className={`app-frame flex bg-background overflow-hidden h-screen ${reducedMotionActive ? 'force-reduced-motion' : ''}`} style={{ height: '100dvh' }} data-theme={colorTheme}>
         {/* Desktop Sidebar */}
         <DesktopSidebar
           active={navActiveTab}

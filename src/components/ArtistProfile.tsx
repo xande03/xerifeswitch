@@ -264,7 +264,7 @@ const ArtistProfile = ({ artistName, artistImage, onBack, onPlaySong, currentPla
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-background"
+            className="frame-inset fixed inset-0 z-40 bg-background"
           >
             <motion.div
               initial={{ y: "100%" }}

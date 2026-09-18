@@ -898,7 +898,10 @@ const NowPlayingView = ({
       id="now-playing-shell"
       data-context={context}
       data-video-mode={isVideoMode ? "true" : "false"}
-      className={`fixed inset-0 z-50 flex flex-col animate-slide-up bg-background ${isFullscreen ? 'z-[9999]' : ''} ${context === "video" ? 'xerife-video-context' : ''}`}
+      // frame-inset: no desktop (lg+) o painel respeita a moldura do app
+      // (14px de respiro vertical) — ver .frame-inset no index.css.
+      // Em fullscreen de vídeo mantém inset-0 (cobre a janela toda).
+      className={`fixed inset-0 z-50 flex flex-col animate-slide-up bg-background ${isFullscreen ? 'z-[9999]' : 'frame-inset'} ${context === "video" ? 'xerife-video-context' : ''}`}
       style={{
         paddingTop: isFullscreen ? '0' : 'env(safe-area-inset-top)',
         paddingBottom: isFullscreen ? '0' : 'env(safe-area-inset-bottom)',

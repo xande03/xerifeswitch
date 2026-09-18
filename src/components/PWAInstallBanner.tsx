@@ -13,7 +13,7 @@ export default function PWAInstallBanner() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 200, opacity: 0 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="fixed bottom-20 md:bottom-4 left-3 right-3 md:left-auto md:right-4 md:w-96 z-[9999] rounded-2xl bg-card border border-border/50 shadow-2xl shadow-black/40 p-4"
+          className="fixed bottom-20 md:bottom-4 lg:bottom-[calc(1rem+var(--app-frame-inset))] left-3 right-3 md:left-auto md:right-4 md:w-96 z-[9999] rounded-2xl bg-card border border-border/50 shadow-2xl shadow-black/40 p-4"
         >
           <button
             onClick={dismiss}

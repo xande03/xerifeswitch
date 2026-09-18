@@ -49,7 +49,7 @@ const DesktopPlayerIsland = ({
     <div
       role="region"
       aria-label="Player (desktop)"
-      className="hidden lg:flex items-center gap-3 rounded-full border border-border/70 bg-card/95 backdrop-blur-xl shadow-2xl shadow-black/45 pl-2 pr-2.5 py-2 fixed bottom-4 left-1/2 -translate-x-1/2 z-[80]"
+      className="hidden lg:flex items-center gap-3 rounded-full border border-border/70 bg-card/95 backdrop-blur-xl shadow-2xl shadow-black/45 pl-2 pr-2.5 py-2 fixed bottom-4 lg:bottom-[calc(1rem+var(--app-frame-inset))] left-1/2 -translate-x-1/2 z-[80]"
       style={{ width: "min(780px, calc(100vw - 48px))" }}
     >
       {/* Capa/thumbnail à esquerda — toque abre o player expandido */}
