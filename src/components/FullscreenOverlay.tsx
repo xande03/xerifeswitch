@@ -401,6 +401,12 @@ const FullscreenOverlay = ({
           centro do iframe; o overflow masking corta topo/base, mas não o centro.
           Cobrindo pelo estado real (e não pelo estado otimista do app), o botão
           do YouTube nunca vaza mesmo quando a reprodução falha silenciosamente.
+          SIZING SINCRONIZADO com os controles (bug dos "dois botões empilhados"):
+          com showControls TRUE o botão central do app CRESC para o tamanho do
+          disco (w-24/w-28) e fica exatamente sobre ele — um único círculo grande
+          na tela, que cobre por completo o botão do YouTube (~80×56); com
+          showControls FALSE o disco permanece w-24/w-28 cobrindo sozinho o
+          centro (fail-closed com o overlay adormecido).
           BOTÃO PLAY do app: só no estado pausado/cue confirmado — durante um
           travamento (isPlaying otimista true) mostramos só o disco, sem botão
           falso. O conjunto não captura toque (o surface toggle continua
@@ -411,10 +417,10 @@ const FullscreenOverlay = ({
           {!isPlaying && (
             <button
               onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
-              className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white pointer-events-auto active:scale-90 transition-transform"
+              className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white pointer-events-auto active:scale-90 transition-transform"
               aria-label="Reproduzir"
             >
-              <Play size={30} fill="currentColor" className="ml-1" />
+              <Play size={40} fill="currentColor" className="ml-1" />
             </button>
           )}
         </div>

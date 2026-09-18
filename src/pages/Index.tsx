@@ -2030,8 +2030,15 @@ const Index = () => {
               opaco no mesmo centro, em camada PERMANENTE (não depende do overlay
               dos nossos controles nem da opacidade dele): o botão do YouTube nunca
               aparece. Keyed no estado REAL (getPlayerState via eventos+polling),
-              NUNCA no estado otimista do app — era exatamente essa dessincronia
-              que deixava o botão central do YouTube exposto permanentemente.
+              NUNCA no estado otimista do app.
+              SIZING SINCRONIZADO com os controles (bug dos "dois botões empilhados"):
+              com o overlay de controles VISÍVEL, o botão play/pause do transporte
+              CRESC para o tamanho do disco (w-24/w-28) e fica exatamente sobre ele
+              — os dois círculos viram UM só botão grande na tela, que ainda cobre
+              por completo o botão vermelho do YouTube (~80×56); com os controles
+              OCULTOS, o disco permanece w-24/w-28 cobrindo sozinho o centro.
+              Assim o usuário nunca vê dois círculos de play/pause sobrepostos, e o
+              masking fail-closed do centro permanece intacto.
               z-[212]: acima do tap-catcher (210), abaixo do overlay dos controles
               (215), e pointer-events-none para os toques seguirem para o catcher. */}
           {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && playerState.videoSurfaceIdle && (
@@ -2128,12 +2135,16 @@ const Index = () => {
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleTogglePlay(); }}
-                    className="pointer-events-auto w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition flex items-center justify-center"
+                    className={`pointer-events-auto rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition flex items-center justify-center ${
+                      playerState.videoSurfaceIdle
+                        ? "w-24 h-24 sm:w-28 sm:h-28"
+                        : "w-16 h-16 sm:w-20 sm:h-20"
+                    }`}
                     title={isPlaying ? "Pausar" : "Reproduzir"}
                   >
                     {isPlaying
-                      ? <Pause size={32} fill="currentColor" />
-                      : <Play size={32} fill="currentColor" className="ml-1" />}
+                      ? <Pause size={playerState.videoSurfaceIdle ? 40 : 32} fill="currentColor" />
+                      : <Play size={playerState.videoSurfaceIdle ? 40 : 32} fill="currentColor" className="ml-1" />}
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleNext(); }}
