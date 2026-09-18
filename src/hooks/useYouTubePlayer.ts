@@ -24,6 +24,13 @@ export interface YouTubePlayerState {
    *  a reprodução falha silenciosamente após playVideo() (stream bloqueada,
    *  live stream travando, erro sem evento, fundo iOS). */
   videoSurfaceIdle: boolean;
+  /** TRUE quando o embed reporta BUFFERING (carregando/stream lenta). Faz parte do
+   *  ESTADO REAL da superfície: durante o buffering o último frame pintado pode
+   *  incluir o botão central do YouTube — os controles do app (e as máscaras do
+   *  centro) precisam continuar de pé até a reprodução confirmar. É o que garante
+   *  que TODOS os controles — inclusive o botão central — minimizem JUNTOS, só
+   *  quando o vídeo está de fato rodando, e que nada fique exposto no meio. */
+  surfaceBuffering: boolean;
   currentTime: number;
   duration: number;
   videoId: string | null;
@@ -440,6 +447,7 @@ export function useYouTubePlayer(containerId: string) {
         isPlaying: false,
         isEnded: false,
         videoSurfaceIdle: true,
+        surfaceBuffering: false,
         currentTime: savedTime ? parseFloat(savedTime) : 0,
         duration: savedDur ? parseFloat(savedDur) : 0,
         videoId: savedVideoId || null,
@@ -452,6 +460,7 @@ export function useYouTubePlayer(containerId: string) {
         isPlaying: false,
         isEnded: false,
         videoSurfaceIdle: true,
+        surfaceBuffering: false,
         currentTime: 0,
         duration: 0,
         videoId: null,
@@ -681,7 +690,7 @@ export function useYouTubePlayer(containerId: string) {
       ensureProxyAudio().pause();
       player?.pauseVideo?.();
       releaseWakeLock();
-      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: false, isEnded: false, videoSurfaceIdle: true }));
+      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: false, isEnded: false, videoSurfaceIdle: true, surfaceBuffering: false }));
       return;
     }
 
@@ -691,7 +700,7 @@ export function useYouTubePlayer(containerId: string) {
       ensureProxyAudio().play().catch(() => {});
       resumeAudioContext();
       requestWakeLock();
-      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: true, isEnded: isEnded, videoSurfaceIdle: false }));
+      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: true, isEnded: isEnded, videoSurfaceIdle: false, surfaceBuffering: isBuffering }));
       return;
     }
 
@@ -702,7 +711,7 @@ export function useYouTubePlayer(containerId: string) {
       ensureProxyAudio().play().catch(() => {});
       resumeAudioContext();
       try { player?.playVideo?.(); } catch {}
-      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: true, isEnded: false, videoSurfaceIdle: !(isPlaying || isBuffering) }));
+      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: true, isEnded: false, videoSurfaceIdle: !(isPlaying || isBuffering), surfaceBuffering: false }));
       return;
     }
 
@@ -710,7 +719,7 @@ export function useYouTubePlayer(containerId: string) {
     silentAudio?.pause();
     ensureProxyAudio().pause();
     releaseWakeLock();
-    setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: false, isEnded: isEnded, videoSurfaceIdle: true }));
+    setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: false, isEnded: isEnded, videoSurfaceIdle: true, surfaceBuffering: false }));
   }, [checkUserPausedFlag]);
 
 
@@ -913,7 +922,7 @@ export function useYouTubePlayer(containerId: string) {
             if (playing && checkUserPausedFlag()) {
               console.log('[YT] Play BLOCKED - persisted user pause flag found');
               playerRef.current?.pauseVideo?.();
-              setState((s) => ({ ...s, isPlaying: false, isEnded: false, videoSurfaceIdle: true }));
+              setState((s) => ({ ...s, isPlaying: false, isEnded: false, videoSurfaceIdle: true, surfaceBuffering: false }));
               return;
             }
 
@@ -956,7 +965,7 @@ export function useYouTubePlayer(containerId: string) {
               // Página visível e acabamos de chamar pause() (dentro de 500ms): legítimo
               if (timeSincePause < 500 && userPausedRef.current) {
                 console.info('[YT] Paused while visible - legitimate user pause');
-                setState((s) => ({ ...s, isPlaying: false, isEnded: false, videoSurfaceIdle: true }));
+                setState((s) => ({ ...s, isPlaying: false, isEnded: false, videoSurfaceIdle: true, surfaceBuffering: false }));
                 return;
               }
             }
@@ -970,7 +979,7 @@ export function useYouTubePlayer(containerId: string) {
                 if (timeSincePause < 1200) {
                   console.info('[YT] Suppressing play - pause acabou de acontecer');
                   playerRef.current?.pauseVideo?.();
-                  setState((s) => ({ ...s, isPlaying: false, isEnded: false, videoSurfaceIdle: true, duration: playerRef.current?.getDuration?.() || s.duration }));
+                  setState((s) => ({ ...s, isPlaying: false, isEnded: false, videoSurfaceIdle: true, surfaceBuffering: false, duration: playerRef.current?.getDuration?.() || s.duration }));
                   return;
                 }
                 console.info('[YT] Limpando flag de pausa antiga — play permitido');
@@ -1007,6 +1016,7 @@ export function useYouTubePlayer(containerId: string) {
               // PLAYING/BUFFERING, ele pode (e vai) desenhar seu chrome central
               // (botão play/bezel) — as máscaras do app precisam estar de pé.
               videoSurfaceIdle: !playing && !buffering,
+              surfaceBuffering: buffering,
               duration: playerRef.current?.getDuration?.() || 0,
             }));
           },
@@ -1016,10 +1026,10 @@ export function useYouTubePlayer(containerId: string) {
             shouldBePlayingRef.current = false; setShouldBePlayingGlobal(false);
             // Only auto-advance if we haven't hit too many consecutive errors
             if (errorCountRef.current <= 3) {
-              setState((s) => ({ ...s, isEnded: true, isPlaying: false, videoSurfaceIdle: true }));
+              setState((s) => ({ ...s, isEnded: true, isPlaying: false, videoSurfaceIdle: true, surfaceBuffering: false }));
             } else {
               // Stop trying after 3 consecutive errors to avoid infinite loops
-              setState((s) => ({ ...s, isPlaying: false, isEnded: false, videoSurfaceIdle: true }));
+              setState((s) => ({ ...s, isPlaying: false, isEnded: false, videoSurfaceIdle: true, surfaceBuffering: false }));
             }
           },
         },

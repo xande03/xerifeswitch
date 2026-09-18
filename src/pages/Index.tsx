@@ -266,14 +266,6 @@ const Index = () => {
   const videoOverlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoOverlayInteractingRef = useRef(false);
   const videoOverlayKeepOpenRef = useRef(false);
-  /** Flash anti-bezel da RETOMADA: ao resumir (pausado→tocando) os controles do
-   *  app se ocultam na hora — e o embed do YouTube pode pintar o PRÓPRIO "bezel"
- *  central de feedback (círculo escuro + ícone de play/pause) exatamente nessa
- *  janela, sem nenhum dos nossos controles por perto: parece um botão fantasma
- *  que não minimiza junto com os demais. Mostramos o NOSSO círculo de feedback
- *  por ~900ms (duração determinística, com fade), cobrindo o do YT. */
-  const [resumeFlash, setResumeFlash] = useState(false);
-  const resumeFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Guarda contra toggle duplicado: dois toques dentro desta janela contam como um. */
   const videoOverlayTapGuardRef = useRef(0);
   /** Grace do "intro" do YouTube: nos ~2-3s seguintes a CADA play/seek, o iframe desenha
@@ -785,16 +777,20 @@ const Index = () => {
     isPlaying,
   );
 
-  // Overlay do player de vídeo: MINIMIZADO enquanto toca — aparece ao tocar na
-  // área do vídeo (tap catcher faz toggle) ou quando a reprodução pausa/termina
-  // (o usuário precisa enxergar play/seek/tempo). Retomar → oculta de novo, sem
-  // flash de 4s: o vídeo é o protagonista.
-  // keepOpen também quando videoSurfaceIdle (estado REAL do YT): se o player
-  // não está confirmadamente tocando/bufferando (live travou, stream falhou,
-  // playVideo ignorado), o YouTube desenha seu chrome central — os controles e
-  // máscaras do app precisam continuar de pé (fail-closed).
+  // Overlay do player de vídeo: MINIMIZADO enquanto o vídeo roda DE VERDADE —
+  // aparece ao tocar na área do vídeo (tap catcher faz toggle) ou quando a
+  // reprodução pausa/termina/buffera (o usuário precisa enxergar play/seek/tempo).
+  // ═══ REGRA DE OURO DO CENTRO (bug do "botão de pause que não minimiza") ═══
+  // TUDO que existe no centro do player — o transporte play/pause E o disco de
+  // máscara — obedece AO MESMO estado (showVideoOverlayControls). Com os
+  // controles minimizados, NADA nosso permanece no centro.
+  // keepOpen enquanto o estado REAL da superfície não confirma reprodução:
+  // pausado, finalizado, BUFFERING (stream carregando — o último frame pintado
+  // pode conter o botão central do YouTube) ou videoSurfaceIdle (live travada,
+  // playVideo ignorado, erro sem evento). Só quando o vídeo está RODANDO é que
+  // os controles minimizam — TODOS JUNTOS, no mesmo timer de 4s.
   useEffect(() => {
-    const shouldKeepOpen = expanded && playerMode === "video" && (!isPlaying || playerState.videoSurfaceIdle);
+    const shouldKeepOpen = expanded && playerMode === "video" && (!isPlaying || playerState.videoSurfaceIdle || playerState.surfaceBuffering);
     videoOverlayKeepOpenRef.current = shouldKeepOpen;
     if (videoOverlayTimerRef.current) {
       clearTimeout(videoOverlayTimerRef.current);
@@ -803,14 +799,16 @@ const Index = () => {
     if (shouldKeepOpen) {
       setShowVideoOverlayControls(true);
     } else if (expanded && playerMode === "video") {
-      setShowVideoOverlayControls(false);
+      // Mesma régua dos demais controles: minimiza após alguns segundos de
+      // inatividade — nunca instantâneo, nunca deixando resíduo no centro.
+      videoOverlayTimerRef.current = setTimeout(() => {
+        if (!videoOverlayInteractingRef.current) setShowVideoOverlayControls(false);
+      }, 4000);
     }
-  }, [isPlaying, expanded, playerMode, playerState.videoSurfaceIdle, revealVideoOverlay]);
+  }, [isPlaying, expanded, playerMode, playerState.videoSurfaceIdle, playerState.surfaceBuffering, revealVideoOverlay]);
 
   // Grace do intro do YouTube: arma 3,5 s de máscaras a CADA transição pausado→tocando
   // (inclui trocar de vídeo e seek-resume — momentos em que o intro pode reexibir).
-  // A MESMA transição dispara o flash anti-bezel (900ms): é a janela em que o
-  // embed pode pintar o bezel central dele logo depois que os controles ocultam.
   useEffect(() => {
     if (prevVideoPlayingRef.current === isPlaying) return;
     prevVideoPlayingRef.current = isPlaying;
@@ -818,19 +816,10 @@ const Index = () => {
       setVideoIntroGrace(true);
       if (videoIntroGraceTimerRef.current) clearTimeout(videoIntroGraceTimerRef.current);
       videoIntroGraceTimerRef.current = setTimeout(() => setVideoIntroGrace(false), 3500);
-      setResumeFlash(true);
-      if (resumeFlashTimerRef.current) clearTimeout(resumeFlashTimerRef.current);
-      resumeFlashTimerRef.current = setTimeout(() => setResumeFlash(false), 900);
-    } else {
-      // Pausou (ou saiu do modo vídeo): nada para cobrir — os controles ficam
-      // visíveis (keepOpen) e o nosso botão central mostra o estado.
-      if (resumeFlashTimerRef.current) { clearTimeout(resumeFlashTimerRef.current); resumeFlashTimerRef.current = null; }
-      setResumeFlash(false);
     }
   }, [isPlaying, expanded, playerMode]);
   useEffect(() => () => {
     if (videoIntroGraceTimerRef.current) clearTimeout(videoIntroGraceTimerRef.current);
-    if (resumeFlashTimerRef.current) clearTimeout(resumeFlashTimerRef.current);
   }, []);
   const { trendingSongs, isLoading: trendingLoading } = useTrendingMusic();
   useNativeCapabilities(isPlaying);
@@ -2046,38 +2035,23 @@ const Index = () => {
               playVideo ignorado — estado real do player, videoSurfaceIdle), o embed
               desenha o botão play (~68×48) no centro exato do iframe — o overflow
               masking corta as faixas de cima/baixo, mas não o centro. Disco preto
-              opaco no mesmo centro, em camada PERMANENTE (não depende do overlay
-              dos nossos controles nem da opacidade dele): o botão do YouTube nunca
-              aparece. Keyed no estado REAL (getPlayerState via eventos+polling),
-              NUNCA no estado otimista do app.
-              SIZING SINCRONIZADO com os controles (bug dos "dois botões empilhados"):
-              com o overlay de controles VISÍVEL, o botão play/pause do transporte
-              CRESC para o tamanho do disco (w-24/w-28) e fica exatamente sobre ele
-              — os dois círculos viram UM só botão grande na tela, que ainda cobre
-              por completo o botão vermelho do YouTube (~80×56); com os controles
-              OCULTOS, o disco permanece w-24/w-28 cobrindo sozinho o centro.
-              Assim o usuário nunca vê dois círculos de play/pause sobrepostos, e o
-              masking fail-closed do centro permanece intacto.
+              opaco no mesmo centro: o botão do YouTube nunca aparece.
+              Keyed no estado REAL (getPlayerState via eventos+polling), NUNCA no
+              estado otimista do app.
+              ═══ MESMO ESTADO DOS CONTROLES (bug do "botão que não minimiza") ═══
+              O disco SÓ existe com o overlay de controles VISÍVEL
+              (showVideoOverlayControls): com o overlay VISÍVEL, o botão central do
+              transporte CRESC para o tamanho do disco (w-24/w-28) e fica exatamente
+              sobre ele — UM só círculo na tela; quando os controles MINIMIZAM, o
+              disco minimiza JUNTO (nada nosso fica no centro). Isso é seguro
+              porque o keepOpen mantém os controles abertos em TODO estado em que
+              o YouTube desenha chrome central (pausado, cue, buffering, travado) —
+              ou seja, sempre que a máscara é necessária, os controles estão lá.
               z-[212]: acima do tap-catcher (210), abaixo do overlay dos controles
               (215), e pointer-events-none para os toques seguirem para o catcher. */}
-          {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && playerState.videoSurfaceIdle && (
+          {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && playerState.videoSurfaceIdle && showVideoOverlayControls && (
             <div aria-hidden className="absolute inset-0 z-[212] flex items-center justify-center pointer-events-none">
               <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-black" />
-            </div>
-          )}
-
-          {/* FLASH ANTI-BEZEL da retomada (z-213): pausado→tocando os controles do
-              app ocultam na hora e o YT pode pintar o bezel central DELE (círculo
-              escuro + ícone) — o "botão do meio que não minimiza junto". O nosso
-              círculo de feedback (mesmo visual, fade determinístico de 900ms) cobre
-              essa janela. Sob o overlay de controles (215), acima do disco (212);
-              sem captura de toque. Só faz sentido com a superfície confirmadamente
-              reproduzindo (idle=false) — com idle o disco+botão grande já cobrem. */}
-          {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && resumeFlash && !playerState.videoSurfaceIdle && (
-            <div aria-hidden className="absolute inset-0 z-[213] flex items-center justify-center pointer-events-none">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-black/55 backdrop-blur-sm flex items-center justify-center text-white xerife-bezel-flash">
-                <Play size={36} fill="currentColor" className="ml-1" />
-              </div>
             </div>
           )}
 
@@ -2110,11 +2084,13 @@ const Index = () => {
                   if (now - videoOverlayTapGuardRef.current < 300) return;
                   videoOverlayTapGuardRef.current = now;
                   if (showVideoOverlayControls) {
-                    // Pausado/finalizado/superfície idle (falha ou travamento) o overlay
-                    // NÃO pode esconder: é exatamente nesse estado que o YouTube desenha
-                    // título/canal/logo/botão central — as máscaras precisam continuar
-                    // cobrindo. Durante a reprodução real esconde normal (4s auto-hide).
-                    if (!isPlaying || playerState.videoSurfaceIdle) { revealVideoOverlay(); return; }
+                    // Pausado/finalizado/buffering/superfície idle (falha ou
+                    // travamento) o overlay NÃO pode esconder: é exatamente nesse
+                    // estado que o YouTube desenha título/canal/logo/botão central
+                    // — as máscaras precisam continuar cobrindo. O keepOpenRef já
+                    // agrega o estado REAL completo (inclui surfaceBuffering).
+                    // Durante a reprodução real esconde normal (4s auto-hide).
+                    if (videoOverlayKeepOpenRef.current) { revealVideoOverlay(); return; }
                     if (videoOverlayTimerRef.current) { clearTimeout(videoOverlayTimerRef.current); videoOverlayTimerRef.current = null; }
                     setShowVideoOverlayControls(false);
                   } else {
@@ -2306,6 +2282,7 @@ const Index = () => {
               videoMode={playerMode === "video"}
               isEnded={playerState.isEnded}
               videoSurfaceIdle={playerState.videoSurfaceIdle}
+              surfaceBuffering={playerState.surfaceBuffering}
             />
           </Suspense>
           )}

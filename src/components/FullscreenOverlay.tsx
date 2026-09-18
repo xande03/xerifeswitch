@@ -36,6 +36,11 @@ interface FullscreenOverlayProps {
    *  otimista do app diga "tocando" (dessincronia = botão do YouTube vazando
    *  de forma permanente, bug reportado). */
   videoSurfaceIdle?: boolean;
+  /** ESTADO REAL de buffering do embed: TRUE enquanto o YouTube carrega a
+   *  stream. Durante o buffering o último frame pode conter o botão central
+   *  dele — os controles (e a máscara do centro) ficam de pé até a reprodução
+   *  confirmar; TODOS minimizam JUNTOS quando o vídeo roda de verdade. */
+  surfaceBuffering?: boolean;
 }
 
 const MIN_SCALE = 1;
@@ -47,34 +52,33 @@ const FullscreenOverlay = ({
   videoMode = false,
   isEnded = false,
   videoSurfaceIdle = false,
+  surfaceBuffering = false,
 }: FullscreenOverlayProps) => {
   const [showControls, setShowControls] = useState(true);
   const [zoom, setZoom] = useState<{ scale: number; x: number; y: number }>({ scale: 1, x: 0, y: 0 });
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const lastTapRef = useRef<number>(0);
 
-  // ── FLASH ANTI-BEZEL da retomada (somente vídeo) ──
-  // Ao resumir (pausado→tocando) o embed pode pintar o bezel central DELE
-  // (círculo escuro + ícone) — parece um botão fantasma que não minimiza junto
-  // com os controles. O NOSSO círculo de feedback cobre essa janela (900ms).
-  const [resumeFlash, setResumeFlash] = useState(false);
-  const resumeFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevPlayingFsRef = useRef(isPlaying);
+  // ═══ REGRA DE OURO DO CENTRO (bug do "botão de pause que não minimiza") ═══
+  // O disco de máscara + o botão central grande existem SOMENTE junto com os
+  // controles (showControls). Nada nosso permanece no centro do fullscreen
+  // com os controles minimizados.
+  // MODO VÍDEO (keepOpen): pausado, finalizado, BUFFERING ou superfície idle
+  // (estado REAL do YT — falha, travamento, cue) os controles NÃO podem
+  // esconder — é quando o YouTube desenha título/canal/logo/botão central por
+  // conta própria. Quando a reprodução confirma, o keepOpen cai e os controles
+  // escondem TODOS JUNTOS no auto-hide padrão (3,5 s) — inclusive o centro.
   useEffect(() => {
-    if (prevPlayingFsRef.current === isPlaying) return;
-    prevPlayingFsRef.current = isPlaying;
-    if (isPlaying && videoMode) {
-      setResumeFlash(true);
-      if (resumeFlashTimerRef.current) clearTimeout(resumeFlashTimerRef.current);
-      resumeFlashTimerRef.current = setTimeout(() => setResumeFlash(false), 900);
+    if (!videoMode) return;
+    if (!isPlaying || videoSurfaceIdle || surfaceBuffering) {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      setShowControls(true);
     } else {
-      if (resumeFlashTimerRef.current) { clearTimeout(resumeFlashTimerRef.current); resumeFlashTimerRef.current = null; }
-      setResumeFlash(false);
+      // Tocando de verdade: minimiza no mesmo timer dos demais controles.
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setShowControls(false), AUTOHIDE_DEFAULT_MS);
     }
-  }, [isPlaying, videoMode]);
-  useEffect(() => () => { if (resumeFlashTimerRef.current) clearTimeout(resumeFlashTimerRef.current); }, []);
-
-  // ── Quality selector (persisted; mirrors VideoInfoBar) ──
+  }, [videoMode, isPlaying, videoSurfaceIdle, surfaceBuffering]);
   const QUALITY_OPTIONS: { value: string; label: string }[] = [
     { value: "auto", label: "Automática" },
     { value: "hd1080", label: "1080p60 (HD)" },
@@ -172,31 +176,29 @@ const FullscreenOverlay = ({
     };
   }, []);
 
+  // keepOpen refletido para o resetTimer: NUNCA armar auto-hide enquanto o
+  // estado REAL da superfície não confirma reprodução (pausado/buffering/idle
+  // em modo vídeo). O mount/rotate/visibility chamam resetTimer — sem este
+  // guard, o timer do mount escondia os controles NO PAUSADO após 3,5s e o
+  // centro ficava exposto (ou o disco tinha que ficar preso no centro — o
+  // "botão permanente" reportado).
+  const keepOpenRef = useRef(false);
+  keepOpenRef.current = !!videoMode && (!isPlaying || videoSurfaceIdle || surfaceBuffering);
+
   const resetTimer = useCallback(() => {
     setShowControls(true);
     if (timerRef.current) clearTimeout(timerRef.current);
+    if (keepOpenRef.current) return;
     timerRef.current = setTimeout(() => setShowControls(false), AUTOHIDE_DEFAULT_MS);
   }, []);
-
-  // MODO VÍDEO (keepOpen): pausado/finalizado/superfície idle (estado REAL do
-  // YT — falha, travamento, cue) os controles NÃO podem esconder — é quando o
-  // YouTube desenha título/canal/logo/botão central por conta própria. Sem
-  // isso o branding ficava exposto com o overlay adormecido (bug reportado).
-  useEffect(() => {
-    if (videoMode && (!isPlaying || videoSurfaceIdle)) {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      setShowControls(true);
-    }
-  }, [videoMode, isPlaying, videoSurfaceIdle]);
-
-
 
   const handleSurfaceClick = useCallback(() => {
     // Ignore taps that were part of a pinch/pan gesture.
     if (gestureActiveRef.current) return;
-    // MODO VÍDEO pausado/superfície idle: overlay visível NUNCA esconde —
-    // esconder liberaria o branding do YouTube que aparece por conta própria.
-    if (videoMode && (!isPlaying || videoSurfaceIdle) && showControls) {
+    // MODO VÍDEO pausado/buffering/superfície idle: overlay visível NUNCA
+    // esconde — esconder liberaria o branding do YouTube que aparece por
+    // conta própria.
+    if (videoMode && (!isPlaying || videoSurfaceIdle || surfaceBuffering) && showControls) {
       lastTapRef.current = 0;
       return;
     }
@@ -223,7 +225,7 @@ const FullscreenOverlay = ({
       resetTimer();
       return true;
     });
-  }, [resetTimer, videoMode, isPlaying, videoSurfaceIdle, showControls]);
+  }, [resetTimer, videoMode, isPlaying, videoSurfaceIdle, surfaceBuffering, showControls]);
 
   // ── Pointer handlers for pinch + pan ──
   const onPointerDown = useCallback((e: React.PointerEvent) => {
@@ -422,17 +424,18 @@ const FullscreenOverlay = ({
           centro do iframe; o overflow masking corta topo/base, mas não o centro.
           Cobrindo pelo estado real (e não pelo estado otimista do app), o botão
           do YouTube nunca vaza mesmo quando a reprodução falha silenciosamente.
-          SIZING SINCRONIZADO com os controles (bug dos "dois botões empilhados"):
-          com showControls TRUE o botão central do app CRESC para o tamanho do
-          disco (w-24/w-28) e fica exatamente sobre ele — um único círculo grande
-          na tela, que cobre por completo o botão do YouTube (~80×56); com
-          showControls FALSE o disco permanece w-24/w-28 cobrindo sozinho o
-          centro (fail-closed com o overlay adormecido).
-          BOTÃO PLAY do app: só no estado pausado/cue confirmado — durante um
-          travamento (isPlaying otimista true) mostramos só o disco, sem botão
-          falso. O conjunto não captura toque (o surface toggle continua
+          ═══ MESMO ESTADO DOS CONTROLES (bug do "botão que não minimiza") ═══
+          O conjunto SÓ existe com showControls TRUE: os controles escondem
+          TODOS JUNTOS (3,5 s) quando o vídeo roda de verdade, e NADA nosso
+          fica no centro com os controles minimizados. É seguro porque o
+          keepOpen mantém showControls=true em TODO estado em que o YouTube
+          desenha chrome central (pausado, cue, buffering, travado) — sempre
+          que a máscara é necessária, os controles estão lá.
+          SIZING: com os controles visíveis, o disco (w-24/w-28) fica sob o
+          botão central grande do app — UM só círculo na tela.
+          O conjunto não captura toque (o surface toggle continua
           funcionando), só o botão. */}
-      {videoMode && videoSurfaceIdle && (
+      {videoMode && videoSurfaceIdle && showControls && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div aria-hidden className="absolute w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-black" />
           {!isPlaying && (
@@ -444,18 +447,6 @@ const FullscreenOverlay = ({
               <Play size={40} fill="currentColor" className="ml-1" />
             </button>
           )}
-        </div>
-      )}
-
-      {/* FLASH ANTI-BEZEL da retomada: cobre a janela pós-resumo em que o embed
-          pode pintar o bezel central dele (feedback determinístico do app). Só
-          com a superfície confirmadamente tocando (idle=false) — com idle, o
-          disco+botão acima já cobrem. Sem captura de toque. */}
-      {videoMode && resumeFlash && !videoSurfaceIdle && (
-        <div aria-hidden className="absolute inset-0 z-[206] flex items-center justify-center pointer-events-none">
-          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-black/55 backdrop-blur-sm flex items-center justify-center text-white xerife-bezel-flash">
-            <Play size={36} fill="currentColor" className="ml-1" />
-          </div>
         </div>
       )}
 
