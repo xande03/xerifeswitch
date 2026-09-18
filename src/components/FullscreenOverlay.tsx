@@ -68,7 +68,7 @@ const FullscreenOverlay = ({
   // (estado REAL do YT — falha, travamento, cue) os controles NÃO podem
   // esconder — é quando o YouTube desenha título/canal/logo/botão central por
   // conta própria. Quando a reprodução confirma, o keepOpen cai e os controles
-  // escondem TODOS JUNTOS no auto-hide padrão (3,5 s) — inclusive o centro.
+  // escondem TODOS JUNTOS no auto-hide padrão (4 s) — inclusive o centro.
   useEffect(() => {
     if (!videoMode) return;
     if (!isPlaying || videoSurfaceIdle || surfaceBuffering) {
@@ -80,6 +80,24 @@ const FullscreenOverlay = ({
       timerRef.current = setTimeout(() => setShowControls(false), AUTOHIDE_DEFAULT_MS);
     }
   }, [videoMode, isPlaying, videoSurfaceIdle, surfaceBuffering]);
+
+  // ═══ FLASH ANTI-BEZEL ("retirar de vez o símbolo congelado") ═══
+  // O YouTube pinta o bezel central (círculo + ícone) a CADA transição
+  // play↔pause — inclusive via API/controles do sistema — e o símbolo pode
+  // congelar quando o stream trava. Na transição, o conjunto central fica
+  // visível por 900ms cobrindo o bezel no instante em que ele nasce.
+  const prevPlayingRef = useRef(isPlaying);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const [centerFlash, setCenterFlash] = useState(false);
+  useEffect(() => {
+    if (prevPlayingRef.current === isPlaying) return;
+    prevPlayingRef.current = isPlaying;
+    if (!videoMode) return;
+    setCenterFlash(true);
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = setTimeout(() => setCenterFlash(false), 900);
+  }, [isPlaying, videoMode]);
+  useEffect(() => () => { if (flashTimerRef.current) clearTimeout(flashTimerRef.current); }, []);
   const QUALITY_OPTIONS: { value: string; label: string }[] = [
     { value: "auto", label: "Automática" },
     { value: "hd1080", label: "1080p60 (HD)" },
@@ -434,7 +452,7 @@ const FullscreenOverlay = ({
           funcionando); visível, só o botão captura. */}
       {videoMode && (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-300 ${
-          showControls ? "opacity-100" : "opacity-0"
+          showControls || centerFlash ? "opacity-100" : "opacity-0"
         }`}>
           <div aria-hidden className="absolute w-[84px] h-[84px] rounded-full bg-black" />
           <button

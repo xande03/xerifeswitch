@@ -486,6 +486,8 @@ export function useYouTubePlayer(containerId: string) {
   // Janela deslizante: media time avançado vs wall-clock decorrido.
   const crawlWindowStartAtRef = useRef<number | null>(null);
   const crawlWindowStartCtRef = useRef<number | null>(null);
+  // Último nudge de repaint (seekTo microscópico) pós-stall — no máximo 1/10s.
+  const lastStallNudgeAtRef = useRef(0);
   const userGestureRef = useRef(false);
   const userPausedRef = useRef(false);
   const shouldBePlayingRef = useRef(false);
@@ -1269,6 +1271,7 @@ export function useYouTubePlayer(containerId: string) {
       if (surfaceIdle === false) {
         const now = Date.now();
         const delta = lastAdvancedCtRef.current === null ? Infinity : ct - lastAdvancedCtRef.current;
+        let stalled = false;
         if (Math.abs(delta) > 0.01) {
           // Seek grande (|delta| > 1,5s): reinicia a janela de rastreio —
           // um pulo para trás não é "avanço" nem "rastejamento".
@@ -1283,17 +1286,30 @@ export function useYouTubePlayer(containerId: string) {
           frozenPollsRef.current = 0;
         } else {
           frozenPollsRef.current += 1;
-          if (frozenPollsRef.current >= 3) surfaceIdle = true;
+          if (frozenPollsRef.current >= 3) stalled = true;
         }
-        // RASTEJAMENTO: janela de ≥3s de wall-clock com avanço < 20% => stall.
+        // RASTEJAMENTO: janela de ≥2s de wall-clock com avanço < 20% => stall.
         if (crawlWindowStartAtRef.current !== null && crawlWindowStartCtRef.current !== null) {
           const wallElapsedSec = (now - crawlWindowStartAtRef.current) / 1000;
-          if (wallElapsedSec >= 3) {
+          if (wallElapsedSec >= 2) {
             const mediaAdvancedSec = ct - crawlWindowStartCtRef.current;
-            if (mediaAdvancedSec < wallElapsedSec * 0.2) surfaceIdle = true;
+            if (mediaAdvancedSec < wallElapsedSec * 0.2) stalled = true;
             // Reinicia a janela para a próxima medição.
             crawlWindowStartAtRef.current = now;
             crawlWindowStartCtRef.current = ct;
+          }
+        }
+        if (stalled) {
+          surfaceIdle = true;
+          // NUDGE DE REPAINT ("retirar de vez o símbolo congelado"): um seek
+          // microscópico (+0,05s) força o embed a repintar o frame — APAGANDO
+          // o bezel congelado do YouTube (não apenas cobrindo com o disco).
+          // Só no stall detectado pelo watchdog (nunca em pausa legítima, que
+          // já vem com surfaceIdle=true do estado real). No máximo 1x a cada
+          // 10s. Se o seek falhar (player ausente), apenas cobrimos.
+          if (now - lastStallNudgeAtRef.current > 10_000) {
+            lastStallNudgeAtRef.current = now;
+            try { playerRef.current?.seekTo?.(ct + 0.05, true); } catch { /* player ausente: só cobre */ }
           }
         }
       } else {

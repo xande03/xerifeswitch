@@ -275,6 +275,17 @@ const Index = () => {
   const videoIntroGraceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const prevVideoPlayingRef = useRef(false);
+  /** Flash anti-bezel (2026-09-18 — "retirar de vez o símbolo congelado"):
+   *  o YouTube pinta o bezel central (círculo escuro + ícone branco) a CADA
+   *  transição play↔pause — inclusive as disparadas por API/controles do
+   *  sistema (notificação/lockscreen) — e esse símbolo pode CONGELAR na tela
+   *  quando o stream trava com getPlayerState() alegando PLAYING. Impossível
+   *  remover de dentro do iframe (cross-origin): a única defesa é NUNCA deixar
+   *  ele visível. A cada transição, o disco-base central (z-212) fica visível
+   *  por 900ms — cobrindo o bezel no exato momento em que ele é pintado.
+   *  Sem ação: pointer-events continuam tied a showVideoOverlayControls. */
+  const [centerFlash, setCenterFlash] = useState(false);
+  const centerFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealVideoOverlay = useCallback((opts?: { sticky?: boolean }) => {
     setShowVideoOverlayControls(true);
     if (videoOverlayTimerRef.current) {
@@ -809,17 +820,26 @@ const Index = () => {
 
   // Grace do intro do YouTube: arma 3,5 s de máscaras a CADA transição pausado→tocando
   // (inclui trocar de vídeo e seek-resume — momentos em que o intro pode reexibir).
+  // E arma o FLASH ANTI-BEZEL em TODA transição play↔pause (as duas direções):
+  // é exatamente nesses instantes que o embed pinta o bezel central — o disco
+  // cobre o símbolo assim que ele nasce (ver centerFlash acima).
   useEffect(() => {
     if (prevVideoPlayingRef.current === isPlaying) return;
     prevVideoPlayingRef.current = isPlaying;
-    if (isPlaying && expanded && playerMode === "video") {
-      setVideoIntroGrace(true);
-      if (videoIntroGraceTimerRef.current) clearTimeout(videoIntroGraceTimerRef.current);
-      videoIntroGraceTimerRef.current = setTimeout(() => setVideoIntroGrace(false), 3500);
+    if (expanded && playerMode === "video") {
+      if (isPlaying) {
+        setVideoIntroGrace(true);
+        if (videoIntroGraceTimerRef.current) clearTimeout(videoIntroGraceTimerRef.current);
+        videoIntroGraceTimerRef.current = setTimeout(() => setVideoIntroGrace(false), 3500);
+      }
+      setCenterFlash(true);
+      if (centerFlashTimerRef.current) clearTimeout(centerFlashTimerRef.current);
+      centerFlashTimerRef.current = setTimeout(() => setCenterFlash(false), 900);
     }
   }, [isPlaying, expanded, playerMode]);
   useEffect(() => () => {
     if (videoIntroGraceTimerRef.current) clearTimeout(videoIntroGraceTimerRef.current);
+    if (centerFlashTimerRef.current) clearTimeout(centerFlashTimerRef.current);
   }, []);
   const { trendingSongs, isLoading: trendingLoading } = useTrendingMusic();
   useNativeCapabilities(isPlaying);
@@ -2057,8 +2077,8 @@ const Index = () => {
               z-[212]: acima do tap-catcher (210), abaixo do overlay dos controles
               (215), e pointer-events-none para os toques seguirem para o catcher. */}
           {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && (
-            <div aria-hidden className={`absolute inset-0 z-[212] flex items-center justify-center pointer-events-none transition-opacity duration-300 ${showVideoOverlayControls ? "opacity-100" : "opacity-0"}`}>
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-black" />
+            <div aria-hidden className={`absolute inset-0 z-[212] flex items-center justify-center pointer-events-none transition-opacity duration-300 ${(showVideoOverlayControls || centerFlash) ? "opacity-100" : "opacity-0"}`}>
+              <div className="w-[84px] h-[84px] rounded-full bg-black" />
             </div>
           )}
 
