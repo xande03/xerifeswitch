@@ -878,11 +878,10 @@ aside[data-sidebar-collapsed="true"] nav button {
 @media (min-width: 1024px) {
   :root {
     --app-frame-inset: 14px;
-    /* Inset HORIZONTAL (pedido 2026-09-18: "diminuir um pouco a largura do
-       escopo do app" — logo, título, ilha de pílulas, módulos e demais
-       componentes). A ALTURA do escopo permanece intacta (14px fixo).
-       clamp: ~4% da janela, de 24px a 72px (1030px de janela ≈ 41px/lado). */
-    --app-frame-inset-x: clamp(24px, 4vw, 72px);
+    /* Inset HORIZONTAL (2026-09-18: estreitado a pedidos — "menos estreito"):
+       metade do recuo original. A ALTURA do escopo permanece intacta (14px).
+       clamp: ~2% da janela, de 12px a 36px (1280px ≈ 26px/lado, 1920px = 36px). */
+    --app-frame-inset-x: clamp(12px, 2vw, 36px);
   }
   .app-frame {
     height: calc(100dvh - 2 * var(--app-frame-inset)) !important;
