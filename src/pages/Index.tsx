@@ -394,7 +394,7 @@ const Index = () => {
     return mockSongs.map((s) => ({ ...s, votes: savedVotes[s.id] ?? s.votes }));
   });
 
-  const { state: playerState, loadVideo, loadVideoAt, preloadClip, play, pause, seekTo, setVolume: setPlayerVolume, togglePiP, requestAirPlay, requestFullscreen, exitFullscreen, setPlaybackRate, toggleCaptions, proxyAudioElement, getCurrentTime: getPlayerCurrentTime } = useYouTubePlayer("yt-player");
+  const { state: playerState, loadVideo, loadVideoAt, preloadClip, play, pause, seekTo, setVolume: setPlayerVolume, togglePiP, requestAirPlay, requestFullscreen, exitFullscreen, setPlaybackRate, toggleCaptions, proxyAudioElement, getCurrentTime: getPlayerCurrentTime } = useYouTubePlayer("yt-player-slot");
 
   // Desktop: sync the fixed YouTube player with the NowPlayingView scroll so
   // the video "sobe" enquanto o usuário rola para ver comentários/relacionados,
@@ -2003,7 +2003,17 @@ const Index = () => {
                     }
                   : undefined
             }
-          />
+          >
+            {/* ⚠️ ALVO DO YT.Player — NUNCA a caixa #yt-player: a API oficial
+                SUBSTITUI o elemento alvo pelo <iframe> (replaceChild dentro do
+                www-widgetapi.js) e a caixa 16:9 estilizada sumiria do DOM.
+                Este slot vazio é substituído pelo iframe; pós-init o DOM fica
+                #yt-player > iframe#yt-player-slot (a API copia o id do slot
+                para o iframe). O CSS de masking (index.css) posiciona o iframe
+                240px mais alto que a caixa e o overflow-hidden descarta as
+                faixas de chrome do YouTube — permanentemente, sem timers. */}
+            <div id="yt-player-slot" />
+          </div>
 
 
           {expanded && playerMode === "video" && <QualityBadge />}
@@ -2344,7 +2354,7 @@ const Index = () => {
                 setColorTheme(id);
               }}
               onCast={() => {
-                const iframe = document.querySelector('#yt-player iframe') as HTMLIFrameElement | null;
+                const iframe = document.querySelector('#yt-player > iframe') as HTMLIFrameElement | null;
                 if (iframe && 'remote' in iframe) {
                   (iframe as any).remote.prompt().catch(() => {
                     console.warn('Cast not available');

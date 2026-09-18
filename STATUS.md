@@ -1,8 +1,50 @@
 # Status do Xerife Music
 
-Atualizado em 2026-09-18 (6ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-09-18 (7ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-09-18 (2) — causa raiz do branding do YouTube encontrado e corrigido (slot interno)
+
+O masking anunciado nas sessões anteriores **nunca chegou a ser aplicado**. Causa raiz
+comprovada no código-fonte real da API (`www-widgetapi.js`):
+
+1. **`new YT.Player(id)` SUBSTITUI o elemento alvo pelo `<iframe>`**
+   (`parentNode.replaceChild(iframe, alvo)`, copiando os atributos — inclusive o `id`).
+   O alvo era a própria caixa estilizada `#yt-player`, que virava o iframe; o seletor
+   CSS `#yt-player iframe` (descendente) **não casava com nada** e todo o esquema de
+   faixas (±64/72px) era geometria morta. O React continuava atualizando o div
+   desanexado, mascarando o bug.
+2. **Correção — slot interno como alvo** (`Index.tsx`): `#yt-player` volta a ser a
+   caixa 16:9 estável (`overflow: hidden`) e um slot vazio `#yt-player-slot` dentro
+   dela é quem vai para `useYouTubePlayer("yt-player-slot")`. DOM pós-init:
+   `#yt-player > iframe#yt-player-slot` — StrictMode seguro (o `destroy()` da API
+   devolve o slot ao lugar).
+3. **Máscara por overflow finalmente ativa** (`index.css`): `#yt-player > #yt-player-slot,
+   #yt-player > iframe` nasce **240px mais alto e sobe 120px** — faixas internas de
+   chrome (título/avatar no topo; share/"Mais vídeos"/logo na base) ficam FORA do
+   retângulo visível permanentemente, antes/durante/pausado/finalizado, sem timers.
+   O vídeo (16:9 centralizado no iframe) ocupa exatamente a caixa visível: zero zoom,
+   zero corte. **`pointer-events: none` no iframe** — nenhum toque chega ao YouTube;
+   100% dos comandos passam pelos controles do Xerife (JS API).
+4. **Fullscreen do YouTube desativado de vez**: `fs: 0` nos playerVars; a API força
+   `allowfullscreen=""` na criação e o `onReady` antigo RE-ADICIONAVA — agora remove o
+   atributo e apaga o token `fullscreen` do `allow`. Tela cheia é exclusivamente do
+   `#yt-fullscreen-container` do app (nativa ou pseudo). A regra CSS que resetava o
+   iframe para `inset:0/100%` em fullscreen (desmascarava na pausa) foi removida;
+   máscara vale também em tela cheia.
+5. **PiP flutuante** (`FloatingPiPPlayer`) alinhado à mesma geometria (±120px).
+6. **Validado no Chromium com reprodução real do YouTube** (o bloqueio de rede não
+   se aplica ao player): DOM pós-init confirmado (`iframe` dentro da caixa, id
+   `yt-player-slot`, `allowfullscreen` ausente, `allow` sem `fullscreen`); rail
+   830×467 (16:9 exato) com iframe 707px = caixa+240 e offset −120px; fullscreen
+   800×450 (16:9 exato) com mesma geometria; `pointer-events: none` computado;
+   elemento no centro do vídeo é a UI do app (não o iframe). Ponto 2 (ilha):
+   pílula fora do DOM com painel de reprodução aberto (música e vídeo) e de volta
+   ao navegar para outro painel/módulo — reconfirmado.
+
+Medido neste checkout após as mudanças: `npm run typecheck` ✅, `npm run test`
+**89 testes** ✅, `npm run build` ✅.
 
 ## Sessão 2026-09-18 — player de vídeo 100% limpo + ilha do player oculta durante reprodução
 

@@ -90,16 +90,17 @@ const FloatingPiPPlayer = ({
       {/* Video embed */}
       {videoId ? (
         <div className="relative w-full aspect-video bg-black overflow-hidden" onClick={toggleControlsVisibility}>
-          {/* Overflow masking sem zoom: o iframe é 128px mais alto e sobe
-              64px — as faixas internas de branding do YouTube (título/logo/
-              "Mais vídeos") ficam FORA do retângulo visível (overflow hidden),
-              SEM cortar/zoarar o vídeo 16:9 dentro de 16:9. loop+playlist
-              reinicia o preview ao terminar: a endscreen ("Mais vídeos") nunca
-              chega a aparecer na janela flutuante. */}
+          {/* Overflow masking sem zoom (mesma geometria do player principal):
+              o iframe é 240px mais alto e sobe 120px — as faixas internas de
+              branding do YouTube (título/logo/"Mais vídeos") ficam FORA do
+              retângulo visível (overflow hidden), SEM cortar/zoar o vídeo 16:9
+              dentro de 16:9. loop+playlist reinicia o preview ao terminar: a
+              endscreen ("Mais vídeos") nunca chega a aparecer. pointer-events
+              none: nenhum toque chega ao YouTube; só os controles do Xerife. */}
           <iframe
             src={`https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&enablejsapi=0&mute=1&loop=1&playlist=${videoId}`}
             className="w-full pointer-events-none absolute left-0"
-            style={{ top: "-72px", height: "calc(100% + 144px)" }}
+            style={{ top: "-120px", height: "calc(100% + 240px)" }}
             allow="autoplay; encrypted-media; picture-in-picture"
             allowFullScreen={false}
             title={song.title}

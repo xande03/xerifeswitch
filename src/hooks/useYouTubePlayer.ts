@@ -760,7 +760,12 @@ export function useYouTubePlayer(containerId: string) {
           // português. `hl` também pinta a UI interna do embed em pt-BR.
           cc_lang_pref: "pt",
           hl: "pt-BR",
-          fs: 1,
+          // fs:0 — fullscreen EXCLUSIVO do #yt-fullscreen-container do Xerife.
+          // O botão de tela cheia do embed nem existe (controls:0), mas fs:0
+          // impede qualquer fullscreen nativo disparado de dentro do iframe.
+          // O allowfullscreen que a própria API do YT força no iframe é
+          // removido no onReady logo abaixo.
+          fs: 0,
           disablekb: 1,
           origin: window.location.origin,
           enablejsapi: 1,
@@ -769,14 +774,20 @@ export function useYouTubePlayer(containerId: string) {
           onReady: () => {
             const iframe = playerRef.current?.getIframe?.() as HTMLIFrameElement | null;
             if (iframe) {
-              iframe.setAttribute('allowfullscreen', 'true');
+              // Fullscreen EXCLUSIVO do #yt-fullscreen-container do Xerife:
+              // a API oficial do YouTube força allowfullscreen="" na criação
+              // do iframe (www-widgetapi.js) — removemos aqui e NÃO repomos.
+              // Nenhum fullscreen nativo do embed; o do app é CSS/pseudo no
+              // nosso próprio container (requestFullscreen → yt-fullscreen-container).
+              iframe.removeAttribute('allowfullscreen');
               const allowTokens = new Set(
                 (iframe.getAttribute('allow') || '')
                   .split(';')
                   .map((t) => t.trim())
                   .filter(Boolean)
               );
-              ['autoplay', 'encrypted-media', 'picture-in-picture', 'fullscreen'].forEach((t) => allowTokens.add(t));
+              allowTokens.delete('fullscreen');
+              ['autoplay', 'encrypted-media', 'picture-in-picture'].forEach((t) => allowTokens.add(t));
               iframe.setAttribute('allow', Array.from(allowTokens).join('; '));
             }
             applyVolumeToPlayer(targetVolumeRef.current);
