@@ -2028,7 +2028,13 @@ const Index = () => {
           </div>
 
 
-          {expanded && playerMode === "video" && <QualityBadge />}
+          {/* QualityBadge — agora segue a mesma regra de visibilidade dos demais controles
+              (showVideoOverlayControls): TODOS juntos, mesma duração de 4s. */}
+          {expanded && playerMode === "video" && !playerState.isFullscreen && (
+            <div className={`absolute top-2 left-1/2 -translate-x-1/2 z-[213] transition-opacity duration-300 ${showVideoOverlayControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+              <QualityBadge />
+            </div>
+          )}
 
           {/* Máscara do BOTÃO CENTRAL do YouTube (fail-closed): pausado, finalizado,
               cue ou QUANDO A REPRODUÇÃO FALHA/TRAVA (live stream, stream bloqueada,
@@ -2038,18 +2044,17 @@ const Index = () => {
               opaco no mesmo centro: o botão do YouTube nunca aparece.
               Keyed no estado REAL (getPlayerState via eventos+polling), NUNCA no
               estado otimista do app.
-              ═══ MESMO ESTADO DOS CONTROLES (bug do "botão que não minimiza") ═══
-              O disco SÓ existe com o overlay de controles VISÍVEL
-              (showVideoOverlayControls): com o overlay VISÍVEL, o botão central do
-              transporte CRESC para o tamanho do disco (w-24/w-28) e fica exatamente
-              sobre ele — UM só círculo na tela; quando os controles MINIMIZAM, o
-              disco minimiza JUNTO (nada nosso fica no centro). Isso é seguro
-              porque o keepOpen mantém os controles abertos em TODO estado em que
-              o YouTube desenha chrome central (pausado, cue, buffering, travado) —
-              ou seja, sempre que a máscara é necessária, os controles estão lá.
+              ═══ UNIFICAÇÃO 2026-09-18 (3) — TODOS JUNTOS, MESMA DURAÇÃO ═══
+              O disco SÓ existe com o overlay VISÍVEL e quando pausado/idle/ended
+              (showVideoOverlayControls + !isPlaying): com o overlay VISÍVEL pausado,
+              o botão central do transporte cresce para o tamanho do disco (w-24/w-28)
+              e fica exatamente sobre ele — UM só círculo na tela; quando os controles
+              MINIMIZAM (tocando após 4s), o disco minimiza JUNTO — NADA nosso fica
+              no centro durante reprodução. Isso elimina o "botão de pause no centro"
+              quando tá tocando e a duplicação ao pausar.
               z-[212]: acima do tap-catcher (210), abaixo do overlay dos controles
               (215), e pointer-events-none para os toques seguirem para o catcher. */}
-          {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && playerState.videoSurfaceIdle && showVideoOverlayControls && (
+          {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && !isPlaying && showVideoOverlayControls && (
             <div aria-hidden className="absolute inset-0 z-[212] flex items-center justify-center pointer-events-none">
               <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-black" />
             </div>
@@ -2134,36 +2139,37 @@ const Index = () => {
                   </button>
                 )}
 
-                {/* Center transport: prev / play-pause / next */}
-                <div className="absolute inset-0 flex items-center justify-center gap-8 sm:gap-12 pointer-events-none">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handlePrev(); }}
-                    className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} p-3 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition`}
-                    title="Anterior"
-                  >
-                    <SkipBack size={22} fill="currentColor" />
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleTogglePlay(); }}
-                    className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition flex items-center justify-center ${
-                      playerState.videoSurfaceIdle
-                        ? "w-24 h-24 sm:w-28 sm:h-28"
-                        : "w-16 h-16 sm:w-20 sm:h-20"
-                    }`}
-                    title={isPlaying ? "Pausar" : "Reproduzir"}
-                  >
-                    {isPlaying
-                      ? <Pause size={playerState.videoSurfaceIdle ? 40 : 32} fill="currentColor" />
-                      : <Play size={playerState.videoSurfaceIdle ? 40 : 32} fill="currentColor" className="ml-1" />}
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleNext(); }}
-                    className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} p-3 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition`}
-                    title="Próximo"
-                  >
-                    <SkipForward size={22} fill="currentColor" />
-                  </button>
-                </div>
+                {/* Center transport: UNIFICADO — SÓ aparece quando PAUSADO/IDLE/ENDED
+                    (nunca pause no centro quando tá tocando). Quando pausado, mostra
+                    prev / play grande (sobre o disco preto) / next — UM único círculo
+                    central. Quando tocando, centro fica 100% limpo (só vídeo).
+                    Todos os botões (top, center, bottom, quality) obedecem ao MESMO
+                    showVideoOverlayControls e MESMA duração de 4s — TODOS JUNTOS. */}
+                {!isPlaying && (
+                  <div className="absolute inset-0 flex items-center justify-center gap-8 sm:gap-12 pointer-events-none">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handlePrev(); }}
+                      className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} p-3 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition`}
+                      title="Anterior"
+                    >
+                      <SkipBack size={22} fill="currentColor" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleTogglePlay(); }}
+                      className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition flex items-center justify-center w-24 h-24 sm:w-28 sm:h-28`}
+                      title="Reproduzir"
+                    >
+                      <Play size={40} fill="currentColor" className="ml-1" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleNext(); }}
+                      className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} p-3 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition`}
+                      title="Próximo"
+                    >
+                      <SkipForward size={22} fill="currentColor" />
+                    </button>
+                  </div>
+                )}
 
                 {/* Bottom bar: time + seekbar + PiP/AirPlay/fullscreen */}
                 <div

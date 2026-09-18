@@ -4,10 +4,11 @@ import { track as trackMetric } from "@/lib/playbackMetrics";
 import { Song, formatDuration } from "@/data/mockSongs";
 import SeekBar from "@/components/SeekBar";
 
-/** Delay fixo para auto-ocultar os controles do fullscreen (3,5 s).
- *  A preferência "Auto-ocultar (tela cheia)" foi removida das Configurações —
- *  comportamento agora é único para todos os usuários. */
-const AUTOHIDE_DEFAULT_MS = 3500;
+/** Delay fixo para auto-ocultar os controles do fullscreen — UNIFICADO 4s
+ *  para TODOS os players (Xerife Vídeos, Music modo Vídeo, Podcasts modo Vídeo)
+ *  — TODOS JUNTOS, mesma duração. A preferência "Auto-ocultar (tela cheia)" foi
+ *  removida das Configurações — comportamento único. */
+const AUTOHIDE_DEFAULT_MS = 4000;
 
 
 interface FullscreenOverlayProps {

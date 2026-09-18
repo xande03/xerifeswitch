@@ -1393,8 +1393,11 @@ const NowPlayingView = ({
 
                 )}
 
-                {/* SeekBar & Transport — hidden only in rail (Xerife Vídeos) mode */}
-                {!isRailVideoMode && context !== "video" && (
+                {/* SeekBar & Transport — hidden in ANY video mode (rail + music/podcast video)
+                    to avoid duplication with the unified overlay in Index.tsx.
+                    The overlay in Index is the single source of truth for video controls,
+                    with all buttons hiding together after 4s. */}
+                {!isVideoMode && (
                 <div className="w-full space-y-3">
                   <div className="w-full space-y-1.5">
                     <SeekBar progress={progress} onSeek={onSeek} trackHeight="normal" className="w-full" duration={duration} />
