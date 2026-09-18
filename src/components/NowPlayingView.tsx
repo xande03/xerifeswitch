@@ -297,6 +297,19 @@ const NowPlayingView = ({
   const [mode, setMode] = useState<PlayerMode>(
     initialMode ?? (context === "video" ? "video" : "audio")
   );
+  // ── Sincronização mode <- initialMode (2026-09-18) ─────────────────────────
+  // O `mode` é estado interno inicializado com initialMode — mas o Index pode
+  // mudar playerMode SEM remontar o painel (ex.: handlePlayVideo com o painel
+  // já aberto, trocando de vídeo). Sem este efeito, o interno ficava "audio"
+  // enquanto o Index estava em "video": header "XERIFE SWITCH" + chevron-down
+  // continuavam na tela e o transporte voltava a duplicar. Sincroniza sem eco
+  // (não dispara onModeChange — o Index JÁ está no modo alvo).
+  const prevInitialModeRef = useRef<PlayerMode | undefined>(initialMode);
+  useEffect(() => {
+    if (initialMode === undefined || initialMode === prevInitialModeRef.current) return;
+    prevInitialModeRef.current = initialMode;
+    setMode((cur) => (cur === initialMode ? cur : initialMode));
+  }, [initialMode]);
   const [visualizerMode, setVisualizerMode] = useState<any>("bars");
 
   // Xerife Music: sempre iniciar no modo "áudio" ao trocar de faixa,
@@ -969,7 +982,12 @@ const NowPlayingView = ({
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto now-playing-scroll">
-        {/* Desktop Header */}
+        {/* Desktop Header — SÓ em modo áudio (pedido 2026-09-18: nos painéis de vídeo,
+            desktop, remover título "XERIFE SWITCH" + ícone + botão chevron-down de
+            minimizar; minimizar fica SOMENTE na seta-esquerda dentro do player).
+            A remoção libera ~78px no topo: o player de vídeo e a coluna de "Próximos
+            vídeos" sobem junto (rail top 90px -> 12px, ver Index.tsx/index.css). */}
+        {!isVideoMode && (
         <div className="hidden md:flex items-center justify-between px-6 lg:px-12 py-4 lg:py-6 z-30">
           <button onClick={onCollapse} title="Voltar para Xerife Vídeos" className="p-2 rounded-full bg-secondary/80 hover:bg-primary transition-all text-foreground hover:text-primary-foreground shadow-lg">
             <ChevronDown size={28} />
@@ -983,6 +1001,7 @@ const NowPlayingView = ({
           </div>
 
         </div>
+        )}
 
         {/* Main Layout */}
         <div>
@@ -1033,12 +1052,14 @@ const NowPlayingView = ({
 
                 {isRailVideoMode ? (
                   <>
-                    {/* Spacer that matches the fixed yt-player height — full-bleed on mobile, matches left column on desktop */}
-                    <div className="w-full lg:px-0" style={{ height: 'var(--xerife-video-h)' }} />
+                    {/* Spacer that matches the fixed yt-player height — full-bleed on mobile, matches left column on desktop.
+                        md+: +12px porque o rail agora encosta quase no topo do painel (12px) —
+                        sem o header desktop o VideoInfoBar precisa continuar ABAIXO do vídeo. */}
+                    <div className="w-full lg:px-0 h-[var(--xerife-video-h)] md:h-[calc(var(--xerife-video-h)+12px)]" />
                     {context === "video" && (
                       <div
                         className="px-3 pt-3 pb-1 md:px-0 md:pt-3 relative z-10"
-                        style={{ scrollMarginTop: 'calc(90px + var(--xerife-video-h) + 16px)' }}
+                        style={{ scrollMarginTop: 'calc(12px + var(--xerife-video-h) + 16px)' }}
                       >
                         <VideoInfoBar
                           song={song}
@@ -1276,8 +1297,8 @@ const NowPlayingView = ({
                   ? {
                       // Stick right below the header, and cap height so the rail scrolls internally
                       // without ever overlapping the fixed player or being covered by it.
-                      top: "90px",
-                      maxHeight: "calc(100vh - 90px - env(safe-area-inset-bottom) - 16px)",
+                      top: "12px",
+                      maxHeight: "calc(100vh - 12px - env(safe-area-inset-bottom) - 16px)",
                     }
                   : undefined
               }

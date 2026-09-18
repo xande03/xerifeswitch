@@ -654,43 +654,43 @@ html, body {
 @media (min-width: 768px) {
   :root {
     --xerife-video-rail: max(280px, 30vw);
-    --xerife-video-h: min(420px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
+    --xerife-video-h: min(500px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
   }
 }
 @media (min-width: 1024px) {
-  :root {
-    --xerife-video-rail: 30vw;
-    --xerife-video-h: min(560px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
-  }
-}
-@media (min-width: 1280px) {
   :root {
     --xerife-video-rail: 30vw;
     --xerife-video-h: min(640px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
   }
 }
-@media (min-width: 1536px) {
+@media (min-width: 1280px) {
   :root {
     --xerife-video-rail: 30vw;
     --xerife-video-h: min(720px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
   }
 }
+@media (min-width: 1536px) {
+  :root {
+    --xerife-video-rail: 30vw;
+    --xerife-video-h: min(800px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
+  }
+}
 @media (min-width: 1024px) {
   :root {
     --xerife-video-rail: 360px;
-    --xerife-video-h: min(520px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
+    --xerife-video-h: min(600px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
   }
 }
 @media (min-width: 1280px) {
   :root {
     --xerife-video-rail: 402px;
-    --xerife-video-h: min(600px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
+    --xerife-video-h: min(680px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
   }
 }
 @media (min-width: 1536px) {
   :root {
     --xerife-video-rail: 426px;
-    --xerife-video-h: min(680px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
+    --xerife-video-h: min(760px, calc((100vw - var(--xerife-video-rail) - 48px) * 0.5625));
   }
 }
 

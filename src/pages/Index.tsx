@@ -1972,12 +1972,12 @@ const Index = () => {
             playerState.isFullscreen
               ? "fixed inset-0 z-[10000] bg-black"
               : isRailMode
-                ? "fixed left-0 right-0 md:left-4 md:right-[calc(var(--xerife-video-rail)+32px)] z-[60] top-[env(safe-area-inset-top)] md:top-[90px] bg-transparent flex items-center justify-center overflow-hidden"
+                ? "fixed left-0 right-0 md:left-4 md:right-[calc(var(--xerife-video-rail)+32px)] z-[60] top-[env(safe-area-inset-top)] md:top-[12px] lg:top-[calc(12px+var(--app-frame-inset))] bg-transparent flex items-center justify-center overflow-hidden"
 
                 : isMusicVideoMode
                   ? (musicVideoRect
                       ? "fixed z-[60] bg-black rounded-2xl overflow-hidden ring-1 ring-border/60 dark:ring-white/10 transition-[left,top,width,height] duration-200 ease-out"
-                      : "fixed left-1/2 -translate-x-1/2 z-[60] top-[calc(env(safe-area-inset-top)+56px)] md:top-[112px] bg-black rounded-2xl overflow-hidden ring-1 ring-border/60 dark:ring-white/10")
+                      : "fixed left-1/2 -translate-x-1/2 z-[60] top-[calc(env(safe-area-inset-top)+56px)] md:top-[12px] lg:top-[calc(12px+var(--app-frame-inset))] bg-black rounded-2xl overflow-hidden ring-1 ring-border/60 dark:ring-white/10")
                   : "absolute -top-[9999px] -left-[9999px]"
           }
           style={
