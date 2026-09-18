@@ -1972,7 +1972,7 @@ const Index = () => {
             playerState.isFullscreen
               ? "fixed inset-0 z-[10000] bg-black"
               : isRailMode
-                ? "fixed left-0 right-0 md:left-4 md:right-[calc(var(--xerife-video-rail)+32px)] z-[60] top-[env(safe-area-inset-top)] md:top-[12px] lg:top-[calc(12px+var(--app-frame-inset))] bg-transparent flex items-center justify-center overflow-hidden"
+                ? "fixed left-0 right-0 md:left-4 md:right-[calc(var(--xerife-video-rail)+32px)] lg:left-[calc(1rem+var(--app-frame-inset-x))] lg:right-[calc(var(--xerife-video-rail)+32px+var(--app-frame-inset-x))] z-[60] top-[env(safe-area-inset-top)] md:top-[12px] lg:top-[calc(12px+var(--app-frame-inset))] bg-transparent flex items-center justify-center overflow-hidden"
 
                 : isMusicVideoMode
                   ? (musicVideoRect

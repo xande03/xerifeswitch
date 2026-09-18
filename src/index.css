@@ -878,11 +878,18 @@ aside[data-sidebar-collapsed="true"] nav button {
 @media (min-width: 1024px) {
   :root {
     --app-frame-inset: 14px;
+    /* Inset HORIZONTAL (pedido 2026-09-18: "diminuir um pouco a largura do
+       escopo do app" — logo, título, ilha de pílulas, módulos e demais
+       componentes). A ALTURA do escopo permanece intacta (14px fixo).
+       clamp: ~4% da janela, de 24px a 72px (1030px de janela ≈ 41px/lado). */
+    --app-frame-inset-x: clamp(24px, 4vw, 72px);
   }
   .app-frame {
     height: calc(100dvh - 2 * var(--app-frame-inset)) !important;
     margin-top: var(--app-frame-inset);
     margin-bottom: var(--app-frame-inset);
+    margin-left: var(--app-frame-inset-x);
+    margin-right: var(--app-frame-inset-x);
     border-radius: 18px;
     box-shadow:
       0 0 0 1px hsl(var(--border) / 0.7),
@@ -891,8 +898,8 @@ aside[data-sidebar-collapsed="true"] nav button {
   .frame-inset {
     top: var(--app-frame-inset) !important;
     bottom: var(--app-frame-inset) !important;
-    left: var(--app-frame-inset) !important;
-    right: var(--app-frame-inset) !important;
+    left: var(--app-frame-inset-x) !important;
+    right: var(--app-frame-inset-x) !important;
     border-radius: 18px;
     overflow: hidden;
   }
