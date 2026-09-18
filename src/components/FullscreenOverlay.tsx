@@ -53,6 +53,27 @@ const FullscreenOverlay = ({
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const lastTapRef = useRef<number>(0);
 
+  // ── FLASH ANTI-BEZEL da retomada (somente vídeo) ──
+  // Ao resumir (pausado→tocando) o embed pode pintar o bezel central DELE
+  // (círculo escuro + ícone) — parece um botão fantasma que não minimiza junto
+  // com os controles. O NOSSO círculo de feedback cobre essa janela (900ms).
+  const [resumeFlash, setResumeFlash] = useState(false);
+  const resumeFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevPlayingFsRef = useRef(isPlaying);
+  useEffect(() => {
+    if (prevPlayingFsRef.current === isPlaying) return;
+    prevPlayingFsRef.current = isPlaying;
+    if (isPlaying && videoMode) {
+      setResumeFlash(true);
+      if (resumeFlashTimerRef.current) clearTimeout(resumeFlashTimerRef.current);
+      resumeFlashTimerRef.current = setTimeout(() => setResumeFlash(false), 900);
+    } else {
+      if (resumeFlashTimerRef.current) { clearTimeout(resumeFlashTimerRef.current); resumeFlashTimerRef.current = null; }
+      setResumeFlash(false);
+    }
+  }, [isPlaying, videoMode]);
+  useEffect(() => () => { if (resumeFlashTimerRef.current) clearTimeout(resumeFlashTimerRef.current); }, []);
+
   // ── Quality selector (persisted; mirrors VideoInfoBar) ──
   const QUALITY_OPTIONS: { value: string; label: string }[] = [
     { value: "auto", label: "Automática" },
@@ -423,6 +444,18 @@ const FullscreenOverlay = ({
               <Play size={40} fill="currentColor" className="ml-1" />
             </button>
           )}
+        </div>
+      )}
+
+      {/* FLASH ANTI-BEZEL da retomada: cobre a janela pós-resumo em que o embed
+          pode pintar o bezel central dele (feedback determinístico do app). Só
+          com a superfície confirmadamente tocando (idle=false) — com idle, o
+          disco+botão acima já cobrem. Sem captura de toque. */}
+      {videoMode && resumeFlash && !videoSurfaceIdle && (
+        <div aria-hidden className="absolute inset-0 z-[206] flex items-center justify-center pointer-events-none">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-black/55 backdrop-blur-sm flex items-center justify-center text-white xerife-bezel-flash">
+            <Play size={36} fill="currentColor" className="ml-1" />
+          </div>
         </div>
       )}
 

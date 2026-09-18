@@ -266,6 +266,14 @@ const Index = () => {
   const videoOverlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoOverlayInteractingRef = useRef(false);
   const videoOverlayKeepOpenRef = useRef(false);
+  /** Flash anti-bezel da RETOMADA: ao resumir (pausado→tocando) os controles do
+   *  app se ocultam na hora — e o embed do YouTube pode pintar o PRÓPRIO "bezel"
+ *  central de feedback (círculo escuro + ícone de play/pause) exatamente nessa
+ *  janela, sem nenhum dos nossos controles por perto: parece um botão fantasma
+ *  que não minimiza junto com os demais. Mostramos o NOSSO círculo de feedback
+ *  por ~900ms (duração determinística, com fade), cobrindo o do YT. */
+  const [resumeFlash, setResumeFlash] = useState(false);
+  const resumeFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Guarda contra toggle duplicado: dois toques dentro desta janela contam como um. */
   const videoOverlayTapGuardRef = useRef(0);
   /** Grace do "intro" do YouTube: nos ~2-3s seguintes a CADA play/seek, o iframe desenha
@@ -801,6 +809,8 @@ const Index = () => {
 
   // Grace do intro do YouTube: arma 3,5 s de máscaras a CADA transição pausado→tocando
   // (inclui trocar de vídeo e seek-resume — momentos em que o intro pode reexibir).
+  // A MESMA transição dispara o flash anti-bezel (900ms): é a janela em que o
+  // embed pode pintar o bezel central dele logo depois que os controles ocultam.
   useEffect(() => {
     if (prevVideoPlayingRef.current === isPlaying) return;
     prevVideoPlayingRef.current = isPlaying;
@@ -808,10 +818,19 @@ const Index = () => {
       setVideoIntroGrace(true);
       if (videoIntroGraceTimerRef.current) clearTimeout(videoIntroGraceTimerRef.current);
       videoIntroGraceTimerRef.current = setTimeout(() => setVideoIntroGrace(false), 3500);
+      setResumeFlash(true);
+      if (resumeFlashTimerRef.current) clearTimeout(resumeFlashTimerRef.current);
+      resumeFlashTimerRef.current = setTimeout(() => setResumeFlash(false), 900);
+    } else {
+      // Pausou (ou saiu do modo vídeo): nada para cobrir — os controles ficam
+      // visíveis (keepOpen) e o nosso botão central mostra o estado.
+      if (resumeFlashTimerRef.current) { clearTimeout(resumeFlashTimerRef.current); resumeFlashTimerRef.current = null; }
+      setResumeFlash(false);
     }
   }, [isPlaying, expanded, playerMode]);
   useEffect(() => () => {
     if (videoIntroGraceTimerRef.current) clearTimeout(videoIntroGraceTimerRef.current);
+    if (resumeFlashTimerRef.current) clearTimeout(resumeFlashTimerRef.current);
   }, []);
   const { trendingSongs, isLoading: trendingLoading } = useTrendingMusic();
   useNativeCapabilities(isPlaying);
@@ -2047,6 +2066,21 @@ const Index = () => {
             </div>
           )}
 
+          {/* FLASH ANTI-BEZEL da retomada (z-213): pausado→tocando os controles do
+              app ocultam na hora e o YT pode pintar o bezel central DELE (círculo
+              escuro + ícone) — o "botão do meio que não minimiza junto". O nosso
+              círculo de feedback (mesmo visual, fade determinístico de 900ms) cobre
+              essa janela. Sob o overlay de controles (215), acima do disco (212);
+              sem captura de toque. Só faz sentido com a superfície confirmadamente
+              reproduzindo (idle=false) — com idle o disco+botão grande já cobrem. */}
+          {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && resumeFlash && !playerState.videoSurfaceIdle && (
+            <div aria-hidden className="absolute inset-0 z-[213] flex items-center justify-center pointer-events-none">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-black/55 backdrop-blur-sm flex items-center justify-center text-white xerife-bezel-flash">
+                <Play size={36} fill="currentColor" className="ml-1" />
+              </div>
+            </div>
+          )}
+
           {/* CAPA OPACA de fim de vídeo (fail-closed): ao terminar, o YouTube
               desenha sua ENDSCREEN dentro do iframe — replay + grade de vídeos
               sugeridos no CENTRO, área que o overflow masking não cobre. Enquanto
@@ -2100,7 +2134,7 @@ const Index = () => {
                 {/* Back / minimize (top-left) */}
                 <button
                   onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); playerState.isFullscreen ? exitFullscreen() : setExpanded(false); }}
-                  className="pointer-events-auto absolute top-2 left-2 z-[220] p-2 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition"
+                  className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} absolute top-2 left-2 z-[220] p-2 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition`}
                   title={playerState.isFullscreen ? "Sair da Tela Cheia" : "Voltar"}
                 >
                   <ArrowLeft size={20} />
@@ -2116,7 +2150,7 @@ const Index = () => {
                       revealVideoOverlay();
                       window.dispatchEvent(new CustomEvent("xerife:reload-video-clip"));
                     }}
-                    className="pointer-events-auto absolute top-2 right-2 z-[220] p-2 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition"
+                    className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} absolute top-2 right-2 z-[220] p-2 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition`}
                     title="Não é este clipe? Toque para trocar (2x = buscar novo)"
                     aria-label="Recarregar videoclipe"
                   >
@@ -2128,14 +2162,14 @@ const Index = () => {
                 <div className="absolute inset-0 flex items-center justify-center gap-8 sm:gap-12 pointer-events-none">
                   <button
                     onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handlePrev(); }}
-                    className="pointer-events-auto p-3 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition"
+                    className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} p-3 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition`}
                     title="Anterior"
                   >
                     <SkipBack size={22} fill="currentColor" />
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleTogglePlay(); }}
-                    className={`pointer-events-auto rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition flex items-center justify-center ${
+                    className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition flex items-center justify-center ${
                       playerState.videoSurfaceIdle
                         ? "w-24 h-24 sm:w-28 sm:h-28"
                         : "w-16 h-16 sm:w-20 sm:h-20"
@@ -2148,7 +2182,7 @@ const Index = () => {
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleNext(); }}
-                    className="pointer-events-auto p-3 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition"
+                    className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} p-3 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition`}
                     title="Próximo"
                   >
                     <SkipForward size={22} fill="currentColor" />
@@ -2161,7 +2195,7 @@ const Index = () => {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div
-                    className="pointer-events-auto flex items-center gap-2"
+                    className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} flex items-center gap-2`}
                     onPointerDown={() => { videoOverlayInteractingRef.current = true; revealVideoOverlay({ sticky: true }); }}
                     onPointerUp={() => { videoOverlayInteractingRef.current = false; revealVideoOverlay(); }}
                     onPointerCancel={() => { videoOverlayInteractingRef.current = false; revealVideoOverlay(); }}

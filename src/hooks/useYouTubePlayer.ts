@@ -461,6 +461,15 @@ export function useYouTubePlayer(containerId: string) {
     }
   });
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
+  // ── Watchdog de congelamento (o YT mente) ──
+  // O embed pode reportar PLAYING/BUFFERING enquanto o ÚLTIMO frame pintado fica
+  // congelado na tela — live/show que trava, stream que estagna. O último frame
+  // pintado pode incluir o "bezel" central de feedback (círculo escuro + ícone
+  // de play/pause) do próprio YouTube: parece um botão fantasma que não minimiza
+  // junto com os controles do app. Enquanto getPlayerState() mentir, nada cobre
+  // o centro. Refs do watchdog: último tempo visto avançando + polls parados.
+  const lastAdvancedCtRef = useRef<number | null>(null);
+  const frozenPollsRef = useRef(0);
   const userGestureRef = useRef(false);
   const userPausedRef = useRef(false);
   const shouldBePlayingRef = useRef(false);
@@ -1226,6 +1235,27 @@ export function useYouTubePlayer(containerId: string) {
         const PSt = window.YT?.PlayerState;
         if (PSt && st != null) surfaceIdle = !(st === PSt.PLAYING || st === PSt.BUFFERING);
       } catch {}
+
+      // Watchdog de CONGELAMENTO: se o YT ALEGA reprodução (surfaceIdle === false)
+      // mas currentTime não muda por ~3 polls (~3s), o frame está congelado — o
+      // último frame pintado pode conter o bezel central do YT (o "botão de pause
+      // fantasma" que não minimiza com os controles). Tratamos a superfície como
+      // idle: disco central volta + controles reaparecem, até o tempo avançar de
+      // novo (recuperação => idle cai e tudo oculta junto de novo). Fail-closed
+      // contra a mentira do getPlayerState; BUFFERING legítimo também cai aqui
+      // depois de 3s — comportamento desejado (superfície sem avanço = cobrir).
+      if (surfaceIdle === false) {
+        if (lastAdvancedCtRef.current === null || Math.abs(ct - lastAdvancedCtRef.current) > 0.01) {
+          lastAdvancedCtRef.current = ct;
+          frozenPollsRef.current = 0;
+        } else {
+          frozenPollsRef.current += 1;
+          if (frozenPollsRef.current >= 3) surfaceIdle = true;
+        }
+      } else {
+        lastAdvancedCtRef.current = null;
+        frozenPollsRef.current = 0;
+      }
 
       // Update local state
       setState((s) => ({

@@ -821,6 +821,23 @@ aside[data-sidebar-collapsed="true"] nav button {
   }
 }
 
+/* ── FLASH ANTI-BEZEL da retomada de vídeo ─────────────────────────────
+   Círculo de feedback do APP mostrado por ~900ms a cada transição
+   pausado→tocando. Ele cobre a janela em que o embed do YouTube pode pintar
+   o PRÓPRIO bezel central (círculo escuro + ícone de play/pause) — o
+   "botão do meio que não minimiza junto com os controles" reportado pelo
+   usuário. Curva: sólido até ~60% da duração, fade-out no restante. */
+@keyframes xerife-bezel-flash {
+  0%, 58% { opacity: 1; }
+  100%    { opacity: 0; }
+}
+.xerife-bezel-flash {
+  animation: xerife-bezel-flash 900ms ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .xerife-bezel-flash { animation: none !important; }
+}
+
 /* =========================================================================
    MASCARAMENTO POR OVERFLOW ("crop masking") do player de vídeo do YouTube
    =========================================================================
