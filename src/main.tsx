@@ -5,6 +5,15 @@ import "./index.css";
 import { isNativePlatform, isPreviewEnvironment } from "./lib/platform";
 import { initNativePlugins } from "./lib/nativeInit";
 
+// ── Marcador de versão do build ─────────────────────────────────────────────
+// Injetado pelo vite.config.ts (git SHA + data). Aparece no console e em
+// document.documentElement.dataset.appBuild — para diagnosticar PWA/cache
+// desatualizado (ex.: "figura fantasma" que já foi corrigida no deploy).
+try {
+  document.documentElement.dataset.appBuild = __APP_BUILD__;
+  console.info(`[Xerife] build ${__APP_BUILD__}`);
+} catch { /* ignora */ }
+
 const safeStorageGet = (key: string): string | null => {
   try {
     return window.localStorage.getItem(key);

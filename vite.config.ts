@@ -2,9 +2,24 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+import { execSync } from "node:child_process";
+
+// Versão do build: git SHA curto + data — injetada como __APP_BUILD__ e exposta
+// no console/data-attribute do <html> para diagnóstico de cache/PWA antigo.
+const appBuild = (() => {
+  try {
+    const sha = execSync("git rev-parse --short HEAD").toString().trim();
+    return `${sha}-${new Date().toISOString().slice(0, 10)}`;
+  } catch {
+    return `dev-${new Date().toISOString().slice(0, 10)}`;
+  }
+})();
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  define: {
+    __APP_BUILD__: JSON.stringify(appBuild),
+  },
   server: {
     host: "0.0.0.0",
     port: 8080,

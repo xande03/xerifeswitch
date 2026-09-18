@@ -1,5 +1,8 @@
-const STATIC_CACHE = 'xerife-static-v12';
-const MEDIA_CACHE = 'xerife-media-v12';
+// v13 (2026-09-18): bump para forçar update de TODOS os PWAs instalados —
+// usuários com o app aberto desde antes das correções do player de vídeo
+// (commits a138e29/1c5428f) continuavam rodando o bundle antigo em memória.
+const STATIC_CACHE = 'xerife-static-v13';
+const MEDIA_CACHE = 'xerife-media-v13';
 const CACHES = [STATIC_CACHE, MEDIA_CACHE];
 
 // ── Media Playback Session Tracking ──
