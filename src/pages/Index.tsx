@@ -2158,13 +2158,13 @@ const Index = () => {
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleTogglePlay(); }}
-                    className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition flex items-center justify-center w-24 h-24 sm:w-28 sm:h-28`}
+                    className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition flex items-center justify-center w-[84px] h-[84px]`}
                     title={isPlaying ? "Pausar" : "Reproduzir"}
                     aria-label={isPlaying ? "Pausar" : "Reproduzir"}
                   >
                     {isPlaying
-                      ? <Pause size={40} fill="currentColor" />
-                      : <Play size={40} fill="currentColor" className="ml-1" />}
+                      ? <Pause size={28} fill="currentColor" />
+                      : <Play size={28} fill="currentColor" className="ml-1" />}
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleNext(); }}

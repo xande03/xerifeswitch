@@ -436,17 +436,17 @@ const FullscreenOverlay = ({
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-300 ${
           showControls ? "opacity-100" : "opacity-0"
         }`}>
-          <div aria-hidden className="absolute w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-black" />
+          <div aria-hidden className="absolute w-[84px] h-[84px] rounded-full bg-black" />
           <button
             onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
-            className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white active:scale-90 transition-transform ${
+            className={`relative w-[84px] h-[84px] rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white active:scale-90 transition-transform ${
               showControls ? "pointer-events-auto" : "pointer-events-none"
             }`}
             aria-label={isPlaying ? "Pausar" : "Reproduzir"}
           >
             {isPlaying
-              ? <Pause size={40} fill="currentColor" />
-              : <Play size={40} fill="currentColor" className="ml-1" />}
+              ? <Pause size={28} fill="currentColor" />
+              : <Play size={28} fill="currentColor" className="ml-1" />}
           </button>
         </div>
       )}

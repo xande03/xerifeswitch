@@ -479,6 +479,13 @@ export function useYouTubePlayer(containerId: string) {
   // o centro. Refs do watchdog: último tempo visto avançando + polls parados.
   const lastAdvancedCtRef = useRef<number | null>(null);
   const frozenPollsRef = useRef(0);
+  // Watchdog de RASTEJAMENTO (2026-09-18): stream que avança devagar demais
+  // (live estagnada avançando 0,1-0,5s por poll) NUNCA disparava o watchdog
+  // de congelamento (o tempo "mudou") — o bezel central do YouTube ficava
+  // congelado na tela com os controles ocultos (a "figura de pause sem ação").
+  // Janela deslizante: media time avançado vs wall-clock decorrido.
+  const crawlWindowStartAtRef = useRef<number | null>(null);
+  const crawlWindowStartCtRef = useRef<number | null>(null);
   const userGestureRef = useRef(false);
   const userPausedRef = useRef(false);
   const shouldBePlayingRef = useRef(false);
@@ -1246,25 +1253,54 @@ export function useYouTubePlayer(containerId: string) {
         if (PSt && st != null) surfaceIdle = !(st === PSt.PLAYING || st === PSt.BUFFERING);
       } catch {}
 
-      // Watchdog de CONGELAMENTO: se o YT ALEGA reprodução (surfaceIdle === false)
-      // mas currentTime não muda por ~3 polls (~3s), o frame está congelado — o
-      // último frame pintado pode conter o bezel central do YT (o "botão de pause
-      // fantasma" que não minimiza com os controles). Tratamos a superfície como
-      // idle: disco central volta + controles reaparecem, até o tempo avançar de
-      // novo (recuperação => idle cai e tudo oculta junto de novo). Fail-closed
-      // contra a mentira do getPlayerState; BUFFERING legítimo também cai aqui
-      // depois de 3s — comportamento desejado (superfície sem avanço = cobrir).
+      // Watchdog de CONGELAMENTO + RASTEJAMENTO: se o YT ALEGA reprodução
+      // (surfaceIdle === false) mas currentTime não muda por ~3 polls (~3s),
+      // o frame está congelado — o último frame pintado pode conter o bezel
+      // central do YT (o "botão de pause fantasma" que não minimiza com os
+      // controles). E se muda MAS a taxa é ridícula (< 20% do tempo real numa
+      // janela de 3s — ex.: live estagnada avançando 0,2s/s), o frame também
+      // está efetivamente parado com o bezel congelado. Em ambos os casos
+      // tratamos a superfície como idle: disco central volta + controles
+      // reaparecem, até o tempo avançar de novo. Fail-closed contra a mentira
+      // do getPlayerState; BUFFERING legítimo também cai aqui — comportamento
+      // desejado (superfície sem avanço = cobrir).
+      // Limiar de 20% fica ABAIXO do playbackRate mínimo do YouTube (0,25x):
+      // reprodução legítima em 0,25x NUNCA é marcada como rastejamento.
       if (surfaceIdle === false) {
-        if (lastAdvancedCtRef.current === null || Math.abs(ct - lastAdvancedCtRef.current) > 0.01) {
+        const now = Date.now();
+        const delta = lastAdvancedCtRef.current === null ? Infinity : ct - lastAdvancedCtRef.current;
+        if (Math.abs(delta) > 0.01) {
+          // Seek grande (|delta| > 1,5s): reinicia a janela de rastreio —
+          // um pulo para trás não é "avanço" nem "rastejamento".
+          if (Math.abs(delta) > 1.5) {
+            crawlWindowStartAtRef.current = now;
+            crawlWindowStartCtRef.current = ct;
+          } else if (crawlWindowStartAtRef.current === null || crawlWindowStartCtRef.current === null) {
+            crawlWindowStartAtRef.current = now;
+            crawlWindowStartCtRef.current = ct;
+          }
           lastAdvancedCtRef.current = ct;
           frozenPollsRef.current = 0;
         } else {
           frozenPollsRef.current += 1;
           if (frozenPollsRef.current >= 3) surfaceIdle = true;
         }
+        // RASTEJAMENTO: janela de ≥3s de wall-clock com avanço < 20% => stall.
+        if (crawlWindowStartAtRef.current !== null && crawlWindowStartCtRef.current !== null) {
+          const wallElapsedSec = (now - crawlWindowStartAtRef.current) / 1000;
+          if (wallElapsedSec >= 3) {
+            const mediaAdvancedSec = ct - crawlWindowStartCtRef.current;
+            if (mediaAdvancedSec < wallElapsedSec * 0.2) surfaceIdle = true;
+            // Reinicia a janela para a próxima medição.
+            crawlWindowStartAtRef.current = now;
+            crawlWindowStartCtRef.current = ct;
+          }
+        }
       } else {
         lastAdvancedCtRef.current = null;
         frozenPollsRef.current = 0;
+        crawlWindowStartAtRef.current = null;
+        crawlWindowStartCtRef.current = null;
       }
 
       // Update local state

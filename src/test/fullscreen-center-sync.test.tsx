@@ -50,7 +50,7 @@ function makeProps(overrides: Partial<React.ComponentProps<typeof FullscreenOver
 
 /** O disco opaco de máscara do botão central do YouTube (base do botão do app). */
 function queryMaskDisc() {
-  return document.querySelector(".rounded-full.bg-black.w-24");
+  return document.querySelector(".rounded-full.bg-black.w-\\[84px\\]");
 }
 
 /** O container do conjunto central (disco + botão) — esmaece com showControls. */
