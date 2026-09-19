@@ -14,6 +14,18 @@ interface FloatingPiPPlayerProps {
   onClose: () => void;
 }
 
+/**
+ * Player de vídeo MINIMIZADO (janela flutuante). O vídeo aparece LIMPO:
+ * nenhum botão, título, barra de progresso ou indicativo sobre a imagem —
+ * apenas o quadro do vídeo (com a máscara anti-branding do YouTube).
+ *
+ * Interações invisíveis:
+ *  - Arrastar → move a janela (com snap às bordas)
+ *  - Clique simples (sem arrastar) → reabre o player completo (expandido),
+ *    de onde o usuário acessa todos os controles e o caminho de fechar
+ *
+ * O fallback de áudio (sem youtubeId) mantém seus controles próprios.
+ */
 const FloatingPiPPlayer = ({
   song, isPlaying, currentTime, duration,
   onTogglePlay, onNext, onPrev, onExpand, onClose,
@@ -21,28 +33,21 @@ const FloatingPiPPlayer = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 16, y: Math.max(80, parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sat') || '0') + 60) });
   const [dragging, setDragging] = useState(false);
-  const [showControls, setShowControls] = useState(true);
   const dragOffset = useRef({ x: 0, y: 0 });
-  const controlsTimer = useRef<ReturnType<typeof setTimeout>>();
+  /** Ponto inicial do gesto — distingue clique (reabre) de arrasto (move) */
+  const dragStartRef = useRef({ x: 0, y: 0 });
   const progress = duration > 0 ? currentTime / duration : 0;
   const videoId = song.youtubeId;
 
-  // Auto-hide controls after 3s
-  useEffect(() => {
-    if (showControls) {
-      controlsTimer.current = setTimeout(() => setShowControls(false), 3000);
-    }
-    return () => clearTimeout(controlsTimer.current);
-  }, [showControls]);
-
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest("button")) return;
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
     setDragging(true);
     const rect = containerRef.current?.getBoundingClientRect();
     if (rect) {
       dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   }, []);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
@@ -69,10 +74,6 @@ const FloatingPiPPlayer = ({
     }));
   }, [dragging]);
 
-  const toggleControlsVisibility = useCallback(() => {
-    setShowControls(prev => !prev);
-  }, []);
-
   return (
     <div
       ref={containerRef}
@@ -87,16 +88,25 @@ const FloatingPiPPlayer = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
-      {/* Video embed */}
+      {/* Video embed — LIMPO: só o vídeo, sem overlay/botões/indicativos.
+          Clique simples reabre o player completo; arrastar move a janela. */}
       {videoId ? (
-        <div className="relative w-full aspect-video bg-black overflow-hidden" onClick={toggleControlsVisibility}>
+        <div
+          className="relative w-full aspect-video bg-black overflow-hidden cursor-pointer"
+          onClick={(e) => {
+            // Clique "parado" (≤6px entre pressão e soltura) reabre o player;
+            // se o ponteiro andou mais que isso, foi um arrasto — só moveu.
+            const dist = Math.hypot(e.clientX - dragStartRef.current.x, e.clientY - dragStartRef.current.y);
+            if (!(dist > 6)) onExpand(); // NaN-safe: só bloqueia se PROVADO arrasto
+          }}
+        >
           {/* Overflow masking sem zoom (mesma geometria do player principal):
               o iframe é 240px mais alto e sobe 120px — as faixas internas de
               branding do YouTube (título/logo/"Mais vídeos") ficam FORA do
               retângulo visível (overflow hidden), SEM cortar/zoar o vídeo 16:9
               dentro de 16:9. loop+playlist reinicia o preview ao terminar: a
               endscreen ("Mais vídeos") nunca chega a aparecer. pointer-events
-              none: nenhum toque chega ao YouTube; só os controles do Xerife. */}
+              none: nenhum toque chega ao YouTube. */}
           <iframe
             src={`https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&enablejsapi=0&mute=1&loop=1&playlist=${videoId}`}
             className="w-full pointer-events-none absolute left-0"
@@ -105,43 +115,6 @@ const FloatingPiPPlayer = ({
             allowFullScreen={false}
             title={song.title}
           />
-
-          {/* Overlay controls */}
-          <div className={`absolute inset-0 bg-black/40 flex flex-col justify-between transition-opacity duration-200 ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-            {/* Top bar */}
-            <div className="flex items-center justify-between px-2 pt-1.5">
-              <p className="text-[10px] text-white font-medium truncate flex-1 mr-2">{song.title}</p>
-              <div className="flex gap-1">
-                <button onClick={onExpand} className="p-1 text-white/80 hover:text-white active:scale-90 transition-all" title="Expandir">
-                  <Maximize2 size={12} />
-                </button>
-                <button onClick={onClose} className="p-1 text-white/80 hover:text-white active:scale-90 transition-all" title="Fechar">
-                  <X size={12} />
-                </button>
-              </div>
-            </div>
-
-            {/* Center controls */}
-            <div className="flex items-center justify-center gap-4">
-              <button onClick={onPrev} className="p-1 text-white/80 hover:text-white active:scale-90 transition-all">
-                <SkipBack size={16} fill="currentColor" />
-              </button>
-              <button
-                onClick={onTogglePlay}
-                className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white active:scale-90 transition-transform"
-              >
-                {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="ml-0.5" />}
-              </button>
-              <button onClick={onNext} className="p-1 text-white/80 hover:text-white active:scale-90 transition-all">
-                <SkipForward size={16} fill="currentColor" />
-              </button>
-            </div>
-
-            {/* Progress bar */}
-            <div className="h-[3px] bg-white/20 mx-1 mb-1 rounded-full overflow-hidden">
-              <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${progress * 100}%` }} />
-            </div>
-          </div>
         </div>
       ) : (
         <>
