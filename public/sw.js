@@ -1,8 +1,9 @@
-// v13 (2026-09-18): bump para forçar update de TODOS os PWAs instalados —
-// usuários com o app aberto desde antes das correções do player de vídeo
-// (commits a138e29/1c5428f) continuavam rodando o bundle antigo em memória.
-const STATIC_CACHE = 'xerife-static-v13';
-const MEDIA_CACHE = 'xerife-media-v13';
+// v14 (2026-09-19): bump + auto-update no foco (main.tsx) — PWA aberto por
+// dias rodava JS antigo em memória (símbolo do player que 'não sumia' no
+// Netlify). v14 invalida todos os caches; o app agora também confere sozinho
+// se há build novo publicado ao voltar ao foco e recarrega na hora.
+const STATIC_CACHE = 'xerife-static-v14';
+const MEDIA_CACHE = 'xerife-media-v14';
 const CACHES = [STATIC_CACHE, MEDIA_CACHE];
 
 // ── Media Playback Session Tracking ──

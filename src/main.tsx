@@ -49,6 +49,45 @@ createRoot(document.getElementById("root")!).render(
 // Initialize native plugins (StatusBar, SplashScreen) on Capacitor
 initNativePlugins();
 
+// ── AUTO-UPDATE (2026-09-19) ────────────────────────────────────────────────
+// PWAs instalados ficam abertos por dias rodando JS antigo em memória — o caso
+// do "símbolo que não some no Netlify" enquanto o preview (sem Service Worker)
+// sempre mostra a versão nova. Ao voltar ao foco (e a cada 15 min), comparamos
+// o bundle referenciado no HTML publicado com o bundle carregado: se mudou,
+// recarregamos na hora. Só em produção web (mesma guarda do SW).
+if (import.meta.env.PROD && !isNativePlatform() && !isPreviewEnvironment()) {
+  const loadedBundle = (() => {
+    try {
+      const el = document.querySelector<HTMLScriptElement>('script[src*="/assets/index-"]');
+      return el ? new URL(el.src, location.href).pathname : null;
+    } catch { return null; }
+  })();
+  if (loadedBundle) {
+    let checking = false;
+    const checkForNewBuild = async () => {
+      if (checking || document.visibilityState !== "visible") return;
+      checking = true;
+      try {
+        const res = await fetch(`/?_v=${Date.now()}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const html = await res.text();
+        const m = html.match(/assets\/index-[^"']+\.js/);
+        if (m) {
+          const latest = "/" + m[0];
+          if (latest !== loadedBundle) {
+            console.info(`[Xerife] nova versão publicada (${latest}) — recarregando`);
+            location.reload();
+          }
+        }
+      } catch { /* offline: mantém a versão atual */ } finally { checking = false; }
+    };
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") setTimeout(checkForNewBuild, 800);
+    });
+    setInterval(checkForNewBuild, 15 * 60 * 1000);
+  }
+}
+
 // Register Service Worker — only for web (PWA), not native or preview
 if ("serviceWorker" in navigator) {
   if (import.meta.env.PROD && !isNativePlatform() && !isPreviewEnvironment()) {
