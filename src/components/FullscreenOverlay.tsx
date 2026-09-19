@@ -32,15 +32,12 @@ interface FullscreenOverlayProps {
   isEnded?: boolean;
   /** ESTADO REAL da superfície do embed (fail-closed): TRUE quando o YouTube
    *  NÃO está confirmadamente PLAYING/BUFFERING (cue, pausado, finalizado,
-   *  travado, pós-erro). É quando ele desenha o chrome central (botão play/
-   *  bezel) — o disco de máscara precisa estar de pé, mesmo que o estado
-   *  otimista do app diga "tocando" (dessincronia = botão do YouTube vazando
-   *  de forma permanente, bug reportado). */
+   *  travado, pós-erro). Mantém os controles inferiores visíveis para que
+   *  Play/Pause continue disponível mesmo durante dessincronia ou travamento. */
   videoSurfaceIdle?: boolean;
   /** ESTADO REAL de buffering do embed: TRUE enquanto o YouTube carrega a
-   *  stream. Durante o buffering o último frame pode conter o botão central
-   *  dele — os controles (e a máscara do centro) ficam de pé até a reprodução
-   *  confirmar; TODOS minimizam JUNTOS quando o vídeo roda de verdade. */
+   *  stream. Durante o buffering os controles inferiores permanecem visíveis
+   *  até a reprodução confirmar; todos minimizam juntos quando roda de verdade. */
   surfaceBuffering?: boolean;
 }
 
@@ -60,10 +57,8 @@ const FullscreenOverlay = ({
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const lastTapRef = useRef<number>(0);
 
-  // ═══ REGRA DE OURO DO CENTRO (bug do "botão de pause que não minimiza") ═══
-  // O disco de máscara + o botão central grande existem SOMENTE junto com os
-  // controles (showControls). Nada nosso permanece no centro do fullscreen
-  // com os controles minimizados.
+  // O centro do vídeo é intencionalmente livre: nenhum disco, flash ou botão
+  // do Xerife é renderizado ali. Play/Pause existe somente na barra inferior.
   // MODO VÍDEO (keepOpen): pausado, finalizado, BUFFERING ou superfície idle
   // (estado REAL do YT — falha, travamento, cue) os controles NÃO podem
   // esconder — é quando o YouTube desenha título/canal/logo/botão central por
@@ -179,10 +174,7 @@ const FullscreenOverlay = ({
 
   // keepOpen refletido para o resetTimer: NUNCA armar auto-hide enquanto o
   // estado REAL da superfície não confirma reprodução (pausado/buffering/idle
-  // em modo vídeo). O mount/rotate/visibility chamam resetTimer — sem este
-  // guard, o timer do mount escondia os controles NO PAUSADO após 3,5s e o
-  // centro ficava exposto (ou o disco tinha que ficar preso no centro — o
-  // "botão permanente" reportado).
+  // em modo vídeo), mantendo Play/Pause disponível na barra inferior.
   const keepOpenRef = useRef(false);
   keepOpenRef.current = !!videoMode && (!isPlaying || videoSurfaceIdle || surfaceBuffering);
 

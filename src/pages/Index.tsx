@@ -268,13 +268,7 @@ const Index = () => {
   const videoOverlayKeepOpenRef = useRef(false);
   /** Guarda contra toggle duplicado: dois toques dentro desta janela contam como um. */
   const videoOverlayTapGuardRef = useRef(0);
-  /** Grace do "intro" do YouTube: nos ~2-3s seguintes a CADA play/seek, o iframe desenha
-   *  título/logo fazendo fade nativo. Mantemos as máscaras ACESAS nesse intervalo —
-   *  independente do overlay dos nossos controles — senão o branding escapa. */
-  const [videoIntroGrace, setVideoIntroGrace] = useState(false);
-  const videoIntroGraceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const prevVideoPlayingRef = useRef(false);
   const revealVideoOverlay = useCallback((opts?: { sticky?: boolean }) => {
     setShowVideoOverlayControls(true);
     if (videoOverlayTimerRef.current) {
@@ -780,10 +774,8 @@ const Index = () => {
   // Overlay do player de vídeo: MINIMIZADO enquanto o vídeo roda DE VERDADE —
   // aparece ao tocar na área do vídeo (tap catcher faz toggle) ou quando a
   // reprodução pausa/termina/buffera (o usuário precisa enxergar play/seek/tempo).
-  // ═══ REGRA DE OURO DO CENTRO (bug do "botão de pause que não minimiza") ═══
-  // TUDO que existe no centro do player — o transporte play/pause E o disco de
-  // máscara — obedece AO MESMO estado (showVideoOverlayControls). Com os
-  // controles minimizados, NADA nosso permanece no centro.
+  // O centro do vídeo não recebe controles, disco, flash ou botão do Xerife;
+  // Play/Pause existe exclusivamente na barra inferior.
   // keepOpen enquanto o estado REAL da superfície não confirma reprodução:
   // pausado, finalizado, BUFFERING (stream carregando — o último frame pintado
   // pode conter o botão central do YouTube) ou videoSurfaceIdle (live travada,
@@ -807,20 +799,6 @@ const Index = () => {
     }
   }, [isPlaying, expanded, playerMode, playerState.videoSurfaceIdle, playerState.surfaceBuffering, revealVideoOverlay]);
 
-  // Grace do intro do YouTube: arma 3,5 s de máscaras a CADA transição pausado→tocando
-  // (inclui trocar de vídeo e seek-resume — momentos em que o intro pode reexibir).
-  useEffect(() => {
-    if (prevVideoPlayingRef.current === isPlaying) return;
-    prevVideoPlayingRef.current = isPlaying;
-    if (isPlaying && expanded && playerMode === "video") {
-      setVideoIntroGrace(true);
-      if (videoIntroGraceTimerRef.current) clearTimeout(videoIntroGraceTimerRef.current);
-      videoIntroGraceTimerRef.current = setTimeout(() => setVideoIntroGrace(false), 3500);
-    }
-  }, [isPlaying, expanded, playerMode]);
-  useEffect(() => () => {
-    if (videoIntroGraceTimerRef.current) clearTimeout(videoIntroGraceTimerRef.current);
-  }, []);
   const { trendingSongs, isLoading: trendingLoading } = useTrendingMusic();
   useNativeCapabilities(isPlaying);
   
@@ -2056,7 +2034,7 @@ const Index = () => {
             <>
               {/* Full-inset tap catcher: ALWAYS active so clicks never reach the YouTube iframe.
                   Tapping the background only toggles the visibility of our custom controls —
-                  it never plays/pauses the video. Play/pause happens exclusively via the center button. */}
+                  it never plays/pauses the video. Play/pause happens exclusively via the bottom bar. */}
               <button
                 type="button"
                 aria-label={showVideoOverlayControls ? "Ocultar controles" : "Mostrar controles"}
