@@ -58,6 +58,7 @@ import BottomNav from "@/components/BottomNav";
 import DesktopSidebar from "@/components/DesktopSidebar";
 import DesktopTopIsland from "@/components/DesktopTopIsland";
 import DesktopPlayerIsland from "@/components/DesktopPlayerIsland";
+import PausedCoverDisc from "@/components/PausedCoverDisc";
 import SearchSkeleton from "@/components/SearchSkeleton";
 import SidebarPlayer from "@/components/SidebarPlayer";
 
@@ -2152,6 +2153,17 @@ const Index = () => {
             <div id="yt-player-slot" className={nativeVideoActive ? "hidden" : undefined} />
           </div>
 
+
+          {/* DISCO DE CAPA DO ESTADO PAUSADO (regra v5): o bezel de pausa do
+              YouTube (círculo + duas barras, cross-origin) congela na tela em
+              navegadores mobile reais mesmo com os micro-seeks de repaint.
+              Disco discreto com a capa cobre o centro APENAS enquanto
+              pausado/travado (nunca tocando, nunca buffering — spinner do YT,
+              nunca finalizado — capa própria z-214); some ao retomar.
+              pointer-events-none: toques seguem para o tap catcher. */}
+          {expanded && playerMode === "video" && !nativeVideoActive && !isPlayingOffline && !playerState.isFullscreen && !playerState.isEnded && !playerState.surfaceBuffering && (!playerState.isPlaying || playerState.videoSurfaceIdle) && (
+            <PausedCoverDisc cover={currentSong?.cover} />
+          )}
 
           {/* QualityBadge — agora segue a mesma regra de visibilidade dos demais controles
               (showVideoOverlayControls): TODOS juntos, mesma duração de 4s. */}

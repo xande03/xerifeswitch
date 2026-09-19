@@ -3,6 +3,7 @@ import { ChevronDown, Play, Pause, SkipBack, SkipForward, ArrowLeft, Settings2, 
 import { track as trackMetric } from "@/lib/playbackMetrics";
 import { Song, formatDuration } from "@/data/mockSongs";
 import SeekBar from "@/components/SeekBar";
+import PausedCoverDisc from "@/components/PausedCoverDisc";
 
 /** Delay fixo para auto-ocultar os controles do fullscreen — UNIFICADO 4s
  *  para TODOS os players (Xerife Vídeos, Music modo Vídeo, Podcasts modo Vídeo)
@@ -409,6 +410,15 @@ const FullscreenOverlay = ({
         /* Primeiro filho do overlay: fica por cima do vídeo (e sob todos os
            controles seguintes — voltar, seek, transporte — que renderizam depois) */
         <div className="absolute inset-0 z-[205] bg-black pointer-events-none" aria-hidden />
+      )}
+
+      {/* DISCO DE CAPA DO ESTADO PAUSADO (regra v5): cobre o bezel de pausa
+          do YouTube (cross-origin, congela em navegadores mobile reais)
+          APENAS enquanto pausado/travado. Nunca tocando (centro limpo),
+          nunca buffering (spinner), nunca finalizado (capa opaca acima).
+          pointer-events-none: os toques seguem para o handler da superfície. */}
+      {videoMode && !isEnded && !surfaceBuffering && (!isPlaying || videoSurfaceIdle) && (
+        <PausedCoverDisc cover={song?.cover} zIndexClass="z-[206]" />
       )}
 
 
