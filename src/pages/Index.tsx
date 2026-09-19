@@ -1974,6 +1974,23 @@ const Index = () => {
             isLiked={votedSongs.has(currentSong.id)}
             onLike={() => handleVote(currentSong)}
             podcastMode={podcastMode}
+            volume={volume}
+            onVolumeChange={setVolumeState}
+            isShuffled={isShuffled}
+            onShuffle={handleShuffle}
+            playerMode={playerMode}
+            onLyrics={() => {
+              if (playerMode === "lyrics") { setPlayerMode("audio"); return; }
+              setPlayerMode("lyrics");
+              setExpanded(true);
+            }}
+            onVideo={() => {
+              if (playerMode === "video") { setPlayerMode("audio"); return; }
+              setPlayerMode("video");
+              setExpanded(true);
+            }}
+            onDownload={() => handleDownload(currentSong)}
+            onShare={() => handleShare(currentSong)}
           />
         )}
 
