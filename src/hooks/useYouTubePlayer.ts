@@ -1561,6 +1561,32 @@ export function useYouTubePlayer(containerId: string) {
     markUserPausedIntent();
     ensureProxyAudio().pause(); // Pause proxy for iOS MediaSession
     playerRef.current?.pauseVideo?.();
+
+    // ── ANTI-BEZEL DE PAUSA (2026-09-19) ──────────────────────────────────
+    // Em navegadores reais mobile/PWA o embed do YouTube desenha um bezel no
+    // centro (círculo sutil + duas barras brancas ⏸) ao pausar via API —
+    // pintado DENTRO do iframe (cross-origin): impossível remover por DOM/CSS
+    // (perícia do screenshot do usuário: barras RGB 255,255,255 de 5×17px no
+    // centro exato; não reproduz em Chromium headless — só em device real).
+    // Neutralizador: micro-seek para a posição atual força o embed a
+    // REPINTAR o frame — o bezel some e fica o quadro limpo do vídeo.
+    // 2 tentativas (150ms/450ms); só executa se o player CONTINUAR pausado
+    // (nunca interfere em um retomar rápido do usuário).
+    try {
+      const p = playerRef.current as any;
+      if (!p?.getPlayerState || !p?.seekTo) return;
+      [150, 450].forEach((delay) => {
+        setTimeout(() => {
+          try {
+            const st = p.getPlayerState?.();
+            const PS = (window as any).YT?.PlayerState;
+            if (st !== PS?.PAUSED) return; // só enquanto pausado
+            const t = p.getCurrentTime?.() ?? 0;
+            p.seekTo?.(t, true); // repaint do frame (apaga o bezel)
+          } catch { /* player ausente: no-op */ }
+        }, delay);
+      });
+    } catch { /* no-op */ }
   }, [markUserPausedIntent, setUserPausedFlag]);
 
   const seekTo = useCallback((seconds: number) => {
