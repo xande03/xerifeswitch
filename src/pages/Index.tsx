@@ -397,6 +397,12 @@ const Index = () => {
   const { state: playerState, loadVideo, loadVideoAt, preloadClip, play, pause, seekTo, setVolume: setPlayerVolume, togglePiP, requestAirPlay, requestFullscreen, exitFullscreen, setPlaybackRate, toggleCaptions, proxyAudioElement, getCurrentTime: getPlayerCurrentTime } = useYouTubePlayer("yt-player-slot");
   const nativeVideoActive = playerMode === "video" && Boolean(nativeVideoSource?.videoId === currentSong.youtubeId);
 
+  // Espelho live do estado do player: a guarda anti-reinício abaixo precisa
+  // do valor ATUAL quando a resolução Piped responde (não do valor capturado
+  // no closure quando o efeito rodou).
+  const playerStateRef = useRef(playerState);
+  playerStateRef.current = playerState;
+
   useEffect(() => {
     let cancelled = false;
     const videoId = currentSong.youtubeId;
@@ -409,6 +415,15 @@ const Index = () => {
 
     resolvePipedVideo(videoId).then((source) => {
       if (cancelled) return;
+      // GUARDA ANTI-REINÍCIO (2026-09-19): o clique já chama loadVideo() e o
+      // vídeo começa a tocar no player na hora. Quando a resolução Piped
+      // responde (1-5s depois), NÃO recarregar nem trocar de superfície:
+      // trocar para o vídeo nativo (load() do zero) ou chamar loadVideo de
+      // novo (loadVideoById do zero) reiniciaria a reprodução ~2s após o
+      // clique. Regra: reproduzir só UMA vez após o click — o que já está
+      // tocando continua até o fim. Idem para vídeo offline (blob local).
+      if (playerStateRef.current.videoId === videoId) return;
+      if (blobSavedSongIds.has(currentSong.id)) return;
       if (!source) {
         loadVideo(videoId);
         return;
@@ -416,10 +431,13 @@ const Index = () => {
       setNativeVideoSource(source);
       pause();
     }).catch(() => {
-      if (!cancelled) loadVideo(videoId);
+      if (cancelled) return;
+      if (playerStateRef.current.videoId === videoId) return;
+      if (blobSavedSongIds.has(currentSong.id)) return;
+      loadVideo(videoId);
     });
     return () => { cancelled = true; };
-  }, [currentSong.youtubeId, playerMode, loadVideo, pause]);
+  }, [currentSong.youtubeId, playerMode, loadVideo, pause, currentSong.id, blobSavedSongIds]);
 
   useEffect(() => {
     if (!nativeVideoSource || !nativeVideoRef.current) return;
@@ -2344,7 +2362,7 @@ const Index = () => {
 
           return (
         <header
-          className="relative grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-4 px-4 sm:px-6 lg:px-4 xl:px-6 py-3 sm:py-4 lg:py-4 flex-shrink-0 bg-background"
+          className="relative flex lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-4 px-4 sm:px-6 lg:px-4 xl:px-6 py-3 sm:py-4 lg:py-4 flex-shrink-0 bg-background"
           style={{
             paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)',
             paddingLeft: 'max(1rem, env(safe-area-inset-left))',
@@ -2382,7 +2400,7 @@ const Index = () => {
           </div>
 
           {/* Right cluster: Tools → Módulos → Profile (módulos ao lado de configurações) */}
-          <div className="flex items-center gap-2 sm:gap-3 justify-self-end shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 ml-auto shrink-0">
 
             {!isOnline && (
               <span className="flex items-center text-xs text-primary" aria-label="Offline">
