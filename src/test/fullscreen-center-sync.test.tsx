@@ -4,21 +4,17 @@ import React from "react";
 import FullscreenOverlay from "@/components/FullscreenOverlay";
 
 /**
- * REGRA DE OURO DO CENTRO (unificada 2026-09-18 — fim da "figura sem ação"):
+ * REGRA DE OURO DO CENTRO v3 (2026-09-18 — "remover o círculo meio transparente
+ * com duas barras do meio do player"):
  *
- * No fullscreen de vídeo, o conjunto central (disco-base + botão grande do app)
- * existe SEMPRE em modo vídeo e obedece AO MESMO estado (showControls):
- * - Visível: disco + botão COM AÇÃO REAL — PAUSE quando tocando (toque =
- *   pausar), PLAY quando pausado (toque = reproduzir). Nunca um disco nu
- *   ("desenho" sem ação) nem um botão fantasma.
- * - Minimizado (4 s sem toque, tocando de verdade): o conjunto esmaece JUNTO
- *   com todos os controles (opacity-0 + pointer-events-none) — nada visível
- *   nem clicável our no centro.
- *
- * O keepOpen mantém os controles abertos em todo estado em que o YouTube
- * desenha chrome central (pausado, cue, buffering, travado/live), então nunca
- * há vazamento do botão do YT: sempre que a máscara é necessária, o disco
- * (com o botão em cima) está lá.
+ * - TOCANDO: NADA nosso no centro — nem botão, nem círculo. O vídeo fica limpo.
+ *   (O play/pause enquanto toca fica no transporte do rodapé.)
+ * - PAUSADO: disco-base + botão PLAY (com ação) — retomar + cobrir o botão
+ *   central do próprio YouTube.
+ * - TRAVADO/BUFFERING (superfície real): SÓ o disco preto (cobre o bezel
+ *   congelado do YouTube) — SEM símbolo de pause no centro.
+ * - Flash anti-bezel (transição play↔pause): disco puro por 900ms.
+ * - Tudo esmaece JUNTO com os controles (4s) quando tocando de verdade.
  */
 
 const song = {
@@ -58,11 +54,14 @@ function queryCenterSetContainer() {
   return queryMaskDisc()?.parentElement ?? null;
 }
 
-/** O botão central grande do app (Pause quando tocando / Play quando pausado). */
+/** O botão central grande do app (AGORA só existe pausado: Play). */
 function queryBigCenterButton() {
-  return document.querySelector(
-    'button[aria-label="Reproduzir"].rounded-full.bg-white\\/15, button[aria-label="Pausar"].rounded-full.bg-white\\/15',
-  );
+  return document.querySelector('button[aria-label="Reproduzir"].rounded-full.bg-white\\/15');
+}
+
+/** O botão de pause central — NÃO deve existir em estado nenhum. */
+function queryCenterPauseButton() {
+  return document.querySelector('button[aria-label="Pausar"].rounded-full.bg-white\\/15');
 }
 
 /** O transporte do rodapé (w-14, bg-white/20) — visível ou oculto via opacidade do container. */
@@ -87,12 +86,13 @@ afterEach(() => {
 });
 
 describe("FullscreenOverlay — centro sincronizado com os controles", () => {
-  it("pausado + idle: disco de máscara + botão play visíveis (controles keepOpen)", () => {
+  it("pausado + idle: disco + botão PLAY visíveis (retomar + cobrir o YouTube)", () => {
     act(() => {
       render(<FullscreenOverlay {...makeProps({ isPlaying: false, videoSurfaceIdle: true })} />);
     });
     expect(queryMaskDisc()).not.toBeNull();
     expect(queryBigCenterButton()).not.toBeNull();
+    expect(queryCenterPauseButton()).toBeNull();
     // keepOpen: mesmo avançando o tempo, os controles NÃO escondem enquanto pausado
     act(() => { vi.advanceTimersByTime(10000); });
     expect(queryMaskDisc()).not.toBeNull();
@@ -100,7 +100,7 @@ describe("FullscreenOverlay — centro sincronizado com os controles", () => {
     expect(queryCenterSetContainer()?.className).toContain("opacity-100");
   });
 
-  it("tocando de verdade: após o auto-hide o conjunto central esmaece JUNTO — nada visível nem clicável no centro", () => {
+  it("TOCANDO: NADA no centro — sem círculo, sem pause, vídeo limpo (antes e depois do auto-hide)", () => {
     act(() => {
       render(
         <FullscreenOverlay
@@ -108,23 +108,20 @@ describe("FullscreenOverlay — centro sincronizado com os controles", () => {
         />,
       );
     });
-    // Visível: botão central = PAUSE com ação (nunca figura sem ação)
-    expect(queryBigCenterButton()?.getAttribute("aria-label")).toBe("Pausar");
-    expect(queryBigCenterButton()?.className).toContain("pointer-events-auto");
-    // keepOpen caiu: o auto-hide (4 s) minimiza TODOS os controles JUNTOS
+    // Com os controles VISÍVEIS tocando: centro 100% limpo
+    expect(queryBigCenterButton()).toBeNull(); // sem botão de play/pause no centro
+    expect(queryCenterPauseButton()).toBeNull(); // sem símbolo de pause
+    expect(queryCenterSetContainer()?.className).toContain("opacity-0"); // conjunto invisível
+    // O controle fica no transporte do rodapé
+    expect(queryTransportPlayPause()).not.toBeNull();
+    // Após o auto-hide (4s): continua limpo + rodapé esmaece junto
     act(() => { vi.advanceTimersByTime(4000); });
-    // O conjunto central esmaeceu junto: montado, porém INVISÍVEL e SEM AÇÃO
-    expect(queryMaskDisc()).not.toBeNull();
+    expect(queryBigCenterButton()).toBeNull();
     expect(queryCenterSetContainer()?.className).toContain("opacity-0");
-    const btn = queryBigCenterButton();
-    expect(btn).not.toBeNull();
-    expect(btn?.className).toContain("pointer-events-none");
-    // O transporte do rodapé também minimiza junto (mesmo estado: opacity-0)
-    expect(queryTransportPlayPause()).not.toBeNull(); // montado, porém
-    expect(queryHiddenBottomControls()).not.toBeNull(); // oculto (opacity-0)
+    expect(queryHiddenBottomControls()).not.toBeNull(); // rodapé oculto (opacity-0)
   });
 
-  it("tocando + superfície travada (live/stuck): botão central PAUSE com AÇÃO — nunca um disco nu (figura sem ação)", () => {
+  it("tocando + superfície travada (live/stuck): SÓ o disco (cobre bezel do YouTube) — SEM símbolo de pause", () => {
     act(() => {
       render(
         <FullscreenOverlay
@@ -132,16 +129,16 @@ describe("FullscreenOverlay — centro sincronizado com os controles", () => {
         />,
       );
     });
-    // keepOpen (idle): controles (e conjunto central) ficam de pé para sempre
     act(() => { vi.advanceTimersByTime(10000); });
-    const btn = queryBigCenterButton();
-    expect(btn).not.toBeNull(); // PAUSE sobre o disco — nada de "desenho" solto
-    expect(btn?.getAttribute("aria-label")).toBe("Pausar");
-    expect(btn?.className).toContain("pointer-events-auto"); // COM AÇÃO
+    // keepOpen (idle): controles de pé, disco cobrindo o bezel congelado do YouTube
     expect(queryCenterSetContainer()?.className).toContain("opacity-100");
+    expect(queryMaskDisc()).not.toBeNull();
+    // Mas NENHUM símbolo de pause no centro (pedido do usuário)
+    expect(queryCenterPauseButton()).toBeNull();
+    expect(queryBigCenterButton()).toBeNull();
   });
 
-  it("buffering (estado real do embed): controles continuam de pé — nada minimiza pela metade", () => {
+  it("buffering (estado real do embed): controles de pé + disco cobrindo — nada minimiza pela metade", () => {
     act(() => {
       render(
         <FullscreenOverlay
@@ -150,15 +147,10 @@ describe("FullscreenOverlay — centro sincronizado com os controles", () => {
       );
     });
     act(() => { vi.advanceTimersByTime(10000); });
-    // Buffering = superfície ainda sem reprodução confirmada: keepOpen seguro
-    // (o último frame pintado pode conter o botão central do YouTube) — o
-    // conjunto central (disco + botão COM AÇÃO) fica de pé cobrindo.
     expect(queryTransportPlayPause()).not.toBeNull();
     expect(queryHiddenBottomControls()).toBeNull(); // NÃO ocultos
-    expect(queryCenterSetContainer()?.className).toContain("opacity-100");
-    const btn = queryBigCenterButton();
-    expect(btn).not.toBeNull();
-    expect(btn?.className).toContain("pointer-events-auto");
+    expect(queryCenterSetContainer()?.className).toContain("opacity-100"); // disco cobrindo
+    expect(queryCenterPauseButton()).toBeNull(); // sem símbolo
   });
 
   it("nenhum estado renderiza resíduo do antigo flash anti-bezel (fantasma sem ação)", () => {

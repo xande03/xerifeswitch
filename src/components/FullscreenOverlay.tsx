@@ -452,20 +452,24 @@ const FullscreenOverlay = ({
           funcionando); visível, só o botão captura. */}
       {videoMode && (
         <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-300 ${
-          showControls || centerFlash ? "opacity-100" : "opacity-0"
+          (showControls && (!isPlaying || videoSurfaceIdle || surfaceBuffering)) || centerFlash ? "opacity-100" : "opacity-0"
         }`}>
           <div aria-hidden className="absolute w-[84px] h-[84px] rounded-full bg-black" />
-          <button
-            onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
-            className={`relative w-[84px] h-[84px] rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white active:scale-90 transition-transform ${
-              showControls ? "pointer-events-auto" : "pointer-events-none"
-            }`}
-            aria-label={isPlaying ? "Pausar" : "Reproduzir"}
-          >
-            {isPlaying
-              ? <Pause size={28} fill="currentColor" />
-              : <Play size={28} fill="currentColor" className="ml-1" />}
-          </button>
+          {/* Botão central SÓ quando pausado (retomar + cobrir o play do YouTube).
+              Tocando: NADA no centro (pedido: remover o círculo com duas barras) —
+              o play/pause fica no transporte do rodapé. O disco aparece sozinho
+              apenas no flash anti-bezel (900ms) para cobrir o bezel do YouTube. */}
+          {!isPlaying && showControls && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
+              className={`relative w-[84px] h-[84px] rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white active:scale-90 transition-transform ${
+                showControls ? "pointer-events-auto" : "pointer-events-none"
+              }`}
+              aria-label="Reproduzir"
+            >
+              <Play size={28} fill="currentColor" className="ml-1" />
+            </button>
+          )}
         </div>
       )}
 

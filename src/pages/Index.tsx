@@ -2077,7 +2077,7 @@ const Index = () => {
               z-[212]: acima do tap-catcher (210), abaixo do overlay dos controles
               (215), e pointer-events-none para os toques seguirem para o catcher. */}
           {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && (
-            <div aria-hidden className={`absolute inset-0 z-[212] flex items-center justify-center pointer-events-none transition-opacity duration-300 ${(showVideoOverlayControls || centerFlash) ? "opacity-100" : "opacity-0"}`}>
+            <div aria-hidden className={`absolute inset-0 z-[212] flex items-center justify-center pointer-events-none transition-opacity duration-300 ${((showVideoOverlayControls && (!isPlaying || playerState.videoSurfaceIdle || playerState.surfaceBuffering)) || centerFlash) ? "opacity-100" : "opacity-0"}`}>
               <div className="w-[84px] h-[84px] rounded-full bg-black" />
             </div>
           )}
@@ -2168,6 +2168,7 @@ const Index = () => {
                     (o transporte do NowPlayingView segue oculto em modo vídeo).
                     Todos os botões (top, center, bottom, quality) obedecem ao MESMO
                     showVideoOverlayControls e MESMA duração de 4s — TODOS JUNTOS. */}
+                {!isPlaying && (
                 <div className="absolute inset-0 flex items-center justify-center gap-8 sm:gap-12 pointer-events-none">
                   <button
                     onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handlePrev(); }}
@@ -2194,6 +2195,7 @@ const Index = () => {
                     <SkipForward size={22} fill="currentColor" />
                   </button>
                 </div>
+                )}
 
                 {/* Bottom bar: time + seekbar + PiP/AirPlay/fullscreen */}
                 <div
@@ -2207,6 +2209,14 @@ const Index = () => {
                     onPointerCancel={() => { videoOverlayInteractingRef.current = false; revealVideoOverlay(); }}
                     onPointerLeave={() => { if (videoOverlayInteractingRef.current) { videoOverlayInteractingRef.current = false; revealVideoOverlay(); } }}
                   >
+                    <button
+                      onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleTogglePlay(); }}
+                      title={isPlaying ? "Pausar" : "Reproduzir"}
+                      aria-label={isPlaying ? "Pausar" : "Reproduzir"}
+                      className="p-1.5 rounded-md bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition-all shrink-0"
+                    >
+                      {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
+                    </button>
                     <span className="text-[11px] font-mono text-white/90 tabular-nums min-w-[42px] text-right">
                       {formatDuration(ct)}
                     </span>
