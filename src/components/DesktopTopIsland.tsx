@@ -24,6 +24,8 @@ interface Props {
   /** Módulo ativo derivado do estado global */
   currentModule: SwitchableModule;
   onModuleSelect: (m: SwitchableModule) => void;
+  /** Posicionamento desktop: a pílula completa, somente sessões ou somente abas. */
+  mode?: "full" | "modules" | "tabs";
 }
 
 /**
@@ -32,7 +34,7 @@ interface Props {
  * módulo ativo (Início, Buscar, Favoritas/Gostei, Biblioteca, Histórico,
  * Playlists) — substituindo completamente o menu lateral nesses break points.
  */
-const DesktopTopIsland = ({ active, onChange, currentModule, onModuleSelect }: Props) => {
+const DesktopTopIsland = ({ active, onChange, currentModule, onModuleSelect, mode = "full" }: Props) => {
   const { isLight } = useTheme();
   const mainTabs = currentModule === "podcast" ? podcastTabs : currentModule === "video" ? videoTabs : musicTabs;
 
@@ -72,7 +74,7 @@ const DesktopTopIsland = ({ active, onChange, currentModule, onModuleSelect }: P
       className="hidden lg:flex items-center gap-1.5 xl:gap-2 rounded-full border border-border/70 bg-card/90 backdrop-blur-xl shadow-lg shadow-black/25 px-2.5 py-1.5 max-w-full"
     >
       {/* ─ Trio de módulos (sempre nas cores de cada módulo) ─ */}
-      <div className="flex items-center gap-1.5 xl:gap-2 shrink-0" role="group" aria-label="Sessões do app">
+      {mode !== "tabs" && <div className="flex items-center gap-1.5 xl:gap-2 shrink-0" role="group" aria-label="Sessões do app">
         {MODULES.map((m) => {
           const Icon = MODULE_ICON[m];
           const tones = getModuleTones(MODULE_COLOR[m], isLight);
@@ -109,13 +111,13 @@ const DesktopTopIsland = ({ active, onChange, currentModule, onModuleSelect }: P
             </Tooltip>
           );
         })}
-      </div>
+      </div>}
 
       {/* Divisor — separação generosa entre área de sessões e módulos do app */}
-      <div className="w-px h-7 bg-border/80 shrink-0 mx-2.5 xl:mx-3.5" aria-hidden />
+      {mode === "full" && <div className="w-px h-7 bg-border/80 shrink-0 mx-2.5 xl:mx-3.5" aria-hidden />}
 
       {/* ─ Sessões do módulo ativo ─ */}
-      {mainTabs.map(({ id, icon: Icon, label }) => {
+      {mode !== "modules" && mainTabs.map(({ id, icon: Icon, label }) => {
         const isActive = id === active;
         return (
           <Tooltip key={id} delayDuration={200}>

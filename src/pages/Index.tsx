@@ -2359,6 +2359,7 @@ const Index = () => {
               onChange={handleNavChange}
               currentModule={currentModule}
               onModuleSelect={handleSwitch}
+              mode="tabs"
             />
           </div>
 
@@ -2409,7 +2410,16 @@ const Index = () => {
               currentZoom={appZoom}
             />
 
-            <ModuleSwitcher active={currentModule} onSelect={handleSwitch} />
+            <DesktopTopIsland
+              active={navActiveTab}
+              onChange={handleNavChange}
+              currentModule={currentModule}
+              onModuleSelect={handleSwitch}
+              mode="modules"
+            />
+            <div className="lg:hidden">
+              <ModuleSwitcher active={currentModule} onSelect={handleSwitch} />
+            </div>
 
             <ProfileButton
               user={localUser}
