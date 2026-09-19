@@ -315,7 +315,6 @@ const Index = () => {
   const [nativeVideoCurrentTime, setNativeVideoCurrentTime] = useState(0);
   const [nativeVideoDuration, setNativeVideoDuration] = useState(0);
   const [nativeVideoEnded, setNativeVideoEnded] = useState(false);
-  const [nativeVideoFailed, setNativeVideoFailed] = useState(false);
   const [albumQueue, setAlbumQueue] = useState<Song[] | null>(null);
   
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -406,22 +405,21 @@ const Index = () => {
     setNativeVideoCurrentTime(0);
     setNativeVideoDuration(0);
     setNativeVideoEnded(false);
-    setNativeVideoFailed(false);
     if (playerMode !== "video" || !videoId) return;
 
     resolvePipedVideo(videoId).then((source) => {
       if (cancelled) return;
       if (!source) {
-        setNativeVideoFailed(true);
+        loadVideo(videoId);
         return;
       }
       setNativeVideoSource(source);
       pause();
     }).catch(() => {
-      if (!cancelled) setNativeVideoFailed(true);
+      if (!cancelled) loadVideo(videoId);
     });
     return () => { cancelled = true; };
-  }, [currentSong.youtubeId, playerMode, pause]);
+  }, [currentSong.youtubeId, playerMode, loadVideo, pause]);
 
   useEffect(() => {
     if (!nativeVideoSource || !nativeVideoRef.current) return;
@@ -1206,7 +1204,7 @@ const Index = () => {
         }
       } else {
         offlineShouldBePlayingRef.current = false;
-        if (song.type !== "video") loadVideo(song.youtubeId);
+        loadVideo(song.youtubeId);
       }
     });
 
@@ -1290,14 +1288,10 @@ const Index = () => {
       return;
     }
 
-    // Vídeos online usam exclusivamente o player nativo Piped. Nunca reabrir
-    // o iframe do YouTube quando o resolvedor estiver indisponível.
-    if (playerMode === "video") return;
-
     if (playerState.isPlaying) { pause(); }
     else if (!playerState.videoId) { loadVideo(currentSong.youtubeId); }
     else { play(); }
-  }, [playerState, pause, play, loadVideo, currentSong, blobSavedSongIds, nativeVideoActive, playerMode]);
+  }, [playerState, pause, play, loadVideo, currentSong, blobSavedSongIds, nativeVideoActive]);
 
   const handleNext = useCallback(async () => {
     // If playing from album, go to next album track
@@ -1443,9 +1437,8 @@ const Index = () => {
       nativeVideoRef.current.currentTime = fraction * (nativeVideoRef.current.duration || currentSong.duration);
       return;
     }
-    if (playerMode === "video") return;
     seekTo(fraction * (playerState.duration || currentSong.duration));
-  }, [seekTo, playerState.duration, currentSong.duration, currentSong.id, blobSavedSongIds, nativeVideoActive, playerMode]);
+  }, [seekTo, playerState.duration, currentSong.duration, currentSong.id, blobSavedSongIds, nativeVideoActive]);
 
   const handlePlayFromQueue = useCallback((song: Song, index: number) => {
     // Pop items up to and including the selected index
@@ -2118,17 +2111,10 @@ const Index = () => {
               onError={() => {
                 if (!nativeVideoActive || !currentSong.youtubeId) return;
                 setNativeVideoSource(null);
-                setNativeVideoFailed(true);
+                loadVideo(currentSong.youtubeId);
               }}
             />
-            <div id="yt-player-slot" className={playerMode === "video" ? "hidden" : undefined} />
-            {expanded && playerMode === "video" && nativeVideoFailed && (
-              <div className="absolute inset-0 z-[205] flex flex-col items-center justify-center gap-2 bg-black px-6 text-center text-white/80">
-                <MonitorPlay size={30} className="text-white/50" />
-                <p className="text-sm font-medium">Fonte nativa indisponível</p>
-                <p className="text-xs text-white/50">As instâncias Piped não forneceram um stream compatível neste momento.</p>
-              </div>
-            )}
+            <div id="yt-player-slot" className={nativeVideoActive ? "hidden" : undefined} />
           </div>
 
 

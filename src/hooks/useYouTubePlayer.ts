@@ -818,12 +818,6 @@ export function useYouTubePlayer(containerId: string) {
               // Nenhum fullscreen nativo do embed; o do app é CSS/pseudo no
               // nosso próprio container (requestFullscreen → yt-fullscreen-container).
               iframe.removeAttribute('allowfullscreen');
-              // O iframe é somente uma superfície de fallback áudio/vídeo; ele
-              // nunca deve receber foco, toque ou comando de teclado. Todos os
-              // comandos passam pelos controles nativos do Xerife.
-              iframe.tabIndex = -1;
-              iframe.setAttribute('aria-hidden', 'true');
-              iframe.style.pointerEvents = 'none';
               const allowTokens = new Set(
                 (iframe.getAttribute('allow') || '')
                   .split(';')
