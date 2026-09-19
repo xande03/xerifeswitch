@@ -275,17 +275,6 @@ const Index = () => {
   const videoIntroGraceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const prevVideoPlayingRef = useRef(false);
-  /** Flash anti-bezel (2026-09-18 — "retirar de vez o símbolo congelado"):
-   *  o YouTube pinta o bezel central (círculo escuro + ícone branco) a CADA
-   *  transição play↔pause — inclusive as disparadas por API/controles do
-   *  sistema (notificação/lockscreen) — e esse símbolo pode CONGELAR na tela
-   *  quando o stream trava com getPlayerState() alegando PLAYING. Impossível
-   *  remover de dentro do iframe (cross-origin): a única defesa é NUNCA deixar
-   *  ele visível. A cada transição, o disco-base central (z-212) fica visível
-   *  por 900ms — cobrindo o bezel no exato momento em que ele é pintado.
-   *  Sem ação: pointer-events continuam tied a showVideoOverlayControls. */
-  const [centerFlash, setCenterFlash] = useState(false);
-  const centerFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealVideoOverlay = useCallback((opts?: { sticky?: boolean }) => {
     setShowVideoOverlayControls(true);
     if (videoOverlayTimerRef.current) {
@@ -820,26 +809,17 @@ const Index = () => {
 
   // Grace do intro do YouTube: arma 3,5 s de máscaras a CADA transição pausado→tocando
   // (inclui trocar de vídeo e seek-resume — momentos em que o intro pode reexibir).
-  // E arma o FLASH ANTI-BEZEL em TODA transição play↔pause (as duas direções):
-  // é exatamente nesses instantes que o embed pinta o bezel central — o disco
-  // cobre o símbolo assim que ele nasce (ver centerFlash acima).
   useEffect(() => {
     if (prevVideoPlayingRef.current === isPlaying) return;
     prevVideoPlayingRef.current = isPlaying;
-    if (expanded && playerMode === "video") {
-      if (isPlaying) {
-        setVideoIntroGrace(true);
-        if (videoIntroGraceTimerRef.current) clearTimeout(videoIntroGraceTimerRef.current);
-        videoIntroGraceTimerRef.current = setTimeout(() => setVideoIntroGrace(false), 3500);
-      }
-      setCenterFlash(true);
-      if (centerFlashTimerRef.current) clearTimeout(centerFlashTimerRef.current);
-      centerFlashTimerRef.current = setTimeout(() => setCenterFlash(false), 900);
+    if (isPlaying && expanded && playerMode === "video") {
+      setVideoIntroGrace(true);
+      if (videoIntroGraceTimerRef.current) clearTimeout(videoIntroGraceTimerRef.current);
+      videoIntroGraceTimerRef.current = setTimeout(() => setVideoIntroGrace(false), 3500);
     }
   }, [isPlaying, expanded, playerMode]);
   useEffect(() => () => {
     if (videoIntroGraceTimerRef.current) clearTimeout(videoIntroGraceTimerRef.current);
-    if (centerFlashTimerRef.current) clearTimeout(centerFlashTimerRef.current);
   }, []);
   const { trendingSongs, isLoading: trendingLoading } = useTrendingMusic();
   useNativeCapabilities(isPlaying);
@@ -2058,29 +2038,6 @@ const Index = () => {
             </div>
           )}
 
-          {/* Disco-base do BOTÃO CENTRAL (fail-closed): pausado, finalizado, cue ou
-              quando a reprodução falha/trava (live stream, stream bloqueada,
-              playVideo ignorado — videoSurfaceIdle), o embed do YouTube desenha o
-              botão dele (~68×48) no centro exato do iframe — o overflow masking
-              corta as faixas de cima/baixo, mas não o centro.
-              ═══ UNIFICAÇÃO 2026-09-18 (4) — FIM DA "FIGURA SEM AÇÃO" ═══
-              O disco agora existe SEMPRE que os controles estão visíveis
-              (showVideoOverlayControls) — não importa o estado — e o botão central
-              do transporte (Pause/Play, COM AÇÃO) fica SEMPRE em cima dele, no
-              mesmo tamanho: UM só círculo na tela, sempre clicável. Nunca mais um
-              "desenho" solto no centro sem ação (disco nu do fullscreen antigo ou
-              botão nativo do YouTube vazando quando o estado otimista desseca do
-              real). Fail-closed: em TODO estado em que o YouTube desenha chrome
-              central (pausado, cue, buffering, travado — keepOpen), os controles
-              estão visíveis → o disco cobre o botão dele. Quando os controles
-              minimizam (4s), o disco esmaece JUNTO — nada fica no centro.
-              z-[212]: acima do tap-catcher (210), abaixo do overlay dos controles
-              (215), e pointer-events-none para os toques seguirem para o catcher. */}
-          {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && (
-            <div aria-hidden className={`absolute inset-0 z-[212] flex items-center justify-center pointer-events-none transition-opacity duration-300 ${((showVideoOverlayControls && (!isPlaying || playerState.videoSurfaceIdle || playerState.surfaceBuffering)) || centerFlash) ? "opacity-100" : "opacity-0"}`}>
-              <div className="w-[84px] h-[84px] rounded-full bg-black" />
-            </div>
-          )}
 
           {/* CAPA OPACA de fim de vídeo (fail-closed): ao terminar, o YouTube
               desenha sua ENDSCREEN dentro do iframe — replay + grade de vídeos
@@ -2161,41 +2118,6 @@ const Index = () => {
                   </button>
                 )}
 
-                {/* Center transport — BOTÃO CENTRAL COM AÇÃO REAL (pedido do usuário):
-                    tocando → PAUSE (toque = pausar); pausado → PLAY (toque = reproduzir).
-                    SEMPRE no mesmo tamanho do disco-base (w-24/w-28) = UM só círculo
-                    na tela, nunca uma "figura sem ação" no centro. Nenhuma duplicação
-                    (o transporte do NowPlayingView segue oculto em modo vídeo).
-                    Todos os botões (top, center, bottom, quality) obedecem ao MESMO
-                    showVideoOverlayControls e MESMA duração de 4s — TODOS JUNTOS. */}
-                {!isPlaying && (
-                <div className="absolute inset-0 flex items-center justify-center gap-8 sm:gap-12 pointer-events-none">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handlePrev(); }}
-                    className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} p-3 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition`}
-                    title="Anterior"
-                  >
-                    <SkipBack size={22} fill="currentColor" />
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleTogglePlay(); }}
-                    className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition flex items-center justify-center w-[84px] h-[84px]`}
-                    title={isPlaying ? "Pausar" : "Reproduzir"}
-                    aria-label={isPlaying ? "Pausar" : "Reproduzir"}
-                  >
-                    {isPlaying
-                      ? <Pause size={28} fill="currentColor" />
-                      : <Play size={28} fill="currentColor" className="ml-1" />}
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleNext(); }}
-                    className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} p-3 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition`}
-                    title="Próximo"
-                  >
-                    <SkipForward size={22} fill="currentColor" />
-                  </button>
-                </div>
-                )}
 
                 {/* Bottom bar: time + seekbar + PiP/AirPlay/fullscreen */}
                 <div

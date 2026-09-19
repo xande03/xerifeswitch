@@ -80,24 +80,6 @@ const FullscreenOverlay = ({
       timerRef.current = setTimeout(() => setShowControls(false), AUTOHIDE_DEFAULT_MS);
     }
   }, [videoMode, isPlaying, videoSurfaceIdle, surfaceBuffering]);
-
-  // ═══ FLASH ANTI-BEZEL ("retirar de vez o símbolo congelado") ═══
-  // O YouTube pinta o bezel central (círculo + ícone) a CADA transição
-  // play↔pause — inclusive via API/controles do sistema — e o símbolo pode
-  // congelar quando o stream trava. Na transição, o conjunto central fica
-  // visível por 900ms cobrindo o bezel no instante em que ele nasce.
-  const prevPlayingRef = useRef(isPlaying);
-  const flashTimerRef = useRef<ReturnType<typeof setTimeout>>();
-  const [centerFlash, setCenterFlash] = useState(false);
-  useEffect(() => {
-    if (prevPlayingRef.current === isPlaying) return;
-    prevPlayingRef.current = isPlaying;
-    if (!videoMode) return;
-    setCenterFlash(true);
-    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-    flashTimerRef.current = setTimeout(() => setCenterFlash(false), 900);
-  }, [isPlaying, videoMode]);
-  useEffect(() => () => { if (flashTimerRef.current) clearTimeout(flashTimerRef.current); }, []);
   const QUALITY_OPTIONS: { value: string; label: string }[] = [
     { value: "auto", label: "Automática" },
     { value: "hd1080", label: "1080p60 (HD)" },
@@ -437,41 +419,6 @@ const FullscreenOverlay = ({
         <div className="absolute inset-0 z-[205] bg-black pointer-events-none" aria-hidden />
       )}
 
-      {/* Disco-base + BOTÃO CENTRAL COM AÇÃO REAL (somente vídeo):
-          ═══ UNIFICAÇÃO 2026-09-18 (4) — FIM DA "FIGURA SEM AÇÃO" ═══
-          Antes: o disco nu renderizava com videoSurfaceIdle (travado/live) mesmo
-          TOCANDO, sem botão em cima — um "desenho" no centro SEM AÇÃO. Agora:
-          o conjunto existe SEMPRE em modo vídeo, esmaece JUNTO com os controles
-          (showControls, 4s) e o botão central em cima do disco tem AÇÃO REAL —
-          PAUSE quando tocando (toque = pausar), PLAY quando pausado (toque =
-          reproduzir). Mesmo tamanho (w-24/w-28) = UM só círculo, sempre clicável.
-          Fail-closed: em todo estado em que o YouTube desenha chrome central
-          (pausado, cue, buffering, travado — keepOpen mantém showControls), o
-          disco cobre o botão nativo dele; o botão nativo nunca vaza.
-          O conjunto não captura toque quando oculto (o surface toggle segue
-          funcionando); visível, só o botão captura. */}
-      {videoMode && (
-        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-300 ${
-          (showControls && (!isPlaying || videoSurfaceIdle || surfaceBuffering)) || centerFlash ? "opacity-100" : "opacity-0"
-        }`}>
-          <div aria-hidden className="absolute w-[84px] h-[84px] rounded-full bg-black" />
-          {/* Botão central SÓ quando pausado (retomar + cobrir o play do YouTube).
-              Tocando: NADA no centro (pedido: remover o círculo com duas barras) —
-              o play/pause fica no transporte do rodapé. O disco aparece sozinho
-              apenas no flash anti-bezel (900ms) para cobrir o bezel do YouTube. */}
-          {!isPlaying && showControls && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
-              className={`relative w-[84px] h-[84px] rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center text-white active:scale-90 transition-transform ${
-                showControls ? "pointer-events-auto" : "pointer-events-none"
-              }`}
-              aria-label="Reproduzir"
-            >
-              <Play size={28} fill="currentColor" className="ml-1" />
-            </button>
-          )}
-        </div>
-      )}
 
       {/* Top bar — respeita safe-area (notch / Dynamic Island) sem afetar o vídeo,
           que continua ocupando 100vw/100vh via letterbox central. */}
