@@ -72,7 +72,7 @@ import LibraryHubScreen from "@/components/LibraryHubScreen";
 import ListeningStatsScreen from "@/components/ListeningStatsScreen";
 import ImportPlaylistDialog from "@/components/ImportPlaylistDialog";
 import { useListeningTracker } from "@/hooks/useListeningTracker";
-
+import { resolvePipedVideo, type PipedVideoSource } from "@/lib/pipedVideo";
 import { saveEpisodeProgress, getEpisodeProgress, getAllInProgressEpisodes } from "@/lib/podcastStorage";
 import ProfileButton from "@/components/ProfileButton";
 import { useLocalProfile } from "@/hooks/useLocalProfile";
@@ -310,6 +310,11 @@ const Index = () => {
   const [offlineIsPlaying, setOfflineIsPlaying] = useState(false);
   const [offlineCurrentTime, setOfflineCurrentTime] = useState(0);
   const [offlineDuration, setOfflineDuration] = useState(0);
+  const [nativeVideoSource, setNativeVideoSource] = useState<PipedVideoSource | null>(null);
+  const [nativeVideoIsPlaying, setNativeVideoIsPlaying] = useState(false);
+  const [nativeVideoCurrentTime, setNativeVideoCurrentTime] = useState(0);
+  const [nativeVideoDuration, setNativeVideoDuration] = useState(0);
+  const [nativeVideoEnded, setNativeVideoEnded] = useState(false);
   const [albumQueue, setAlbumQueue] = useState<Song[] | null>(null);
   
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -379,6 +384,7 @@ const Index = () => {
   const deviceId = useRef(getDeviceId());
   const offlineShouldBePlayingRef = useRef(false);
   const offlineUserPausedRef = useRef(false);
+  const nativeVideoRef = useRef<HTMLVideoElement | null>(null);
   const offlineBgIntervalRef = useRef<ReturnType<typeof setInterval>>();
   const offlineHiddenSinceRef = useRef<number | null>(null);
   const isIOSRef = useRef(/iphone|ipad|ipod/i.test(navigator.userAgent));
@@ -389,6 +395,39 @@ const Index = () => {
   });
 
   const { state: playerState, loadVideo, loadVideoAt, preloadClip, play, pause, seekTo, setVolume: setPlayerVolume, togglePiP, requestAirPlay, requestFullscreen, exitFullscreen, setPlaybackRate, toggleCaptions, proxyAudioElement, getCurrentTime: getPlayerCurrentTime } = useYouTubePlayer("yt-player-slot");
+  const nativeVideoActive = playerMode === "video" && Boolean(nativeVideoSource?.videoId === currentSong.youtubeId);
+
+  useEffect(() => {
+    let cancelled = false;
+    const videoId = currentSong.youtubeId;
+    setNativeVideoSource(null);
+    setNativeVideoIsPlaying(false);
+    setNativeVideoCurrentTime(0);
+    setNativeVideoDuration(0);
+    setNativeVideoEnded(false);
+    if (playerMode !== "video" || !videoId) return;
+
+    resolvePipedVideo(videoId).then((source) => {
+      if (cancelled) return;
+      if (!source) {
+        loadVideo(videoId);
+        return;
+      }
+      setNativeVideoSource(source);
+      pause();
+    }).catch(() => {
+      if (!cancelled) loadVideo(videoId);
+    });
+    return () => { cancelled = true; };
+  }, [currentSong.youtubeId, playerMode, loadVideo, pause]);
+
+  useEffect(() => {
+    if (!nativeVideoSource || !nativeVideoRef.current) return;
+    nativeVideoRef.current.load();
+    // A tentativa pode ser bloqueada por políticas de autoplay; nesse caso os
+    // controles próprios continuam disponíveis para o primeiro toque do usuário.
+    nativeVideoRef.current.play().catch(() => {});
+  }, [nativeVideoSource]);
 
   // Desktop: sync the fixed YouTube player with the NowPlayingView scroll so
   // the video "sobe" enquanto o usuário rola para ver comentários/relacionados,
@@ -751,9 +790,21 @@ const Index = () => {
 
 
   const isPlayingOffline = blobSavedSongIds.has(currentSong.id);
-  const ct = isPlayingOffline ? offlineCurrentTime : (playerState.currentTime || 0);
-  const dur = isPlayingOffline ? (offlineDuration || currentSong.duration) : (playerState.duration || currentSong.duration);
-  const isPlaying = isPlayingOffline ? offlineIsPlaying : playerState.isPlaying;
+  const ct = isPlayingOffline
+    ? offlineCurrentTime
+    : nativeVideoActive
+      ? nativeVideoCurrentTime
+      : (playerState.currentTime || 0);
+  const dur = isPlayingOffline
+    ? (offlineDuration || currentSong.duration)
+    : nativeVideoActive
+      ? (nativeVideoDuration || currentSong.duration)
+      : (playerState.duration || currentSong.duration);
+  const isPlaying = isPlayingOffline
+    ? offlineIsPlaying
+    : nativeVideoActive
+      ? nativeVideoIsPlaying
+      : playerState.isPlaying;
 
   // Estatísticas de escuta: acumula segundos reais de reprodução por faixa/artista
   useListeningTracker(
@@ -1231,10 +1282,16 @@ const Index = () => {
       return;
     }
 
+    if (nativeVideoActive && nativeVideoRef.current) {
+      if (nativeVideoRef.current.paused) nativeVideoRef.current.play().catch(() => {});
+      else nativeVideoRef.current.pause();
+      return;
+    }
+
     if (playerState.isPlaying) { pause(); }
     else if (!playerState.videoId) { loadVideo(currentSong.youtubeId); }
     else { play(); }
-  }, [playerState, pause, play, loadVideo, currentSong, blobSavedSongIds]);
+  }, [playerState, pause, play, loadVideo, currentSong, blobSavedSongIds, nativeVideoActive]);
 
   const handleNext = useCallback(async () => {
     // If playing from album, go to next album track
@@ -1376,8 +1433,12 @@ const Index = () => {
       offlineVideo.currentTime = nextTime;
       return;
     }
+    if (nativeVideoActive && nativeVideoRef.current) {
+      nativeVideoRef.current.currentTime = fraction * (nativeVideoRef.current.duration || currentSong.duration);
+      return;
+    }
     seekTo(fraction * (playerState.duration || currentSong.duration));
-  }, [seekTo, playerState.duration, currentSong.duration, currentSong.id, blobSavedSongIds]);
+  }, [seekTo, playerState.duration, currentSong.duration, currentSong.id, blobSavedSongIds, nativeVideoActive]);
 
   const handlePlayFromQueue = useCallback((song: Song, index: number) => {
     // Pop items up to and including the selected index
@@ -1996,15 +2057,64 @@ const Index = () => {
                   : undefined
             }
           >
-            {/* ⚠️ ALVO DO YT.Player — NUNCA a caixa #yt-player: a API oficial
-                SUBSTITUI o elemento alvo pelo <iframe> (replaceChild dentro do
-                www-widgetapi.js) e a caixa 16:9 estilizada sumiria do DOM.
-                Este slot vazio é substituído pelo iframe; pós-init o DOM fica
-                #yt-player > iframe#yt-player-slot (a API copia o id do slot
-                para o iframe). O CSS de masking (index.css) posiciona o iframe
-                240px mais alto que a caixa e o overflow-hidden descarta as
-                faixas de chrome do YouTube — permanentemente, sem timers. */}
-            <div id="yt-player-slot" />
+            {/* O vídeo nativo Piped é a superfície principal quando há stream
+                muxado compatível. O slot abaixo permanece reservado para o
+                fallback do YouTube API quando uma instância Piped falha ou
+                entrega apenas streams DASH separados. */}
+            <video
+              id="offline-player"
+              ref={nativeVideoRef}
+              data-eq-enabled="true"
+              src={nativeVideoActive ? nativeVideoSource?.url : undefined}
+              className={`absolute inset-0 w-full h-full bg-black z-10 rounded-xl object-contain ${isPlayingOffline || nativeVideoActive ? "block" : "hidden"}`}
+              playsInline
+              controls={false}
+              onPlay={() => {
+                if (nativeVideoActive) setNativeVideoIsPlaying(true);
+                else {
+                  offlineUserPausedRef.current = false;
+                  offlineShouldBePlayingRef.current = true;
+                  setOfflineIsPlaying(true);
+                }
+              }}
+              onPause={() => {
+                if (nativeVideoActive) setNativeVideoIsPlaying(false);
+                else {
+                  setOfflineIsPlaying(false);
+                  const hiddenForMs = offlineHiddenSinceRef.current ? Date.now() - offlineHiddenSinceRef.current : 0;
+                  if (isIOSRef.current && document.visibilityState === "hidden" && offlineShouldBePlayingRef.current && !offlineUserPausedRef.current && hiddenForMs > 1500) {
+                    offlineUserPausedRef.current = true;
+                    offlineShouldBePlayingRef.current = false;
+                  }
+                }
+              }}
+              onEnded={() => {
+                if (nativeVideoActive) {
+                  setNativeVideoIsPlaying(false);
+                  setNativeVideoEnded(true);
+                  handleNext();
+                } else {
+                  offlineShouldBePlayingRef.current = false;
+                  offlineUserPausedRef.current = false;
+                  setOfflineIsPlaying(false);
+                  handleNext();
+                }
+              }}
+              onTimeUpdate={(e) => {
+                if (nativeVideoActive) setNativeVideoCurrentTime(e.currentTarget.currentTime);
+                else setOfflineCurrentTime(e.currentTarget.currentTime);
+              }}
+              onLoadedMetadata={(e) => {
+                if (nativeVideoActive) setNativeVideoDuration(e.currentTarget.duration);
+                else setOfflineDuration(e.currentTarget.duration);
+              }}
+              onError={() => {
+                if (!nativeVideoActive || !currentSong.youtubeId) return;
+                setNativeVideoSource(null);
+                loadVideo(currentSong.youtubeId);
+              }}
+            />
+            <div id="yt-player-slot" className={nativeVideoActive ? "hidden" : undefined} />
           </div>
 
 
@@ -2023,7 +2133,7 @@ const Index = () => {
               isEnded, cobrimos o frame inteiro com preto o + nosso spinner até
               o autoplay do app carregar o próximo item (rede do próprio
               NowPlayingView). z-[214] abaixo dos nossos controles (215). */}
-          {expanded && playerMode === "video" && playerState.isEnded && (
+          {expanded && playerMode === "video" && (nativeVideoActive ? nativeVideoEnded : playerState.isEnded) && (
             <div className="absolute inset-0 z-[214] bg-black flex items-center justify-center pointer-events-none" aria-hidden>
               <Loader2 className="animate-spin text-white/70" size={32} />
             </div>
@@ -2157,60 +2267,12 @@ const Index = () => {
               </div>
             </>
           )}
-          <video 
-            id="offline-player" 
-            data-eq-enabled="true"
-            className={`absolute inset-0 w-full h-full bg-black z-10 rounded-xl ${isPlayingOffline ? "block" : "hidden"}`}
-            playsInline
-            controls={false}
-            onPlay={() => {
-              offlineUserPausedRef.current = false;
-              offlineShouldBePlayingRef.current = true;
-              setOfflineIsPlaying(true);
-            }}
-            onPause={() => {
-              setOfflineIsPlaying(false);
-              const hiddenForMs = offlineHiddenSinceRef.current ? Date.now() - offlineHiddenSinceRef.current : 0;
-              if (
-                isIOSRef.current &&
-                document.visibilityState === "hidden" &&
-                offlineShouldBePlayingRef.current &&
-                !offlineUserPausedRef.current &&
-                hiddenForMs > 1500
-              ) {
-                offlineUserPausedRef.current = true;
-                offlineShouldBePlayingRef.current = false;
-                return;
-              }
-              if (offlineShouldBePlayingRef.current && !offlineUserPausedRef.current && document.visibilityState === "hidden") {
-                setTimeout(() => {
-                  const video = document.getElementById("offline-player") as HTMLVideoElement | null;
-                  if (video?.paused && offlineShouldBePlayingRef.current && !offlineUserPausedRef.current) {
-                    video.play().catch(() => {});
-                  }
-                }, 250);
-              }
-            }}
-            onEnded={() => {
-              offlineShouldBePlayingRef.current = false;
-              offlineUserPausedRef.current = false;
-              setOfflineIsPlaying(false);
-              handleNext();
-            }}
-            onTimeUpdate={(e) => {
-              setOfflineCurrentTime(e.currentTarget.currentTime);
-              setOfflineDuration(e.currentTarget.duration);
-            }}
-            onLoadedMetadata={(e) => {
-              setOfflineDuration(e.currentTarget.duration);
-            }}
-          />
           {/* Fullscreen overlay controls rendered here */}
           {playerState.isFullscreen && (
           <Suspense fallback={null}>
             <FullscreenOverlay
               song={currentSong}
-              isPlaying={playerState.isPlaying}
+              isPlaying={isPlaying}
               currentTime={ct}
               duration={dur}
               progress={dur > 0 ? ct / dur : 0}
@@ -2220,9 +2282,9 @@ const Index = () => {
               onSeek={handleSeek}
               onExit={() => exitFullscreen()}
               videoMode={playerMode === "video"}
-              isEnded={playerState.isEnded}
-              videoSurfaceIdle={playerState.videoSurfaceIdle}
-              surfaceBuffering={playerState.surfaceBuffering}
+              isEnded={nativeVideoActive ? nativeVideoEnded : playerState.isEnded}
+              videoSurfaceIdle={nativeVideoActive ? !nativeVideoIsPlaying : playerState.videoSurfaceIdle}
+              surfaceBuffering={nativeVideoActive ? false : playerState.surfaceBuffering}
             />
           </Suspense>
           )}
