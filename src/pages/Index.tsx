@@ -2325,9 +2325,14 @@ const Index = () => {
             }
           };
 
+          // Header em GRID de 3 colunas [1fr auto 1fr] (2026-09-19): a ilha de
+          // módulos fica no CENTRO EXATO do app, imune às larguras do logo
+          // (esquerda) e do cluster de ferramentas (direita) — antes, com
+          // flex+justify-center, ela deslocava para a direita quando o título
+          // do módulo era mais largo que o cluster oposto (ex.: "Xerife Podcasts").
           return (
         <header
-          className="relative flex items-center gap-3 sm:gap-4 px-4 sm:px-6 lg:px-4 xl:px-6 py-3 sm:py-4 lg:py-4 flex-shrink-0 bg-background"
+          className="relative grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-4 px-4 sm:px-6 lg:px-4 xl:px-6 py-3 sm:py-4 lg:py-4 flex-shrink-0 bg-background"
           style={{
             paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)',
             paddingLeft: 'max(1rem, env(safe-area-inset-left))',
@@ -2341,7 +2346,7 @@ const Index = () => {
               if (podcastMode) setActiveTab("podcast");
               else setActiveTab("home");
             }}
-            className="flex items-center gap-2.5 sm:gap-3 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-lg"
+            className="flex items-center gap-2.5 sm:gap-3 shrink-0 justify-self-start focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-lg"
             aria-label={`Ir para o início de Xerife ${MODULE_LABEL[currentModule]}`}
           >
             <Logo size={40} colorFrom={logoColors.from} colorTo={logoColors.to} tooltipLabel={`Xerife ${MODULE_LABEL[currentModule]}`} />
@@ -2353,7 +2358,7 @@ const Index = () => {
           {/* ILHA DINÂMICA (desktop lg+, ≥1024px): módulos nas suas cores +
               sessões do módulo ativo — substitui o menu lateral nesses
               breakpoints, liberando as laterais e a vertical para o conteúdo */}
-          <div className="hidden lg:flex flex-1 min-w-0 justify-center px-3">
+          <div className="hidden lg:flex min-w-0 justify-center px-3">
             <DesktopTopIsland
               active={navActiveTab}
               onChange={handleNavChange}
@@ -2364,7 +2369,7 @@ const Index = () => {
           </div>
 
           {/* Right cluster: Tools → Switcher → Profile */}
-          <div className="flex items-center gap-2 sm:gap-3 ml-auto shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 justify-self-end shrink-0">
 
             {!isOnline && (
               <span className="flex items-center text-xs text-primary" aria-label="Offline">
