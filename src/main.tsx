@@ -2,8 +2,43 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { isNativePlatform, isPreviewEnvironment } from "./lib/platform";
 import { initNativePlugins } from "./lib/nativeInit";
+
+// ── RECUPERAÇÃO DE CRASH DO REACT (2026-09-20) ──────────────────────────────
+// Invariantes internos do React deixam a árvore corrompida e insalvável
+// ("Should have a queue. This is likely a bug in React" → tela branca no
+// preview). No dev isso acontece quando o Fast Refresh troca um arquivo de
+// HOOK (ex.: useYouTubePlayer.ts) enquanto timers longos do módulo antigo
+// (poller de 1s, watchdog) continuam despachando setState — fila de hooks
+// corrompida. Em produção (sem HMR) é raríssimo. Única recuperação real:
+// recarregar a página — feito UMA vez por sessão (sem loop de reload).
+const REACT_INVARIANT_PATTERNS = [
+  "Should have a queue",
+  "Rendered fewer hooks than expected",
+  "Rendered more hooks than during the previous render",
+  "Invalid hook call",
+  "Cannot read properties of null (reading 'memoizedState')",
+];
+let crashReloadDone = false;
+try { crashReloadDone = sessionStorage.getItem("xerife-crash-reloaded") === "1"; } catch { /* storage bloqueado */ }
+const recoverFromReactInvariant = (msg: string) => {
+  if (crashReloadDone || !msg) return;
+  if (!REACT_INVARIANT_PATTERNS.some((p) => msg.includes(p))) return;
+  crashReloadDone = true;
+  try { sessionStorage.setItem("xerife-crash-reloaded", "1"); } catch { /* no-op */ }
+  console.warn("[Xerife] Árvore do React corrompida (invariante interna) — recarregando para recuperar");
+  window.location.reload();
+};
+window.addEventListener("unhandledrejection", (e) => {
+  const reason: unknown = (e as PromiseRejectionEvent).reason;
+  const msg = reason instanceof Error ? reason.message : String(reason ?? "");
+  recoverFromReactInvariant(msg);
+});
+window.addEventListener("error", (e) => {
+  recoverFromReactInvariant(String((e as ErrorEvent).message ?? ""));
+});
 
 // ── Marcador de versão do build ─────────────────────────────────────────────
 // Injetado pelo vite.config.ts (git SHA + data). Aparece no console e em
@@ -42,7 +77,9 @@ try { window.localStorage.removeItem("demus-ambient-bg-enabled"); } catch {}
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 );
 
