@@ -3,6 +3,7 @@ import { ChevronDown, Play, Pause, SkipBack, SkipForward, ArrowLeft, Settings2, 
 import { track as trackMetric } from "@/lib/playbackMetrics";
 import { Song, formatDuration } from "@/data/mockSongs";
 import SeekBar from "@/components/SeekBar";
+import PausedVideoPoster from "@/components/PausedVideoPoster";
 
 /** Delay fixo para auto-ocultar os controles do fullscreen — UNIFICADO 4s
  *  para TODOS os players (Xerife Vídeos, Music modo Vídeo, Podcasts modo Vídeo)
@@ -402,6 +403,14 @@ const FullscreenOverlay = ({
     >
       {/* (as máscaras de branding do YouTube agora são renderizadas como camada PERMANENTE
           dentro de #yt-fullscreen-container pelo `Index` — e não por este overlay) */}
+
+      {/* POSTER DO ESTADO PAUSADO (v8): cobre o iframe enquanto pausado/
+          travado — bezel ⏸ do YouTube (cross-origin) jamais visível. some
+          ao dar play. z-[204]: acima do vídeo, abaixo da capa de fim (205)
+          e das barras de controle. pointer-events-none. */}
+      {videoMode && !isEnded && !surfaceBuffering && (!isPlaying || videoSurfaceIdle) && (
+        <PausedVideoPoster cover={song?.cover} zIndexClass="z-[204]" />
+      )}
 
       {/* CAPA OPACA de fim de vídeo: com o vídeo TERMINADO o YouTube desenha a
           endscreen (grade de sugestões + replay) no CENTRO do iframe — região

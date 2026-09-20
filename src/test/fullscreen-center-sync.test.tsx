@@ -4,8 +4,12 @@ import React from "react";
 import FullscreenOverlay from "@/components/FullscreenOverlay";
 
 /**
- * REGRA DE OURO DO CENTRO — v7 (2026-09-20, alinhado ao app de referência
- * Alse Switch, código-fonte estudado):
+ * REGRA DE OURO DO CENTRO — v8 (2026-09-20, poster do estado pausado):
+ * Enquanto PAUSADO/travado, a área do vídeo é coberta pelo POSTER
+ * ([data-paused-poster], thumbnail da faixa) — o bezel ⏸ do YouTube
+ * (cross-origin, congela na camada pintada em alguns devices) não pode
+ * aparecer onde o iframe não está visível. Ao dar play, poster sai na hora.
+ * Demais regras v7 (Alse Switch) mantidas:
  *
  *  1. ESTADO ÚNICO (showControls): barra superior e barra inferior somem
  *     JUNTAS (fade 300ms). Play/Pause existe SOMENTE na barra inferior —
@@ -57,6 +61,11 @@ function queryPausedDisc() {
   return document.querySelector("[data-paused-cover-disc]");
 }
 
+/** Poster do estado pausado (v8) — deve cobrir o vídeo e ser INERTE. */
+function queryPausedPoster() {
+  return document.querySelector("[data-paused-poster]");
+}
+
 /** Transporte central (v6) — REMOVIDO no fullscreen (referência: play/pause só no rodapé). */
 function queryCentralCluster() {
   return document.querySelector("[data-central-transport]");
@@ -99,10 +108,12 @@ describe("FullscreenOverlay — comportamento Alse Switch (v7): toque sempre min
       );
     });
     expect(queryCentralCluster()).toBeNull(); // referência: sem centro no fullscreen
+    expect(queryPausedPoster()).toBeNull(); // tocando: vídeo ao vivo, sem poster
     expect(queryTransportPlayPause()).not.toBeNull();
     expect(queryHiddenBottomControls()).toBeNull(); // visível
     act(() => { vi.advanceTimersByTime(4000); });
     expect(queryHiddenBottomControls()).not.toBeNull(); // esmaeceu (auto-hide 3500)
+    expect(queryPausedPoster()).toBeNull(); // continua sem poster
     expect(queryMaskDisc()).toBeNull();
     expect(queryPausedDisc()).toBeNull();
   });
@@ -113,11 +124,16 @@ describe("FullscreenOverlay — comportamento Alse Switch (v7): toque sempre min
     });
     expect(queryTransportPlayPause()).not.toBeNull();
     expect(queryHiddenBottomControls()).toBeNull(); // visível no início
+    // POSTER cobrindo o iframe (bezel do YouTube jamais visível) — inerte
+    const poster = queryPausedPoster();
+    expect(poster).not.toBeNull();
+    expect(poster!.className).toContain("pointer-events-none");
 
     // Toque na superfície com controles visíveis -> MINIMIZA (o bug era aqui:
     // o keepOpen bloqueava o toque quando pausado)
     act(() => { fireEvent.click(querySurface()!); });
     expect(queryHiddenBottomControls()).not.toBeNull(); // minimizou ✓
+    expect(queryPausedPoster()).not.toBeNull(); // poster segue cobrindo o bezel ✓
 
     // Toque de novo (após a janela de double-tap) -> revela e rearma o timer
     act(() => { vi.advanceTimersByTime(400); });
@@ -145,6 +161,7 @@ describe("FullscreenOverlay — comportamento Alse Switch (v7): toque sempre min
     expect(queryHiddenBottomControls()).toBeNull();
     act(() => { vi.advanceTimersByTime(4000); });
     expect(queryHiddenBottomControls()).not.toBeNull(); // minimizou (antes ficava preso)
+    expect(queryPausedPoster()).toBeNull(); // buffering: spinner do YT visível, sem poster
   });
 
   it("auto-hide configurável: valor do localStorage é respeitado (2000ms)", () => {

@@ -58,6 +58,7 @@ import BottomNav from "@/components/BottomNav";
 import DesktopSidebar from "@/components/DesktopSidebar";
 import DesktopTopIsland from "@/components/DesktopTopIsland";
 import DesktopPlayerIsland from "@/components/DesktopPlayerIsland";
+import PausedVideoPoster from "@/components/PausedVideoPoster";
 import SearchSkeleton from "@/components/SearchSkeleton";
 import SidebarPlayer from "@/components/SidebarPlayer";
 
@@ -2180,6 +2181,16 @@ const Index = () => {
           {/* Overlay controls on top of the actual YouTube player */}
           {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && (
             <>
+              {/* POSTER DO ESTADO PAUSADO (v8): cobre o iframe enquanto
+                  pausado/travado — o bezel ⏸ do YouTube (cross-origin, congela
+                  na camada pintada em alguns devices) não pode aparecer onde o
+                  iframe não está visível. Sai instantaneamente ao dar play.
+                  Abaixo do tap catcher (z-210): toques continuam revelando os
+                  controles; transporte central/rodapé ficam por cima. */}
+              {!playerState.isEnded && !playerState.surfaceBuffering && (!playerState.isPlaying || playerState.videoSurfaceIdle) && (
+                <PausedVideoPoster cover={currentSong?.cover} />
+              )}
+
               {/* Full-inset tap catcher: ALWAYS active so clicks never reach the YouTube iframe.
                   Tapping the background only toggles the visibility of our custom controls —
                   it never plays/pauses the video. Play/pause happens exclusively via the bottom bar. */}

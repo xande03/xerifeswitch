@@ -1630,10 +1630,13 @@ export function useYouTubePlayer(containerId: string) {
       const now = Date.now();
       if (now - iframeNudgeAtRef.current < 700) return; // debounce
       iframeNudgeAtRef.current = now;
-      iframe.style.transition = "none";
-      iframe.style.transform = "translateZ(0) scale(1.002)";
+      // REFLOW real (scale pode ser aplicado pelo compositor SEM re-rasterizar
+      // a textura congelada): 1px de largura força o embed a re-layout e
+      // REPINTAR o conteúdo interno — o bezel congelado não sobrevive.
+      const w0 = iframe.getBoundingClientRect().width;
+      iframe.style.width = `${Math.round(w0) + 1}px`;
       window.setTimeout(() => {
-        iframe.style.transform = "";
+        iframe.style.width = "";
       }, 140);
     } catch { /* no-op */ }
   }, [containerId]);
