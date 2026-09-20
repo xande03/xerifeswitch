@@ -1,27 +1,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, cleanup, act } from "@testing-library/react";
+import { render, cleanup, act, fireEvent } from "@testing-library/react";
 import React from "react";
 import FullscreenOverlay from "@/components/FullscreenOverlay";
 
 /**
- * REGRA DE OURO DO CENTRO — v6 (2026-09-19, padrão-ouro "Alse Switch"):
- * "Camada de Sobreposição Unificada com Temporizador de Inatividade":
+ * REGRA DE OURO DO CENTRO — v7 (2026-09-20, alinhado ao app de referência
+ * Alse Switch, código-fonte estudado):
  *
- *  1. ESTADO ÚNICO (showControls): barra superior, barra inferior E o
- *     transporte central (Anterior / Play-Pause / Próxima) compartilham o
- *     mesmo boolean — aparecem juntos e somem juntos (fade 300ms).
- *  2. AUTO-HIDE: sem interação por 4s, tudo some suavemente.
- *  3. TOQUE NA SUPERFÍCIE: visível -> esconde; oculto -> revela + reinicia
- *     o timer (handleSurfaceClick).
- *  4. PROTEÇÃO CONTRA CLIQUES ACIDENTAIS: oculto = opacity-0 +
- *     pointer-events-none — vídeo 100% limpo; qualquer toque vai direto
- *     para a superfície.
- *  5. ISOLAMENTO (stopPropagation): clicar em qualquer controle não fecha
- *     os controles.
- *
- * keepOpen (pausado/idle/buffering em modo vídeo): tudo permanece de pé —
- * e o PLAY CENTRAL cobre o bezel de pausa do YouTube (substitui o disco de
- * capa v5, removido).
+ *  1. ESTADO ÚNICO (showControls): barra superior e barra inferior somem
+ *     JUNTAS (fade 300ms). Play/Pause existe SOMENTE na barra inferior —
+ *     nenhum transporte central no fullscreen (idem referência).
+ *  2. AUTO-HIDE configurável (2000/3500/5000/8000ms, default 3500,
+ *     localStorage "demus-fs-autohide-ms") — SEM keepOpen: aplica em
+ *     QUALQUER estado, inclusive pausado/buffering.
+ *  3. TOQUE NA SUPERFÍCIE SEMPRE ALTERNA — pausado incluso: o usuário
+ *     SEMPRE consegue minimizar os controles clicando para minimizar
+ *     (era o bug: keepOpen bloqueava o toque quando pausado).
+ *  4. Oculto = opacity-0 + pointer-events-none — vídeo 100% limpo.
+ *  5. stopPropagation nos controles (clicar neles não fecha nada).
  */
 
 const song = {
@@ -56,22 +52,17 @@ function queryMaskDisc() {
   return document.querySelector(".rounded-full.bg-black.w-\\[84px\\]");
 }
 
-/** Disco de capa do estado pausado (v5) — REMOVIDO na v6. */
+/** Disco de capa do estado pausado (v5) — removido. */
 function queryPausedDisc() {
   return document.querySelector("[data-paused-cover-disc]");
 }
 
-/** Transporte central unificado (v6) — linha prev/play/next. */
+/** Transporte central (v6) — REMOVIDO no fullscreen (referência: play/pause só no rodapé). */
 function queryCentralCluster() {
   return document.querySelector("[data-central-transport]");
 }
 
-/** Botão central Play/Pause (w-16, bg-white/20 — distinto do rodapé w-14). */
-function queryCentralPlayPause() {
-  return document.querySelector('button[aria-label="Pausar"].w-16, button[aria-label="Reproduzir"].w-16');
-}
-
-/** O transporte do rodapé (w-14, bg-white/20). */
+/** O transporte do rodapé (w-14, bg-white/20) — o ÚNICO play/pause. */
 function queryTransportPlayPause() {
   return document.querySelector("button.w-14.rounded-full.bg-white\\/20");
 }
@@ -81,8 +72,14 @@ function queryHiddenBottomControls() {
   return document.querySelector(".bg-gradient-to-t.opacity-0");
 }
 
+/** A superfície interativa (root do overlay — handleSurfaceClick). */
+function querySurface() {
+  return document.querySelector(".absolute.inset-0.z-\\[200\\]") as HTMLElement | null;
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
+  localStorage.removeItem("demus-fs-autohide-ms");
 });
 
 afterEach(() => {
@@ -92,26 +89,8 @@ afterEach(() => {
   document.getElementById("yt-player")?.remove();
 });
 
-describe("FullscreenOverlay — padrão-ouro: camada unificada com transporte central (v6)", () => {
-  it("pausado + idle: transporte central visível (play cobre o bezel) e inerte ao toque-fantasma; rodapé de pé (keepOpen)", () => {
-    act(() => {
-      render(<FullscreenOverlay {...makeProps({ isPlaying: false, videoSurfaceIdle: true })} />);
-    });
-    expect(queryMaskDisc()).toBeNull();
-    expect(queryPausedDisc()).toBeNull(); // v5 removido
-    const cluster = queryCentralCluster();
-    expect(cluster).not.toBeNull();
-    expect(cluster!.className).not.toContain("pointer-events-none"); // clicável
-    expect(queryCentralPlayPause()).not.toBeNull(); // play central presente
-    expect(cluster!.querySelectorAll("button").length).toBe(3); // prev/play/next
-    expect(queryTransportPlayPause()).not.toBeNull(); // rodapé também
-    expect(queryHiddenBottomControls()).toBeNull(); // visível
-    act(() => { vi.advanceTimersByTime(10000); });
-    expect(queryHiddenBottomControls()).toBeNull(); // keepOpen: continua visível
-    expect(queryCentralCluster()).not.toBeNull(); // central segue de pé
-  });
-
-  it("TOCANDO: tudo visível no início; após 4s tudo some JUNTO (centro limpo, pointer-events-none)", () => {
+describe("FullscreenOverlay — comportamento Alse Switch (v7): toque sempre minimiza", () => {
+  it("tocando: controles visíveis; após auto-hide tudo some JUNTO; sem transporte central", () => {
     act(() => {
       render(
         <FullscreenOverlay
@@ -119,34 +98,43 @@ describe("FullscreenOverlay — padrão-ouro: camada unificada com transporte ce
         />,
       );
     });
-    expect(queryCentralPlayPause()).not.toBeNull(); // central visível
+    expect(queryCentralCluster()).toBeNull(); // referência: sem centro no fullscreen
     expect(queryTransportPlayPause()).not.toBeNull();
-    expect(queryHiddenBottomControls()).toBeNull();
+    expect(queryHiddenBottomControls()).toBeNull(); // visível
     act(() => { vi.advanceTimersByTime(4000); });
-    const cluster = queryCentralCluster();
-    expect(cluster).not.toBeNull(); // ainda no DOM...
-    expect(cluster!.className).toContain("pointer-events-none"); // ...mas INERTE
-    expect(queryCentralPlayPause()).not.toBeNull(); // botão no DOM (opacity-0 no container)
-    expect(queryHiddenBottomControls()).not.toBeNull(); // rodapé esmaeceu junto
+    expect(queryHiddenBottomControls()).not.toBeNull(); // esmaeceu (auto-hide 3500)
+    expect(queryMaskDisc()).toBeNull();
+    expect(queryPausedDisc()).toBeNull();
   });
 
-  it("tocando + travado (live/stuck): transporte central de pé (keepOpen cobre o bezel congelado)", () => {
+  it("PAUSADO: auto-hide aplica (sem keepOpen) — e o TOQUE sempre alterna", () => {
     act(() => {
-      render(
-        <FullscreenOverlay
-          {...makeProps({ isPlaying: true, videoSurfaceIdle: true, surfaceBuffering: false })}
-        />,
-      );
+      render(<FullscreenOverlay {...makeProps({ isPlaying: false, videoSurfaceIdle: true })} />);
     });
-    act(() => { vi.advanceTimersByTime(10000); });
-    const cluster = queryCentralCluster();
-    expect(cluster).not.toBeNull();
-    expect(cluster!.className).not.toContain("pointer-events-none"); // clicável
-    expect(queryCentralPlayPause()).not.toBeNull();
-    expect(queryHiddenBottomControls()).toBeNull(); // controles visíveis
+    expect(queryTransportPlayPause()).not.toBeNull();
+    expect(queryHiddenBottomControls()).toBeNull(); // visível no início
+
+    // Toque na superfície com controles visíveis -> MINIMIZA (o bug era aqui:
+    // o keepOpen bloqueava o toque quando pausado)
+    act(() => { fireEvent.click(querySurface()!); });
+    expect(queryHiddenBottomControls()).not.toBeNull(); // minimizou ✓
+
+    // Toque de novo (após a janela de double-tap) -> revela e rearma o timer
+    act(() => { vi.advanceTimersByTime(400); });
+    act(() => { fireEvent.click(querySurface()!); });
+    expect(queryHiddenBottomControls()).toBeNull(); // visível ✓
+
+    // Sem interação -> auto-hide minimiza de novo (mesmo pausado)
+    act(() => { vi.advanceTimersByTime(4000); });
+    expect(queryHiddenBottomControls()).not.toBeNull(); // minimizou ✓
+
+    // Sem centro em nenhum momento
+    expect(queryCentralCluster()).toBeNull();
+    expect(queryMaskDisc()).toBeNull();
+    expect(queryPausedDisc()).toBeNull();
   });
 
-  it("buffering: controles de pé (keepOpen) — central e rodapé visíveis, sem disco", () => {
+  it("buffering: auto-hide aplica normalmente (sem keepOpen)", () => {
     act(() => {
       render(
         <FullscreenOverlay
@@ -154,12 +142,24 @@ describe("FullscreenOverlay — padrão-ouro: camada unificada com transporte ce
         />,
       );
     });
-    act(() => { vi.advanceTimersByTime(10000); });
-    expect(queryCentralPlayPause()).not.toBeNull();
-    expect(queryTransportPlayPause()).not.toBeNull();
-    expect(queryMaskDisc()).toBeNull();
-    expect(queryPausedDisc()).toBeNull();
     expect(queryHiddenBottomControls()).toBeNull();
+    act(() => { vi.advanceTimersByTime(4000); });
+    expect(queryHiddenBottomControls()).not.toBeNull(); // minimizou (antes ficava preso)
+  });
+
+  it("auto-hide configurável: valor do localStorage é respeitado (2000ms)", () => {
+    localStorage.setItem("demus-fs-autohide-ms", "2000");
+    act(() => {
+      render(
+        <FullscreenOverlay
+          {...makeProps({ isPlaying: true, videoSurfaceIdle: false, surfaceBuffering: false })}
+        />,
+      );
+    });
+    act(() => { vi.advanceTimersByTime(1800); });
+    expect(queryHiddenBottomControls()).toBeNull(); // ainda visível
+    act(() => { vi.advanceTimersByTime(400); });
+    expect(queryHiddenBottomControls()).not.toBeNull(); // minimizou em 2000ms
   });
 
   it("nenhum estado renderiza resíduo do antigo flash anti-bezel (fantasma sem ação)", () => {

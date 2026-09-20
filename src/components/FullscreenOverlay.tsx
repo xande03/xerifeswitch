@@ -8,7 +8,20 @@ import SeekBar from "@/components/SeekBar";
  *  para TODOS os players (Xerife Vídeos, Music modo Vídeo, Podcasts modo Vídeo)
  *  — TODOS JUNTOS, mesma duração. A preferência "Auto-ocultar (tela cheia)" foi
  *  removida das Configurações — comportamento único. */
-const AUTOHIDE_DEFAULT_MS = 4000;
+// ALSE-STYLE: auto-hide configurável pelo usuário (ms), persistido.
+const AUTOHIDE_OPTS = [2000, 3500, 5000, 8000] as const;
+const AUTOHIDE_DEFAULT = 3500;
+function readAutoHideMs(): number {
+  try {
+    const raw = localStorage.getItem("demus-fs-autohide-ms");
+    if (raw == null || raw === "") return AUTOHIDE_DEFAULT;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || !AUTOHIDE_OPTS.includes(n as any)) return AUTOHIDE_DEFAULT;
+    return n;
+  } catch {
+    return AUTOHIDE_DEFAULT;
+  }
+}
 
 
 interface FullscreenOverlayProps {
@@ -57,24 +70,11 @@ const FullscreenOverlay = ({
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const lastTapRef = useRef<number>(0);
 
-  // O centro do vídeo é intencionalmente livre: nenhum disco, flash ou botão
-  // do Xerife é renderizado ali. Play/Pause existe somente na barra inferior.
-  // MODO VÍDEO (keepOpen): pausado, finalizado, BUFFERING ou superfície idle
-  // (estado REAL do YT — falha, travamento, cue) os controles NÃO podem
-  // esconder — é quando o YouTube desenha título/canal/logo/botão central por
-  // conta própria. Quando a reprodução confirma, o keepOpen cai e os controles
-  // escondem TODOS JUNTOS no auto-hide padrão (4 s) — inclusive o centro.
-  useEffect(() => {
-    if (!videoMode) return;
-    if (!isPlaying || videoSurfaceIdle || surfaceBuffering) {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      setShowControls(true);
-    } else {
-      // Tocando de verdade: minimiza no mesmo timer dos demais controles.
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setShowControls(false), AUTOHIDE_DEFAULT_MS);
-    }
-  }, [videoMode, isPlaying, videoSurfaceIdle, surfaceBuffering]);
+  // ALSE-STYLE: o centro do vídeo é intencionalmente livre (nenhum disco,
+  // flash ou botão do app). Play/Pause existe somente na barra inferior — e os
+  // controles seguem UM único mecanismo: auto-hide configurável + toque na
+  // superfície SEMPRE alterna (inclusive pausado: o usuário decide quando
+  // minimizar).
   const QUALITY_OPTIONS: { value: string; label: string }[] = [
     { value: "auto", label: "Automática" },
     { value: "hd1080", label: "1080p60 (HD)" },
@@ -172,29 +172,21 @@ const FullscreenOverlay = ({
     };
   }, []);
 
-  // keepOpen refletido para o resetTimer: NUNCA armar auto-hide enquanto o
-  // estado REAL da superfície não confirma reprodução (pausado/buffering/idle
-  // em modo vídeo), mantendo Play/Pause disponível na barra inferior.
-  const keepOpenRef = useRef(false);
-  keepOpenRef.current = !!videoMode && (!isPlaying || videoSurfaceIdle || surfaceBuffering);
+  const autoHideMsRef = useRef<number>(readAutoHideMs());
 
+  // ALSE-STYLE: o timer SEMPRE arma — pausado inclusive. Minimizar é decisão
+  // do usuário (toque) ou do tempo, nunca do estado da reprodução.
   const resetTimer = useCallback(() => {
     setShowControls(true);
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (keepOpenRef.current) return;
-    timerRef.current = setTimeout(() => setShowControls(false), AUTOHIDE_DEFAULT_MS);
+    timerRef.current = setTimeout(() => setShowControls(false), autoHideMsRef.current);
   }, []);
 
   const handleSurfaceClick = useCallback(() => {
     // Ignore taps that were part of a pinch/pan gesture.
     if (gestureActiveRef.current) return;
-    // MODO VÍDEO pausado/buffering/superfície idle: overlay visível NUNCA
-    // esconde — esconder liberaria o branding do YouTube que aparece por
-    // conta própria.
-    if (videoMode && (!isPlaying || videoSurfaceIdle || surfaceBuffering) && showControls) {
-      lastTapRef.current = 0;
-      return;
-    }
+    // ALSE-STYLE: nenhum estado bloqueia o toque — pausado/buffering/idle
+    // inclusive, o usuário SEMPRE consegue minimizar os controles.
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
       // Double-tap: if zoomed, reset zoom instead of hiding controls.
@@ -301,6 +293,14 @@ const FullscreenOverlay = ({
     // Sync timer state with environment changes
     const onPipEnter = () => resetTimer();
     const onPipLeave = () => resetTimer();
+    // ALSE-STYLE: auto-hide alterado em outra aba/instância aplica na hora
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "demus-fs-autohide-ms") {
+        const n = Number(e.newValue);
+        if (AUTOHIDE_OPTS.includes(n as any)) autoHideMsRef.current = n;
+        resetTimer();
+      }
+    };
     const clearTransform = () => {
       const el = document.getElementById("yt-player");
       if (!el) return;
@@ -345,6 +345,7 @@ const FullscreenOverlay = ({
     try { (window as any).visualViewport?.addEventListener?.("resize", onOrientation); } catch {}
     try { orientationMql?.addEventListener?.("change", onOrientation); } catch {}
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("storage", onStorage);
 
 
     
@@ -362,6 +363,7 @@ const FullscreenOverlay = ({
       try { (window as any).visualViewport?.removeEventListener?.("resize", onOrientation); } catch {}
       try { orientationMql?.removeEventListener?.("change", onOrientation); } catch {}
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("storage", onStorage);
 
 
 
@@ -411,45 +413,6 @@ const FullscreenOverlay = ({
         <div className="absolute inset-0 z-[205] bg-black pointer-events-none" aria-hidden />
       )}
 
-      {/* ── TRANSPORTE CENTRAL (padrão-ouro: camada unificada) ──
-          prev / play-pause / next compartilham o MESMO showControls das
-          barras: aparecem juntos, somem juntos (fade 300ms; pointer-events
-          -none quando ocultos — o vídeo fica 100% limpo e qualquer toque
-          volta para a superfície). stopPropagation em cada botão impede o
-          clique de subir e fechar os controles. Pausado (keepOpen) ficam
-          de pé — o play central cobre o bezel do YouTube (substitui o
-          disco de capa v5). */}
-      {videoMode && !isEnded && (
-        <div
-          className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-300 ${
-            showControls ? "opacity-100" : "opacity-0"
-          }`}
-        >
-          <div data-central-transport className={`flex items-center justify-center gap-6 ${showControls ? "" : "pointer-events-none"}`}>
-            <button
-              onClick={(e) => { e.stopPropagation(); onPrev(); }}
-              aria-label="Anterior"
-              className="p-3 rounded-full bg-black/45 backdrop-blur-sm text-white hover:bg-black/65 active:scale-90 transition"
-            >
-              <SkipBack size={24} fill="currentColor" />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
-              aria-label={isPlaying ? "Pausar" : "Reproduzir"}
-              className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30 active:scale-90 transition-transform shadow-xl shadow-black/40"
-            >
-              {isPlaying ? <Pause size={30} fill="currentColor" /> : <Play size={30} fill="currentColor" className="ml-1" />}
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onNext(); }}
-              aria-label="Próxima"
-              className="p-3 rounded-full bg-black/45 backdrop-blur-sm text-white hover:bg-black/65 active:scale-90 transition"
-            >
-              <SkipForward size={24} fill="currentColor" />
-            </button>
-          </div>
-        </div>
-      )}
 
 
       {/* Top bar — respeita safe-area (notch / Dynamic Island) sem afetar o vídeo,

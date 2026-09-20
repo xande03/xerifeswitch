@@ -851,7 +851,10 @@ const Index = () => {
   // playVideo ignorado, erro sem evento). Só quando o vídeo está RODANDO é que
   // os controles minimizam — TODOS JUNTOS, no mesmo timer de 4s.
   useEffect(() => {
-    const shouldKeepOpen = expanded && playerMode === "video" && (!isPlaying || playerState.videoSurfaceIdle || playerState.surfaceBuffering);
+    // ALSE-STYLE: keepOpen apenas quando PAUSADO (usuário precisa ver
+    // play/seek/tempo). Superfície idle/buffering NÃO seguram mais os
+    // controles — e em NENHUM estado o clique de minimizar é bloqueado.
+    const shouldKeepOpen = expanded && playerMode === "video" && !isPlaying;
     videoOverlayKeepOpenRef.current = shouldKeepOpen;
     if (videoOverlayTimerRef.current) {
       clearTimeout(videoOverlayTimerRef.current);
@@ -2185,19 +2188,11 @@ const Index = () => {
                 aria-label={showVideoOverlayControls ? "Ocultar controles" : "Mostrar controles"}
                 onClick={(e) => {
                   e.stopPropagation();
-                  // Anti toque-fantasma/duplicado: janela mínima de 300ms entre toggles —
-                  // evita que 2 toques rápidos escondam e reexibam na mesma intenção.
-                  const now = Date.now();
-                  if (now - videoOverlayTapGuardRef.current < 300) return;
-                  videoOverlayTapGuardRef.current = now;
+                  // ALSE-STYLE (referência): o toque SEMPRE alterna — inclusive
+                  // pausado/buffering/idle. O keepOpen apenas segura o AUTO-HIDE
+                  // (usuário vendo play/seek quando pausado); ele NUNCA bloqueia
+                  // o clique do usuário em minimizar os controles.
                   if (showVideoOverlayControls) {
-                    // Pausado/finalizado/buffering/superfície idle (falha ou
-                    // travamento) o overlay NÃO pode esconder: é exatamente nesse
-                    // estado que o YouTube desenha título/canal/logo/botão central
-                    // — as máscaras precisam continuar cobrindo. O keepOpenRef já
-                    // agrega o estado REAL completo (inclui surfaceBuffering).
-                    // Durante a reprodução real esconde normal (4s auto-hide).
-                    if (videoOverlayKeepOpenRef.current) { revealVideoOverlay(); return; }
                     if (videoOverlayTimerRef.current) { clearTimeout(videoOverlayTimerRef.current); videoOverlayTimerRef.current = null; }
                     setShowVideoOverlayControls(false);
                   } else {
@@ -2223,33 +2218,37 @@ const Index = () => {
                     (keepOpen) ficam de pé — e o play central cobre o bezel
                     do YouTube no centro (substitui o disco de capa v5). */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div data-central-transport className={`flex items-center justify-center gap-5 sm:gap-7 transition-opacity duration-300 ${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"}`}>
+                  <div data-central-transport className={`flex items-center justify-center gap-8 sm:gap-12 transition-opacity duration-300 ${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"}`}>
                     <button
                       onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handlePrev(); }}
                       aria-label="Anterior"
                       title="Anterior"
-                      className="p-3 rounded-full bg-black/45 backdrop-blur-sm text-white hover:bg-black/65 active:scale-90 transition"
+                      className="p-3 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/65 active:scale-90 transition"
                     >
-                      <SkipBack size={24} fill="currentColor" />
+                      <SkipBack size={22} fill="currentColor" />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleTogglePlay(); }}
                       aria-label={isPlaying ? "Pausar" : "Reproduzir"}
                       title={isPlaying ? "Pausar" : "Reproduzir"}
-                      className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30 active:scale-90 transition-transform shadow-xl shadow-black/40"
+                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition flex items-center justify-center"
                     >
-                      {isPlaying ? <Pause size={30} fill="currentColor" /> : <Play size={30} fill="currentColor" className="ml-1" />}
+                      {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleNext(); }}
                       aria-label="Próximo"
                       title="Próximo"
-                      className="p-3 rounded-full bg-black/45 backdrop-blur-sm text-white hover:bg-black/65 active:scale-90 transition"
+                      className="p-3 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/65 active:scale-90 transition"
                     >
-                      <SkipForward size={24} fill="currentColor" />
+                      <SkipForward size={22} fill="currentColor" />
                     </button>
                   </div>
                 </div>
+
+                {/* Dimming gradient behind controls — some JUNTO com eles
+                    (camada unificada); oculto = vídeo 100% limpo */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60 pointer-events-none" />
 
                 {/* Back / minimize (top-left) */}
                 <button
