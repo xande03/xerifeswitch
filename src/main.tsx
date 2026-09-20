@@ -84,6 +84,9 @@ if (import.meta.env.PROD && !isNativePlatform() && !isPreviewEnvironment()) {
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") setTimeout(checkForNewBuild, 800);
     });
+    // Também no boot: PWA que abriu direto num build antigo (SW ainda
+    // atualizando) recarrega sozinho para o novo em vez de esperar o foco.
+    setTimeout(checkForNewBuild, 3000);
     setInterval(checkForNewBuild, 15 * 60 * 1000);
   }
 }

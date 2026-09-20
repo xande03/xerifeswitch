@@ -1,9 +1,12 @@
-// v14 (2026-09-19): bump + auto-update no foco (main.tsx) — PWA aberto por
-// dias rodava JS antigo em memória (símbolo do player que 'não sumia' no
-// Netlify). v14 invalida todos os caches; o app agora também confere sozinho
-// se há build novo publicado ao voltar ao foco e recarrega na hora.
-const STATIC_CACHE = 'xerife-static-v14';
-const MEDIA_CACHE = 'xerife-media-v14';
+// v15 (2026-09-20): bump para forçar a atualização de PWAs presas em SWs
+// antigos (pré-v14, era cache-first) — comportamento relatado: o app rodava
+// build antigo no domínio do Netlify enquanto o preview (sem SW) mostrava o
+// novo. v15 mantém: navigation network-first, assets-hasheados cache-first
+// (imutáveis), skipWaiting + clients.claim + limpeza de TODOS os caches
+// antigos no activate. Com os headers do netlify.toml, sw.js/index.html não
+// passam mais por cache HTTP.
+const STATIC_CACHE = 'xerife-static-v15';
+const MEDIA_CACHE = 'xerife-media-v15';
 const CACHES = [STATIC_CACHE, MEDIA_CACHE];
 
 // ── Media Playback Session Tracking ──

@@ -1,0 +1,30 @@
+# Netlify — build + headers de cache (2026-09-20)
+# Motivo: PWAs/browsers podiam servir sw.js e index.html de cache HTTP
+# antigo, mantendo o app preso num build velho no domínio do Netlify
+# (enquanto o preview de dev, sem SW, mostrava o novo). Agora:
+#  - sw.js e index.html: SEMPRE revalidados com o servidor
+#  - assets hasheados (/assets/*): imutáveis, cache de 1 ano
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Service-Worker-Allowed = "/"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

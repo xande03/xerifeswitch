@@ -253,8 +253,19 @@ const HeaderMenu = ({
             <div className="flex items-center justify-between gap-2">
               <div className="flex flex-col gap-0.5">
                 <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-tight">Versão do App</span>
-                <span className="text-[10px] text-muted-foreground/80 font-medium">v1.3.0 • Jun 2026</span>
-                <span className="text-[8px] text-muted-foreground/50 tracking-tighter">Última atualização: 21/06/2026</span>
+                <span className="text-[10px] text-muted-foreground/80 font-medium">
+                  {(() => {
+                    // Build REAL (git SHA + data, injetado no build e exposto no
+                    // <html data-app-build> pelo main.tsx) — se esta linha não
+                    // mostrar o build mais recente, o app está rodando versão
+                    // antiga em cache: feche e reabra (ou limpe os dados do site).
+                    const b = document.documentElement.dataset.appBuild || "";
+                    const [sha, date] = b.split("-");
+                    if (!sha) return "dev";
+                    const d = date ? `${date.slice(8, 10)}/${date.slice(5, 7)}/${date.slice(0, 4)}` : "";
+                    return `${sha} • ${d}`;
+                  })()}
+                </span>
               </div>
               <ChevronDown size={14} className={`text-muted-foreground transition-transform ${showServerStatus ? "rotate-180" : ""}`} />
             </div>
