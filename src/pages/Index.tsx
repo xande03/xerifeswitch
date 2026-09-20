@@ -852,25 +852,24 @@ const Index = () => {
   // playVideo ignorado, erro sem evento). Só quando o vídeo está RODANDO é que
   // os controles minimizam — TODOS JUNTOS, no mesmo timer de 4s.
   useEffect(() => {
-    // ALSE-STYLE: keepOpen apenas quando PAUSADO (usuário precisa ver
-    // play/seek/tempo). Superfície idle/buffering NÃO seguram mais os
-    // controles — e em NENHUM estado o clique de minimizar é bloqueado.
+    // ALSE-STYLE (exato): keepOpen apenas quando PAUSADO. Durante a
+    // reprodução vale UM único mecanismo — revela no resume e minimiza no
+    // timer de 4s. Oscilações de rede (buffering/idle/surface) NÃO
+    // re-armam nem re-mostram os controles: eram a causa do "botão de
+    // pause sempre ativo" no Netlify (cada hiccup de rede limpava o timer
+    // e os controles nunca escondiam; no preview com rede estável, sim).
     const shouldKeepOpen = expanded && playerMode === "video" && !isPlaying;
     videoOverlayKeepOpenRef.current = shouldKeepOpen;
-    if (videoOverlayTimerRef.current) {
-      clearTimeout(videoOverlayTimerRef.current);
-      videoOverlayTimerRef.current = null;
-    }
     if (shouldKeepOpen) {
+      if (videoOverlayTimerRef.current) {
+        clearTimeout(videoOverlayTimerRef.current);
+        videoOverlayTimerRef.current = null;
+      }
       setShowVideoOverlayControls(true);
     } else if (expanded && playerMode === "video") {
-      // Mesma régua dos demais controles: minimiza após alguns segundos de
-      // inatividade — nunca instantâneo, nunca deixando resíduo no centro.
-      videoOverlayTimerRef.current = setTimeout(() => {
-        if (!videoOverlayInteractingRef.current) setShowVideoOverlayControls(false);
-      }, 4000);
+      revealVideoOverlay();
     }
-  }, [isPlaying, expanded, playerMode, playerState.videoSurfaceIdle, playerState.surfaceBuffering, revealVideoOverlay]);
+  }, [isPlaying, expanded, playerMode, revealVideoOverlay]);
 
   const { trendingSongs, isLoading: trendingLoading } = useTrendingMusic();
   useNativeCapabilities(isPlaying);

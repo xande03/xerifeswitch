@@ -524,7 +524,6 @@ export function useYouTubePlayer(containerId: string) {
   // Anti-bezel: debounce dos nudges de pausa/resume + momento da última pausa
   // visível (qualquer origem) — base do repaint pós-resume do play().
   const lastPauseNudgeRef = useRef(0);
-  const lastResumeNudgeRef = useRef(0);
   const lastPausedAtRef = useRef(0);
   const userGestureRef = useRef(false);
   const userPausedRef = useRef(false);
@@ -1577,18 +1576,11 @@ export function useYouTubePlayer(containerId: string) {
     playerRef.current?.playVideo?.();
     applyVolumeToPlayer(targetVolumeRef.current);
 
-    // ── REPAINT PÓS-RESUME (anti-bezel congelado, 2026-09-19) ─────────────
-    // Em navegadores mobile reais o bezel de pausa do YouTube pode ficar
-    // pintado (camada de UI do embed congelada) mesmo DEPOIS de retomar: o
-    // tempo volta a avançar (o watchdog de stall não dispara) e o símbolo ⏸
-    // fica estático no centro enquanto os controles minimizam normalmente.
-    // Micro-seeks na posição atual (400/1200ms, só enquanto TOCANDO) reacordam
-    // a UI do embed e apagam o bezel residual. Apenas quando houve pausa
-    // recente (janela de 120s) — nunca em load/play fresco.
-    if (lastPausedAtRef.current && Date.now() - lastPausedAtRef.current < 120_000) {
-      scheduleBezelNudge(playerRef.current, 'PLAYING', [400, 1200], lastResumeNudgeRef, 5_000);
-      [400, 1200].forEach((d) => window.setTimeout(forceIframeRecomposite, d));
-    }
+    // (REMOVIDO 2026-09-20) Nudges pós-resume: os micro-seeks faziam o YT
+    // oscilar BUFFERING↔PLAYING logo após o play — cada oscilação re-armava
+    // o timer dos controles do player ("pause sempre ativo" no Netlify).
+    // Nunca apagaram o bezel no device do usuário de qualquer forma; a
+    // solução real é o poster do estado pausado (PausedVideoPoster).
 
     // Em segundo plano / tela bloqueada o iframe pode ignorar o primeiro
     // playVideo() (sessão de áudio ainda reativando). Tentamos novamente.
