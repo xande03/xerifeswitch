@@ -1014,7 +1014,7 @@ export function useYouTubePlayer(containerId: string) {
               // quando o pause NÃO veio do pause() do app.
               lastPausedAtRef.current = Date.now();
               scheduleBezelNudge(playerRef.current, 'PAUSED', [150, 450, 900, 2000], lastPauseNudgeRef);
-              [150, 450, 1000].forEach((d) => window.setTimeout(forceIframeRecomposite, d));
+              [150, 450, 1000].forEach((d) => window.setTimeout(forceIframeHardReset, d));
 
               // Página visível e acabamos de chamar pause() (dentro de 500ms): legítimo
               if (timeSincePause < 500 && userPausedRef.current) {
@@ -1605,31 +1605,37 @@ export function useYouTubePlayer(containerId: string) {
   }, [applyVolumeToPlayer, clearUserPausedFlag]);
 
 
-  // ── RE-COMPOSITE DO IFRAME (anti-bezel congelado, camada DOM) ─────────────
-  // Em devices reais o bezel de pausa do YouTube pode congelar na CAMADA
-  // PINTADA do iframe (compositor) e sobreviver até a micro-seeks via API
-  // (seekTo repinta o vídeo, não necessariamente a camada de UI do embed).
-  // Um transform CSS breve (scale 1.002 -> reset) no PRÓPRIO elemento iframe
-  // invalida a camada no compositor do navegador: ele descarta o bitmap
-  // antigo e re-rasteriza — o bezel congelado não sobrevive. É DOM nosso,
-  // não depende da API cross-origin.
+  // ── HARD RESET DA CAMADA DO IFRAME (anti-bezel congelado, 2026-09-20) ──────
+  // Em devices reais o bezel de pausa do YouTube congela na CAMADA PINTADA
+  // do iframe (bitmap stale do compositor): micro-seeks (seekTo), transforms
+  // CSS e reflow de 1px NÃO garantem a re-rasterização dessa textura — o
+  // sintoma: pausado o poster cobre tudo (tela limpa), mas ao RETOMAR o
+  // poster sai e o bezel congelado no momento da pausa é revelado em cima
+  // do vídeo tocando.
+  // Solução definitiva: destruir a camada com display:none por 120ms — o
+  // compositor descarta o render tree inteiro do iframe e o recria limpo ao
+  // voltar. SEGURO porque só roda em contexto PAUSADO (guarda
+  // getPlayerState===PAUSED): o poster do app cobre a tela nesse instante e
+  // não há mídia ativa para suspender. O elemento/documento do iframe
+  // permanecem vivos (display não recarrega iframe) — a API do YT continua
+  // de pé. Debounce 700ms contra toggles rápidos.
   const iframeNudgeAtRef = useRef(0);
-  const forceIframeRecomposite = useCallback(() => {
+  const forceIframeHardReset = useCallback(() => {
     try {
+      const p = playerRef.current as any;
+      const PS = (window as any)?.YT?.PlayerState;
+      // Só em pausa real (poster de pé): nunca durante a reprodução.
+      if (PS && p?.getPlayerState && p.getPlayerState() !== PS.PAUSED) return;
       const slot = document.getElementById(containerId);
       const iframe = slot?.querySelector("iframe") as HTMLIFrameElement | null;
       if (!iframe) return;
       const now = Date.now();
       if (now - iframeNudgeAtRef.current < 700) return; // debounce
       iframeNudgeAtRef.current = now;
-      // REFLOW real (scale pode ser aplicado pelo compositor SEM re-rasterizar
-      // a textura congelada): 1px de largura força o embed a re-layout e
-      // REPINTAR o conteúdo interno — o bezel congelado não sobrevive.
-      const w0 = iframe.getBoundingClientRect().width;
-      iframe.style.width = `${Math.round(w0) + 1}px`;
+      iframe.style.display = "none";
       window.setTimeout(() => {
-        iframe.style.width = "";
-      }, 140);
+        iframe.style.display = "";
+      }, 120);
     } catch { /* no-op */ }
   }, [containerId]);
 
@@ -1655,7 +1661,7 @@ export function useYouTubePlayer(containerId: string) {
     // Re-composite da camada do iframe nos mesmos marcos (o seekTo repinta o
     // frame de VÍDEO; o transform força o navegador a descartar a camada
     // inteira — único jeito confiável de apagar o bezel congelado).
-    [150, 450, 1000].forEach((d) => window.setTimeout(forceIframeRecomposite, d));
+    [150, 450, 1000].forEach((d) => window.setTimeout(forceIframeHardReset, d));
   }, [markUserPausedIntent, setUserPausedFlag]);
 
   const seekTo = useCallback((seconds: number) => {
