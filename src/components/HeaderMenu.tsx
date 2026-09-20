@@ -65,6 +65,43 @@ const HeaderMenu = ({
 }: HeaderMenuProps) => {
   const [open, setOpen] = useState(false);
   const [showServerStatus, setShowServerStatus] = useState(false);
+  const [updateState, setUpdateState] = useState<"idle" | "checking" | "latest">("idle");
+
+  /** Força a atualização do app: limpa caches do SW, pede o update do
+   *  Service Worker, confere o bundle publicado no servidor e recarrega
+   *  se houver build novo — resolve PWA preso em versão antiga. */
+  const checkUpdateNow = async () => {
+    if (updateState === "checking") return;
+    setUpdateState("checking");
+    try {
+      if (navigator.serviceWorker?.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: "CLEAR_CACHES" });
+      }
+      const reg = await navigator.serviceWorker?.getRegistration();
+      await reg?.update().catch(() => {});
+      const res = await fetch(`/?_v=${Date.now()}`, { cache: "no-store" });
+      const html = await res.text();
+      const m = html.match(/assets\/index-[^"']+\.js/);
+      const el = document.querySelector<HTMLScriptElement>('script[src*="/assets/index-"]');
+      const current = el ? new URL(el.src, location.href).pathname : null;
+      const latest = m ? "/" + m[0] : null;
+      if (latest && current && latest !== current) {
+        location.reload(); // build novo publicado: recarrega para ele
+        return;
+      }
+      // Mesmo bundle: recarrega mesmo assim para aplicar o SW que acabou
+      // de atualizar/assumir (se houver um esperando).
+      if (reg?.waiting) {
+        reg.waiting.postMessage({ type: "SKIP_WAITING" });
+        setTimeout(() => location.reload(), 400);
+        return;
+      }
+      setUpdateState("latest");
+      setTimeout(() => setUpdateState("idle"), 2500);
+    } catch {
+      setUpdateState("idle");
+    }
+  };
   const [showLockGuide, setShowLockGuide] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(() => localStorage.getItem('demus-reduced-motion') === 'true');
 
@@ -271,8 +308,15 @@ const HeaderMenu = ({
             </div>
           </button>
           {showServerStatus && (
-            <div className="px-3 py-3 border-t border-border bg-muted/10">
+            <div className="px-3 py-3 border-t border-border bg-muted/10 space-y-2.5">
               <AppHeartbeatStatus />
+              <button
+                onClick={checkUpdateNow}
+                disabled={updateState === "checking"}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-primary/90 hover:bg-primary text-primary-foreground text-[11px] font-bold transition active:scale-[0.98] disabled:opacity-60"
+              >
+                {updateState === "checking" ? "Verificando…" : updateState === "latest" ? "✓ Você está na versão mais recente" : "Verificar atualização"}
+              </button>
             </div>
           )}
         </div>
