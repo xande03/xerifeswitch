@@ -58,7 +58,6 @@ import BottomNav from "@/components/BottomNav";
 import DesktopSidebar from "@/components/DesktopSidebar";
 import DesktopTopIsland from "@/components/DesktopTopIsland";
 import DesktopPlayerIsland from "@/components/DesktopPlayerIsland";
-import PausedCoverDisc from "@/components/PausedCoverDisc";
 import SearchSkeleton from "@/components/SearchSkeleton";
 import SidebarPlayer from "@/components/SidebarPlayer";
 
@@ -2154,17 +2153,6 @@ const Index = () => {
           </div>
 
 
-          {/* DISCO DE CAPA DO ESTADO PAUSADO (regra v5): o bezel de pausa do
-              YouTube (círculo + duas barras, cross-origin) congela na tela em
-              navegadores mobile reais mesmo com os micro-seeks de repaint.
-              Disco discreto com a capa cobre o centro APENAS enquanto
-              pausado/travado (nunca tocando, nunca buffering — spinner do YT,
-              nunca finalizado — capa própria z-214); some ao retomar.
-              pointer-events-none: toques seguem para o tap catcher. */}
-          {expanded && playerMode === "video" && !nativeVideoActive && !isPlayingOffline && !playerState.isFullscreen && !playerState.isEnded && !playerState.surfaceBuffering && (!playerState.isPlaying || playerState.videoSurfaceIdle) && (
-            <PausedCoverDisc cover={currentSong?.cover} />
-          )}
-
           {/* QualityBadge — agora segue a mesma regra de visibilidade dos demais controles
               (showVideoOverlayControls): TODOS juntos, mesma duração de 4s. */}
           {expanded && playerMode === "video" && !playerState.isFullscreen && (
@@ -2226,6 +2214,43 @@ const Index = () => {
                   showVideoOverlayControls ? 'opacity-100' : 'opacity-0'
                 }`}
               >
+                {/* ── TRANSPORTE CENTRAL (padrão-ouro: camada unificada) ──
+                    prev / play-pause / next compartilham o MESMO estado
+                    showVideoOverlayControls: aparecem com os controles e
+                    somem JUNTOS com eles (fade 300ms + pointer-events-none).
+                    stopPropagation em cada botão: o clique não sobe para a
+                    superfície (não fecha os controles). Quando pausado
+                    (keepOpen) ficam de pé — e o play central cobre o bezel
+                    do YouTube no centro (substitui o disco de capa v5). */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div data-central-transport className={`flex items-center justify-center gap-5 sm:gap-7 transition-opacity duration-300 ${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"}`}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handlePrev(); }}
+                      aria-label="Anterior"
+                      title="Anterior"
+                      className="p-3 rounded-full bg-black/45 backdrop-blur-sm text-white hover:bg-black/65 active:scale-90 transition"
+                    >
+                      <SkipBack size={24} fill="currentColor" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleTogglePlay(); }}
+                      aria-label={isPlaying ? "Pausar" : "Reproduzir"}
+                      title={isPlaying ? "Pausar" : "Reproduzir"}
+                      className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30 active:scale-90 transition-transform shadow-xl shadow-black/40"
+                    >
+                      {isPlaying ? <Pause size={30} fill="currentColor" /> : <Play size={30} fill="currentColor" className="ml-1" />}
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleNext(); }}
+                      aria-label="Próximo"
+                      title="Próximo"
+                      className="p-3 rounded-full bg-black/45 backdrop-blur-sm text-white hover:bg-black/65 active:scale-90 transition"
+                    >
+                      <SkipForward size={24} fill="currentColor" />
+                    </button>
+                  </div>
+                </div>
+
                 {/* Back / minimize (top-left) */}
                 <button
                   onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); playerState.isFullscreen ? exitFullscreen() : setExpanded(false); }}

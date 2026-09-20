@@ -3,7 +3,6 @@ import { ChevronDown, Play, Pause, SkipBack, SkipForward, ArrowLeft, Settings2, 
 import { track as trackMetric } from "@/lib/playbackMetrics";
 import { Song, formatDuration } from "@/data/mockSongs";
 import SeekBar from "@/components/SeekBar";
-import PausedCoverDisc from "@/components/PausedCoverDisc";
 
 /** Delay fixo para auto-ocultar os controles do fullscreen — UNIFICADO 4s
  *  para TODOS os players (Xerife Vídeos, Music modo Vídeo, Podcasts modo Vídeo)
@@ -412,13 +411,44 @@ const FullscreenOverlay = ({
         <div className="absolute inset-0 z-[205] bg-black pointer-events-none" aria-hidden />
       )}
 
-      {/* DISCO DE CAPA DO ESTADO PAUSADO (regra v5): cobre o bezel de pausa
-          do YouTube (cross-origin, congela em navegadores mobile reais)
-          APENAS enquanto pausado/travado. Nunca tocando (centro limpo),
-          nunca buffering (spinner), nunca finalizado (capa opaca acima).
-          pointer-events-none: os toques seguem para o handler da superfície. */}
-      {videoMode && !isEnded && !surfaceBuffering && (!isPlaying || videoSurfaceIdle) && (
-        <PausedCoverDisc cover={song?.cover} zIndexClass="z-[206]" />
+      {/* ── TRANSPORTE CENTRAL (padrão-ouro: camada unificada) ──
+          prev / play-pause / next compartilham o MESMO showControls das
+          barras: aparecem juntos, somem juntos (fade 300ms; pointer-events
+          -none quando ocultos — o vídeo fica 100% limpo e qualquer toque
+          volta para a superfície). stopPropagation em cada botão impede o
+          clique de subir e fechar os controles. Pausado (keepOpen) ficam
+          de pé — o play central cobre o bezel do YouTube (substitui o
+          disco de capa v5). */}
+      {videoMode && !isEnded && (
+        <div
+          className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-300 ${
+            showControls ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <div data-central-transport className={`flex items-center justify-center gap-6 ${showControls ? "" : "pointer-events-none"}`}>
+            <button
+              onClick={(e) => { e.stopPropagation(); onPrev(); }}
+              aria-label="Anterior"
+              className="p-3 rounded-full bg-black/45 backdrop-blur-sm text-white hover:bg-black/65 active:scale-90 transition"
+            >
+              <SkipBack size={24} fill="currentColor" />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
+              aria-label={isPlaying ? "Pausar" : "Reproduzir"}
+              className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30 active:scale-90 transition-transform shadow-xl shadow-black/40"
+            >
+              {isPlaying ? <Pause size={30} fill="currentColor" /> : <Play size={30} fill="currentColor" className="ml-1" />}
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onNext(); }}
+              aria-label="Próxima"
+              className="p-3 rounded-full bg-black/45 backdrop-blur-sm text-white hover:bg-black/65 active:scale-90 transition"
+            >
+              <SkipForward size={24} fill="currentColor" />
+            </button>
+          </div>
+        </div>
       )}
 
 

@@ -4,24 +4,24 @@ import React from "react";
 import FullscreenOverlay from "@/components/FullscreenOverlay";
 
 /**
- * REGRA DE OURO DO CENTRO — v5 (2026-09-19, escolha do usuário):
- * "Centro do vídeo 100% limpo ENQUANTO TOCANDO": nenhuma overlay central do
- * app durante a reprodução — nem botão Play/Pause central, nem flash, nem
- * disco. O play/pause em qualquer estado fica SOMENTE nos controles do Xerife
- * (transporte do rodapé / barra inferior).
+ * REGRA DE OURO DO CENTRO — v6 (2026-09-19, padrão-ouro "Alse Switch"):
+ * "Camada de Sobreposição Unificada com Temporizador de Inatividade":
  *
- * EXCEÇÃO ÚNICA (aprovada pelo usuário após o bezel de pausa do YouTube
- * persistir congelado em device real mesmo com os micro-seeks de repaint):
- * o DISCO DE CAPA DO ESTADO PAUSADO ([data-paused-cover-disc]) — discreto,
- * sem ícones, pointer-events-none — cobre o bezel cross-origin do YouTube
- * APENAS enquanto pausado/travado e some no instante em que retoma.
+ *  1. ESTADO ÚNICO (showControls): barra superior, barra inferior E o
+ *     transporte central (Anterior / Play-Pause / Próxima) compartilham o
+ *     mesmo boolean — aparecem juntos e somem juntos (fade 300ms).
+ *  2. AUTO-HIDE: sem interação por 4s, tudo some suavemente.
+ *  3. TOQUE NA SUPERFÍCIE: visível -> esconde; oculto -> revela + reinicia
+ *     o timer (handleSurfaceClick).
+ *  4. PROTEÇÃO CONTRA CLIQUES ACIDENTAIS: oculto = opacity-0 +
+ *     pointer-events-none — vídeo 100% limpo; qualquer toque vai direto
+ *     para a superfície.
+ *  5. ISOLAMENTO (stopPropagation): clicar em qualquer controle não fecha
+ *     os controles.
  *
- * O que permanece (e é testado):
- * - Transporte do rodapé com Play/Pause (w-14) — a única forma de controlar.
- * - keepOpen: controles visíveis quando pausado/idle/buffering; auto-hide (4s)
- *   quando tocando de verdade.
- * - Disco de pausa: presente+inerte quando pausado/travado; AUSENTE quando
- *   tocando, buffering (spinner do YT) ou finalizado (capa opaca própria).
+ * keepOpen (pausado/idle/buffering em modo vídeo): tudo permanece de pé —
+ * e o PLAY CENTRAL cobre o bezel de pausa do YouTube (substitui o disco de
+ * capa v5, removido).
  */
 
 const song = {
@@ -51,29 +51,34 @@ function makeProps(overrides: Partial<React.ComponentProps<typeof FullscreenOver
   };
 }
 
-/** Qualquer disco/círculo central do app. */
+/** Antigo disco preto central (v3) — não pode voltar. */
 function queryMaskDisc() {
   return document.querySelector(".rounded-full.bg-black.w-\\[84px\\]");
 }
 
-/** Disco de capa do estado pausado (exceção v5) — deve ser INERTE. */
+/** Disco de capa do estado pausado (v5) — REMOVIDO na v6. */
 function queryPausedDisc() {
   return document.querySelector("[data-paused-cover-disc]");
 }
 
-/** Qualquer botão central grande (play ou pause). */
-function queryBigCenterButton() {
-  return document.querySelector('button[aria-label="Reproduzir"].rounded-full.bg-white\\/15, button[aria-label="Pausar"].rounded-full.bg-white\\/15');
+/** Transporte central unificado (v6) — linha prev/play/next. */
+function queryCentralCluster() {
+  return document.querySelector("[data-central-transport]");
 }
 
-/** O transporte do rodapé (w-14, bg-white/20) — o ÚNICO play/pause. */
+/** Botão central Play/Pause (w-16, bg-white/20 — distinto do rodapé w-14). */
+function queryCentralPlayPause() {
+  return document.querySelector('button[aria-label="Pausar"].w-16, button[aria-label="Reproduzir"].w-16');
+}
+
+/** O transporte do rodapé (w-14, bg-white/20). */
 function queryTransportPlayPause() {
-  return document.querySelector('button.w-14.rounded-full.bg-white\\/20');
+  return document.querySelector("button.w-14.rounded-full.bg-white\\/20");
 }
 
 /** O container do rodapé no estado OCULTO (opacity-0). */
 function queryHiddenBottomControls() {
-  return document.querySelector('.bg-gradient-to-t.opacity-0');
+  return document.querySelector(".bg-gradient-to-t.opacity-0");
 }
 
 beforeEach(() => {
@@ -87,24 +92,26 @@ afterEach(() => {
   document.getElementById("yt-player")?.remove();
 });
 
-describe("FullscreenOverlay — centro 100% limpo (nenhum overlay central do app)", () => {
-  it("pausado + idle: disco de capa cobre o bezel (inerte); rodapé visível (keepOpen)", () => {
+describe("FullscreenOverlay — padrão-ouro: camada unificada com transporte central (v6)", () => {
+  it("pausado + idle: transporte central visível (play cobre o bezel) e inerte ao toque-fantasma; rodapé de pé (keepOpen)", () => {
     act(() => {
       render(<FullscreenOverlay {...makeProps({ isPlaying: false, videoSurfaceIdle: true })} />);
     });
     expect(queryMaskDisc()).toBeNull();
-    expect(queryBigCenterButton()).toBeNull(); // nenhum BOTÃO central
-    const disc = queryPausedDisc();
-    expect(disc).not.toBeNull(); // disco de capa presente (exceção v5)
-    expect(disc!.className).toContain("pointer-events-none"); // inerte (jsdom não computa classes tailwind)
-    expect(disc!.querySelector("button")).toBeNull(); // sem botão dentro
-    expect(queryTransportPlayPause()).not.toBeNull(); // play/pause do rodapé
+    expect(queryPausedDisc()).toBeNull(); // v5 removido
+    const cluster = queryCentralCluster();
+    expect(cluster).not.toBeNull();
+    expect(cluster!.className).not.toContain("pointer-events-none"); // clicável
+    expect(queryCentralPlayPause()).not.toBeNull(); // play central presente
+    expect(cluster!.querySelectorAll("button").length).toBe(3); // prev/play/next
+    expect(queryTransportPlayPause()).not.toBeNull(); // rodapé também
     expect(queryHiddenBottomControls()).toBeNull(); // visível
     act(() => { vi.advanceTimersByTime(10000); });
     expect(queryHiddenBottomControls()).toBeNull(); // keepOpen: continua visível
+    expect(queryCentralCluster()).not.toBeNull(); // central segue de pé
   });
 
-  it("TOCANDO: centro limpo antes e depois do auto-hide; rodapé esmaece após 4s", () => {
+  it("TOCANDO: tudo visível no início; após 4s tudo some JUNTO (centro limpo, pointer-events-none)", () => {
     act(() => {
       render(
         <FullscreenOverlay
@@ -112,19 +119,18 @@ describe("FullscreenOverlay — centro 100% limpo (nenhum overlay central do app
         />,
       );
     });
-    expect(queryMaskDisc()).toBeNull();
-    expect(queryBigCenterButton()).toBeNull();
-    expect(queryPausedDisc()).toBeNull(); // centro limpo enquanto TOCANDO
+    expect(queryCentralPlayPause()).not.toBeNull(); // central visível
     expect(queryTransportPlayPause()).not.toBeNull();
-    expect(queryHiddenBottomControls()).toBeNull(); // ainda visível
+    expect(queryHiddenBottomControls()).toBeNull();
     act(() => { vi.advanceTimersByTime(4000); });
-    expect(queryMaskDisc()).toBeNull();
-    expect(queryBigCenterButton()).toBeNull();
-    expect(queryPausedDisc()).toBeNull(); // continua limpo após auto-hide
-    expect(queryHiddenBottomControls()).not.toBeNull(); // esmaeceu junto
+    const cluster = queryCentralCluster();
+    expect(cluster).not.toBeNull(); // ainda no DOM...
+    expect(cluster!.className).toContain("pointer-events-none"); // ...mas INERTE
+    expect(queryCentralPlayPause()).not.toBeNull(); // botão no DOM (opacity-0 no container)
+    expect(queryHiddenBottomControls()).not.toBeNull(); // rodapé esmaeceu junto
   });
 
-  it("tocando + travado (live/stuck): disco cobre o bezel congelado; controles de pé (keepOpen)", () => {
+  it("tocando + travado (live/stuck): transporte central de pé (keepOpen cobre o bezel congelado)", () => {
     act(() => {
       render(
         <FullscreenOverlay
@@ -133,13 +139,14 @@ describe("FullscreenOverlay — centro 100% limpo (nenhum overlay central do app
       );
     });
     act(() => { vi.advanceTimersByTime(10000); });
-    expect(queryMaskDisc()).toBeNull();
-    expect(queryBigCenterButton()).toBeNull();
-    expect(queryPausedDisc()).not.toBeNull(); // superfície parada = cobrir
+    const cluster = queryCentralCluster();
+    expect(cluster).not.toBeNull();
+    expect(cluster!.className).not.toContain("pointer-events-none"); // clicável
+    expect(queryCentralPlayPause()).not.toBeNull();
     expect(queryHiddenBottomControls()).toBeNull(); // controles visíveis
   });
 
-  it("buffering: controles de pé (keepOpen) e centro limpo (spinner do YT, sem disco)", () => {
+  it("buffering: controles de pé (keepOpen) — central e rodapé visíveis, sem disco", () => {
     act(() => {
       render(
         <FullscreenOverlay
@@ -148,9 +155,10 @@ describe("FullscreenOverlay — centro 100% limpo (nenhum overlay central do app
       );
     });
     act(() => { vi.advanceTimersByTime(10000); });
+    expect(queryCentralPlayPause()).not.toBeNull();
+    expect(queryTransportPlayPause()).not.toBeNull();
     expect(queryMaskDisc()).toBeNull();
-    expect(queryBigCenterButton()).toBeNull();
-    expect(queryPausedDisc()).toBeNull(); // buffering: não cobrir o spinner
+    expect(queryPausedDisc()).toBeNull();
     expect(queryHiddenBottomControls()).toBeNull();
   });
 
