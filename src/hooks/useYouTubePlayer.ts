@@ -1015,6 +1015,7 @@ export function useYouTubePlayer(containerId: string) {
               // quando o pause NÃO veio do pause() do app.
               lastPausedAtRef.current = Date.now();
               scheduleBezelNudge(playerRef.current, 'PAUSED', [150, 450, 900, 2000], lastPauseNudgeRef);
+              [150, 450, 1000].forEach((d) => window.setTimeout(forceIframeRecomposite, d));
 
               // Página visível e acabamos de chamar pause() (dentro de 500ms): legítimo
               if (timeSincePause < 500 && userPausedRef.current) {
@@ -1586,6 +1587,7 @@ export function useYouTubePlayer(containerId: string) {
     // recente (janela de 120s) — nunca em load/play fresco.
     if (lastPausedAtRef.current && Date.now() - lastPausedAtRef.current < 120_000) {
       scheduleBezelNudge(playerRef.current, 'PLAYING', [400, 1200], lastResumeNudgeRef, 5_000);
+      [400, 1200].forEach((d) => window.setTimeout(forceIframeRecomposite, d));
     }
 
     // Em segundo plano / tela bloqueada o iframe pode ignorar o primeiro
@@ -1611,6 +1613,31 @@ export function useYouTubePlayer(containerId: string) {
   }, [applyVolumeToPlayer, clearUserPausedFlag]);
 
 
+  // ── RE-COMPOSITE DO IFRAME (anti-bezel congelado, camada DOM) ─────────────
+  // Em devices reais o bezel de pausa do YouTube pode congelar na CAMADA
+  // PINTADA do iframe (compositor) e sobreviver até a micro-seeks via API
+  // (seekTo repinta o vídeo, não necessariamente a camada de UI do embed).
+  // Um transform CSS breve (scale 1.002 -> reset) no PRÓPRIO elemento iframe
+  // invalida a camada no compositor do navegador: ele descarta o bitmap
+  // antigo e re-rasteriza — o bezel congelado não sobrevive. É DOM nosso,
+  // não depende da API cross-origin.
+  const iframeNudgeAtRef = useRef(0);
+  const forceIframeRecomposite = useCallback(() => {
+    try {
+      const slot = document.getElementById(containerId);
+      const iframe = slot?.querySelector("iframe") as HTMLIFrameElement | null;
+      if (!iframe) return;
+      const now = Date.now();
+      if (now - iframeNudgeAtRef.current < 700) return; // debounce
+      iframeNudgeAtRef.current = now;
+      iframe.style.transition = "none";
+      iframe.style.transform = "translateZ(0) scale(1.002)";
+      window.setTimeout(() => {
+        iframe.style.transform = "";
+      }, 140);
+    } catch { /* no-op */ }
+  }, [containerId]);
+
   const pause = useCallback(() => {
     trackMetric('pause', 'player', { hidden: document.visibilityState === 'hidden' });
     console.info('[Player] pause() called - marking user pause intent');
@@ -1630,6 +1657,10 @@ export function useYouTubePlayer(containerId: string) {
     // CONTINUAR pausado (nunca interferem em um retomar rápido).
     lastPausedAtRef.current = Date.now();
     scheduleBezelNudge(playerRef.current, 'PAUSED', [150, 450, 900, 2000], lastPauseNudgeRef);
+    // Re-composite da camada do iframe nos mesmos marcos (o seekTo repinta o
+    // frame de VÍDEO; o transform força o navegador a descartar a camada
+    // inteira — único jeito confiável de apagar o bezel congelado).
+    [150, 450, 1000].forEach((d) => window.setTimeout(forceIframeRecomposite, d));
   }, [markUserPausedIntent, setUserPausedFlag]);
 
   const seekTo = useCallback((seconds: number) => {
