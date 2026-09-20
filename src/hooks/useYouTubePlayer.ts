@@ -1620,12 +1620,13 @@ export function useYouTubePlayer(containerId: string) {
   // permanecem vivos (display não recarrega iframe) — a API do YT continua
   // de pé. Debounce 700ms contra toggles rápidos.
   const iframeNudgeAtRef = useRef(0);
-  const forceIframeHardReset = useCallback(() => {
+  const forceIframeHardReset = useCallback((opts?: { allowWhilePlaying?: boolean }) => {
     try {
       const p = playerRef.current as any;
       const PS = (window as any)?.YT?.PlayerState;
-      // Só em pausa real (poster de pé): nunca durante a reprodução.
-      if (PS && p?.getPlayerState && p.getPlayerState() !== PS.PAUSED) return;
+      // Só em pausa real (poster de pé) — ou na JANELA DE RESUME do app
+      // (poster cobrindo a tela por construção, allowWhilePlaying).
+      if (!opts?.allowWhilePlaying && PS && p?.getPlayerState && p.getPlayerState() !== PS.PAUSED) return;
       const slot = document.getElementById(containerId);
       const iframe = slot?.querySelector("iframe") as HTMLIFrameElement | null;
       if (!iframe) return;
@@ -2270,5 +2271,5 @@ export function useYouTubePlayer(containerId: string) {
   const getCurrentTime = useCallback(() => {
     try { return Number(playerRef.current?.getCurrentTime?.() || 0); } catch { return 0; }
   }, []);
-  return { state, loadVideo, loadVideoAt, preloadClip, play, pause, seekTo, setVolume, togglePiP, requestAirPlay, requestFullscreen, exitFullscreen, setPlaybackRate, toggleCaptions, proxyAudioElement, getCurrentTime };
+  return { state, loadVideo, loadVideoAt, preloadClip, play, pause, seekTo, setVolume, togglePiP, requestAirPlay, requestFullscreen, exitFullscreen, setPlaybackRate, toggleCaptions, proxyAudioElement, getCurrentTime, hardResetIframeLayer: forceIframeHardReset };
 }
