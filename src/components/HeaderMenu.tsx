@@ -83,17 +83,17 @@ const HeaderMenu = ({
       const html = await res.text();
       const m = html.match(/assets\/index-[^"']+\.js/);
       const el = document.querySelector<HTMLScriptElement>('script[src*="/assets/index-"]');
-      const current = el ? new URL(el.src, location.href).pathname : null;
+      const current = el ? new URL(el.src, window.location.href).pathname : null;
       const latest = m ? "/" + m[0] : null;
       if (latest && current && latest !== current) {
-        location.reload(); // build novo publicado: recarrega para ele
+        window.location.reload(); // build novo publicado: recarrega para ele
         return;
       }
       // Mesmo bundle: recarrega mesmo assim para aplicar o SW que acabou
       // de atualizar/assumir (se houver um esperando).
       if (reg?.waiting) {
         reg.waiting.postMessage({ type: "SKIP_WAITING" });
-        setTimeout(() => location.reload(), 400);
+        setTimeout(() => window.location.reload(), 400);
         return;
       }
       setUpdateState("latest");
