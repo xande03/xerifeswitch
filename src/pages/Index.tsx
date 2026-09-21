@@ -59,7 +59,6 @@ import DesktopSidebar from "@/components/DesktopSidebar";
 import DesktopTopIsland from "@/components/DesktopTopIsland";
 import DesktopPlayerIsland from "@/components/DesktopPlayerIsland";
 import PausedVideoPoster from "@/components/PausedVideoPoster";
-import CenterChromeShield from "@/components/CenterChromeShield";
 import SearchSkeleton from "@/components/SearchSkeleton";
 import SidebarPlayer from "@/components/SidebarPlayer";
 
@@ -2306,18 +2305,14 @@ const Index = () => {
           {/* Overlay controls on top of the actual YouTube player */}
           {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && (
             <>
-              {/* ── ESCUDO DO CHROME CENTRAL DO YT (v9): o embed pinta um
-                  indicador ⏸/▶ DENTRO do iframe a cada transição de estado e,
-                  sem eventos de pointer (tap-catcher), ele congela visível —
-                  o "segundo botão de pause" que sangrava através do nosso
-                  transporte translúcido. A lente fosca (CenterChromeShield)
-                  dissolve esse glifo cross-origin SEM tocar na reprodução
-                  (zero chamadas de API — sem seek/pause que cortam áudio).
-                  Só na reprodução real da superfície YT: pausado/travado o
-                  poster abaixo cobre tudo; vídeo nativo não tem chrome. */}
-              {(playerState.isPlaying || playerState.surfaceBuffering) && !playerState.videoSurfaceIdle && !playerState.isEnded && !nativeVideoActive && (
-                <CenterChromeShield />
-              )}
+              {/* VÍDEO 100% VISÍVEL (v10): NENHUMA lente/sombra fosca no centro
+                  durante a reprodução — o vídeo aparece integralmente. O glifo
+                  transitório do embed do YouTube é brevemente pintado a cada
+                  transição e some sozinho (fade interno do próprio iframe);
+                  se o frame congelar de verdade, o watchdog (videoSurfaceIdle)
+                  detecta e o poster + transporte opaco voltam a cobrir. O
+                  transporte central opaco (bg-[#161616]) cobre o chrome por
+                  construção quando os controles estão visíveis. */}
 
               {/* POSTER DO ESTADO PAUSADO (v8): cobre o iframe enquanto
                   pausado/travado — o bezel ⏸ do YouTube (cross-origin, congela
@@ -2505,14 +2500,6 @@ const Index = () => {
               isEnded={nativeVideoActive ? nativeVideoEnded : playerState.isEnded}
               videoSurfaceIdle={nativeVideoActive ? !nativeVideoIsPlaying : playerState.videoSurfaceIdle}
               surfaceBuffering={nativeVideoActive ? false : playerState.surfaceBuffering}
-              chromeShield={
-                // Escudo do chrome central do YT (v9) — só superfície YouTube
-                // em reprodução/buffering real (mesma condição do overlay).
-                !nativeVideoActive &&
-                !playerState.isEnded &&
-                (isPlaying || playerState.surfaceBuffering) &&
-                !playerState.videoSurfaceIdle
-              }
             />
           </Suspense>
           )}
