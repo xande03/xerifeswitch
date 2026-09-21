@@ -395,7 +395,7 @@ const Index = () => {
     return mockSongs.map((s) => ({ ...s, votes: savedVotes[s.id] ?? s.votes }));
   });
 
-  const { state: playerState, loadVideo, loadVideoAt, preloadClip, play, pause, seekTo, setVolume: setPlayerVolume, togglePiP, requestAirPlay, requestFullscreen, exitFullscreen, setPlaybackRate, toggleCaptions, proxyAudioElement, getCurrentTime: getPlayerCurrentTime, hardResetIframeLayer } = useYouTubePlayer("yt-player-slot");
+  const { state: playerState, loadVideo, loadVideoAt, preloadClip, play, pause, seekTo, setVolume: setPlayerVolume, togglePiP, requestAirPlay, requestFullscreen, exitFullscreen, setPlaybackRate, toggleCaptions, proxyAudioElement, getCurrentTime: getPlayerCurrentTime } = useYouTubePlayer("yt-player-slot");
   const nativeVideoActive = playerMode === "video" && Boolean(nativeVideoSource?.videoId === currentSong.youtubeId);
 
   // Espelho live do estado do player: a guarda anti-reinício abaixo precisa
@@ -825,34 +825,13 @@ const Index = () => {
       ? nativeVideoIsPlaying
       : playerState.isPlaying;
 
-  // ── JANELA DE COBERTURA DO RESUME (anti-bezel, 2026-09-20) ────────────────
-  // Ao RETOMAR (play), o próprio YouTube pinta um bezel de feedback que, em
-  // devices onde a camada do iframe congela, fica eternamente sobre o vídeo
-  // tocando ("pause congelado"). Cobrimos o início do resume com o poster
-  // (~650ms): aos 350ms a camada do iframe é destruída (display:none 120ms)
-  // SOB o poster — o bezel recém-pintado não sobrevive — e aos 650ms o
-  // poster sai revelando o quadro limpo.
-  const [resumeCover, setResumeCover] = useState(false);
-  const wasPlayingRef = useRef(false);
-  const resumeResetTimerRef = useRef<number | null>(null);
-  const resumeCoverTimerRef = useRef<number | null>(null);
-  useEffect(() => {
-    const justResumed = wasPlayingRef.current === false && isPlaying === true;
-    wasPlayingRef.current = isPlaying;
-    if (!justResumed) return;
-    if (!expanded || playerMode !== "video" || isPlayingOffline || nativeVideoActive) return;
-    setResumeCover(true);
-    if (resumeResetTimerRef.current) window.clearTimeout(resumeResetTimerRef.current);
-    resumeResetTimerRef.current = window.setTimeout(() => {
-      hardResetIframeLayer({ allowWhilePlaying: true });
-    }, 350);
-    if (resumeCoverTimerRef.current) window.clearTimeout(resumeCoverTimerRef.current);
-    resumeCoverTimerRef.current = window.setTimeout(() => setResumeCover(false), 650);
-    return () => {
-      if (resumeResetTimerRef.current) { window.clearTimeout(resumeResetTimerRef.current); resumeResetTimerRef.current = null; }
-      if (resumeCoverTimerRef.current) { window.clearTimeout(resumeCoverTimerRef.current); resumeCoverTimerRef.current = null; }
-    };
-  }, [isPlaying, expanded, playerMode, isPlayingOffline, nativeVideoActive, hardResetIframeLayer]);
+  // (REMOVIDO 2026-09-21) JANELA DE COBERTURA DO RESUME — cobria o resume com
+  // o poster e DESTRUÍA a camada do iframe (display:none) aos 350ms, COM O
+  // VÍDEO JÁ TOCANDO. O display:none em reprodução re-boota a UI interna do
+  // embed: o YouTube redesenha seu chrome central (⏸) e, sem gesto do usuário
+  // dentro do iframe, nunca o apaga — o "botão estático no meio" reportado.
+  // O app de referência (Alse Switch) retoma com playVideo() puro e não tem
+  // o sintoma. O resume agora é limpo como no Alse.
 
   // Estatísticas de escuta: acumula segundos reais de reprodução por faixa/artista
   useListeningTracker(
@@ -2215,7 +2194,7 @@ const Index = () => {
                   iframe não está visível. Sai instantaneamente ao dar play.
                   Abaixo do tap catcher (z-210): toques continuam revelando os
                   controles; transporte central/rodapé ficam por cima. */}
-              {!playerState.isEnded && !playerState.surfaceBuffering && (!playerState.isPlaying || playerState.videoSurfaceIdle || resumeCover) && (
+              {!playerState.isEnded && !playerState.surfaceBuffering && (!playerState.isPlaying || playerState.videoSurfaceIdle) && (
                 <PausedVideoPoster cover={currentSong?.cover} />
               )}
 

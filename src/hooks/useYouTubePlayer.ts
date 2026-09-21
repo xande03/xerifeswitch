@@ -434,39 +434,6 @@ function enforceQualityCap(p: any, quality: string) {
 
 
 
-/**
- * NUDGE ANTI-BEZEL (YouTube cross-origin): o embed desenha um bezel central
- * (⏸/▶) ao pausar/retomar via API que, em navegadores reais mobile/PWA, pode
- * CONGELAR na tela — impossível remover por DOM/CSS (iframe cross-origin).
- * Micro-seeks para a posição atual forçam o embed a repintar o frame e
- * reacordar a camada de UI, apagando o bezel. Seguro: cada passe só executa
- * se o player continuar no estado esperado (nunca interfere em transições
- * rápidas do usuário). Debounce por ref para não acumular passes.
- */
-function scheduleBezelNudge(
-  player: any,
-  expectState: 'PAUSED' | 'PLAYING',
-  delays: number[],
-  lastRunRef: { current: number } | null = null,
-  debounceMs = 1_500,
-) {
-  if (!player?.getPlayerState || !player?.seekTo) return;
-  const now = Date.now();
-  if (lastRunRef && now - lastRunRef.current < debounceMs) return;
-  if (lastRunRef) lastRunRef.current = now;
-  delays.forEach((delay) => {
-    setTimeout(() => {
-      try {
-        const st = player.getPlayerState?.();
-        const PS = (window as any)?.YT?.PlayerState;
-        if (!PS || st !== PS[expectState]) return;
-        const t = player.getCurrentTime?.() ?? 0;
-        player.seekTo?.(t, true);
-      } catch { /* player ausente: no-op */ }
-    }, delay);
-  });
-}
-
 export function useYouTubePlayer(containerId: string) {
   const playerRef = useRef<any>(null);
   const [state, setState] = useState<YouTubePlayerState>(() => {
@@ -519,12 +486,6 @@ export function useYouTubePlayer(containerId: string) {
   // Janela deslizante: media time avançado vs wall-clock decorrido.
   const crawlWindowStartAtRef = useRef<number | null>(null);
   const crawlWindowStartCtRef = useRef<number | null>(null);
-  // Último nudge de repaint (seekTo microscópico) pós-stall — no máximo 1/10s.
-  const lastStallNudgeAtRef = useRef(0);
-  // Anti-bezel: debounce dos nudges de pausa/resume + momento da última pausa
-  // visível (qualquer origem) — base do repaint pós-resume do play().
-  const lastPauseNudgeRef = useRef(0);
-  const lastPausedAtRef = useRef(0);
   const userGestureRef = useRef(false);
   const userPausedRef = useRef(false);
   const shouldBePlayingRef = useRef(false);
@@ -1008,13 +969,14 @@ export function useYouTubePlayer(containerId: string) {
                 return;
               }
 
-              // Pausa visível de QUALQUER origem (app, MediaSession/lock
-              // screen, sistema): carimba o momento e agenda o nudge
-              // anti-bezel — o bezel do YouTube pode congelar na tela mesmo
-              // quando o pause NÃO veio do pause() do app.
-              lastPausedAtRef.current = Date.now();
-              scheduleBezelNudge(playerRef.current, 'PAUSED', [150, 450, 900, 2000], lastPauseNudgeRef);
-              [150, 450, 1000].forEach((d) => window.setTimeout(forceIframeHardReset, d));
+              // (REMOVIDO 2026-09-21) Nudges/hard-resets de pausa: os
+              // micro-seeks PINTAVAM o bezel central do YouTube (cada seekTo
+              // dispara o feedback de UI do embed) e o display:none 120ms
+              // forçava o embed a re-bootar a UI com o botão no centro —
+              // exatamente o "⏸ estático" que o usuário reporta durante a
+              // reprodução. O app de referência (Alse Switch) pausa com um
+              // simples pauseVideo() e NUNCA teve o sintoma. O estado pausado
+              // fica coberto pelo PausedVideoPoster — o bezel (▶) não vaza.
 
               // Página visível e acabamos de chamar pause() (dentro de 500ms): legítimo
               if (timeSincePause < 500 && userPausedRef.current) {
@@ -1346,16 +1308,11 @@ export function useYouTubePlayer(containerId: string) {
         }
         if (stalled) {
           surfaceIdle = true;
-          // NUDGE DE REPAINT ("retirar de vez o símbolo congelado"): um seek
-          // microscópico (+0,05s) força o embed a repintar o frame — APAGANDO
-          // o bezel congelado do YouTube (não apenas cobrindo com o disco).
-          // Só no stall detectado pelo watchdog (nunca em pausa legítima, que
-          // já vem com surfaceIdle=true do estado real). No máximo 1x a cada
-          // 10s. Se o seek falhar (player ausente), apenas cobrimos.
-          if (now - lastStallNudgeAtRef.current > 10_000) {
-            lastStallNudgeAtRef.current = now;
-            try { playerRef.current?.seekTo?.(ct + 0.05, true); } catch { /* player ausente: só cobre */ }
-          }
+          // (REMOVIDO 2026-09-21) Nudge de repaint (seekTo +0,05s) no stall:
+          // seekTo DURANTE a reprodução faz o embed desenhar seu chrome
+          // central de feedback (⏸) — o próprio mecanismo que mantinha o
+          // "botão estático no meio". O fail-closed (poster + controles
+          // reaparecem enquanto a superfície não avança) já cobre o caso.
         }
       } else {
         lastAdvancedCtRef.current = null;
@@ -1605,41 +1562,13 @@ export function useYouTubePlayer(containerId: string) {
   }, [applyVolumeToPlayer, clearUserPausedFlag]);
 
 
-  // ── HARD RESET DA CAMADA DO IFRAME (anti-bezel congelado, 2026-09-20) ──────
-  // Em devices reais o bezel de pausa do YouTube congela na CAMADA PINTADA
-  // do iframe (bitmap stale do compositor): micro-seeks (seekTo), transforms
-  // CSS e reflow de 1px NÃO garantem a re-rasterização dessa textura — o
-  // sintoma: pausado o poster cobre tudo (tela limpa), mas ao RETOMAR o
-  // poster sai e o bezel congelado no momento da pausa é revelado em cima
-  // do vídeo tocando.
-  // Solução definitiva: destruir a camada com display:none por 120ms — o
-  // compositor descarta o render tree inteiro do iframe e o recria limpo ao
-  // voltar. SEGURO porque só roda em contexto PAUSADO (guarda
-  // getPlayerState===PAUSED): o poster do app cobre a tela nesse instante e
-  // não há mídia ativa para suspender. O elemento/documento do iframe
-  // permanecem vivos (display não recarrega iframe) — a API do YT continua
-  // de pé. Debounce 700ms contra toggles rápidos.
-  const iframeNudgeAtRef = useRef(0);
-  const forceIframeHardReset = useCallback((opts?: { allowWhilePlaying?: boolean }) => {
-    try {
-      const p = playerRef.current as any;
-      const PS = (window as any)?.YT?.PlayerState;
-      // Só em pausa real (poster de pé) — ou na JANELA DE RESUME do app
-      // (poster cobrindo a tela por construção, allowWhilePlaying).
-      if (!opts?.allowWhilePlaying && PS && p?.getPlayerState && p.getPlayerState() !== PS.PAUSED) return;
-      const slot = document.getElementById(containerId);
-      const iframe = slot?.querySelector("iframe") as HTMLIFrameElement | null;
-      if (!iframe) return;
-      const now = Date.now();
-      if (now - iframeNudgeAtRef.current < 700) return; // debounce
-      iframeNudgeAtRef.current = now;
-      iframe.style.display = "none";
-      window.setTimeout(() => {
-        iframe.style.display = "";
-      }, 120);
-    } catch { /* no-op */ }
-  }, [containerId]);
-
+  // ── PAUSE (modelo Alse Switch, 2026-09-21) ─────────────────────────────────
+  // Pausa LIMPA: apenas pauseVideo() + flags internas. Todo o maquinário
+  // anti-bezel desta função (4 micro-seeks + 3 hard-resets display:none) foi
+  // REMOVIDO — cada seekTo pausado pintava um novo bezel central do YouTube
+  // (feedback de UI do embed) e cada display:none re-bootava a UI do iframe,
+  // deixando o ⏸ congelado que reaparecia ao retomar. O estado pausado já é
+  // coberto pelo PausedVideoPoster no Index/FullscreenOverlay.
   const pause = useCallback(() => {
     trackMetric('pause', 'player', { hidden: document.visibilityState === 'hidden' });
     console.info('[Player] pause() called - marking user pause intent');
@@ -1647,22 +1576,6 @@ export function useYouTubePlayer(containerId: string) {
     markUserPausedIntent();
     ensureProxyAudio().pause(); // Pause proxy for iOS MediaSession
     playerRef.current?.pauseVideo?.();
-
-    // ── ANTI-BEZEL DE PAUSA (2026-09-19, reforçado) ────────────────────────
-    // Em navegadores reais mobile/PWA o embed do YouTube desenha um bezel no
-    // centro (círculo sutil + duas barras brancas ⏸) ao pausar via API —
-    // pintado DENTRO do iframe (cross-origin): impossível remover por DOM/CSS
-    // (perícia do screenshot: barras RGB 255,255,255 de 5×17px no centro
-    // exato; não reproduz em Chromium headless — só em device real).
-    // Neutralizador: 4 micro-seeks (150/450/900/2000ms) para a posição atual
-    // forçam repaint do frame + UI do embed; só executam enquanto o player
-    // CONTINUAR pausado (nunca interferem em um retomar rápido).
-    lastPausedAtRef.current = Date.now();
-    scheduleBezelNudge(playerRef.current, 'PAUSED', [150, 450, 900, 2000], lastPauseNudgeRef);
-    // Re-composite da camada do iframe nos mesmos marcos (o seekTo repinta o
-    // frame de VÍDEO; o transform força o navegador a descartar a camada
-    // inteira — único jeito confiável de apagar o bezel congelado).
-    [150, 450, 1000].forEach((d) => window.setTimeout(forceIframeHardReset, d));
   }, [markUserPausedIntent, setUserPausedFlag]);
 
   const seekTo = useCallback((seconds: number) => {
@@ -2271,5 +2184,5 @@ export function useYouTubePlayer(containerId: string) {
   const getCurrentTime = useCallback(() => {
     try { return Number(playerRef.current?.getCurrentTime?.() || 0); } catch { return 0; }
   }, []);
-  return { state, loadVideo, loadVideoAt, preloadClip, play, pause, seekTo, setVolume, togglePiP, requestAirPlay, requestFullscreen, exitFullscreen, setPlaybackRate, toggleCaptions, proxyAudioElement, getCurrentTime, hardResetIframeLayer: forceIframeHardReset };
+  return { state, loadVideo, loadVideoAt, preloadClip, play, pause, seekTo, setVolume, togglePiP, requestAirPlay, requestFullscreen, exitFullscreen, setPlaybackRate, toggleCaptions, proxyAudioElement, getCurrentTime };
 }
