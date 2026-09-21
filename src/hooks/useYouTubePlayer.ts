@@ -494,6 +494,13 @@ export function useYouTubePlayer(containerId: string) {
   const browserRef = useRef(detectBrowser());
   // Track consecutive errors to avoid infinite retry loops
   const errorCountRef = useRef(0);
+  // ── Orçamento de re-cap de qualidade (anti-loop de ABR) ─────────────────
+  // Com resolução TRAVADA (não-auto), YT pode reportar um nível diferente do
+  // travado (rede não sustenta). Re-capitar em TODO evento de qualidade
+  // provoca rebuffering infinito (play 2s → buffer 3s → play 2s…) — o
+  // "áudio cortando". Orçamento de 3 brigas por faixa; esgotado, aceitamos
+  // o nível que o YT conseguir servir até a próxima troca de faixa.
+  const qualityRecapsRef = useRef(0);
   const pseudoFullscreenRef = useRef<HTMLElement | null>(null);
   // ── Guard de alinhamento do clipe (pos-swap) ──────────────────────────────
   // Depois de loadVideoAt() o YouTube ancora em keyframe, nao no segundo pedido.
@@ -861,9 +868,18 @@ export function useYouTubePlayer(containerId: string) {
                 // without a destructive reload — this eliminates the
                 // min↔max oscillation the user reported.
                 if (pref !== "auto" && q !== pref) {
-                  enforceQualityCap(playerRef.current, pref);
-                  // Don't dispatch the transient mismatch to the UI — keeps the
-                  // badge stable while we re-lock.
+                  // ORÇAMENTO: no máx. 3 re-caps por faixa. Sem isso, rede que
+                  // não sustenta a resolução travada entra em loop de briga
+                  // (re-cap → rebuffer → downgrade → re-cap…) e o áudio corta
+                  // o tempo todo. Esgotado o orçamento, aceitamos o nível real.
+                  if (qualityRecapsRef.current < 3) {
+                    qualityRecapsRef.current += 1;
+                    enforceQualityCap(playerRef.current, pref);
+                    // Don't dispatch the transient mismatch to the UI — keeps the
+                    // badge stable while we re-lock.
+                    return;
+                  }
+                  dispatchQualityActive(q);
                   return;
                 }
                 dispatchQualityActive(q);
@@ -1370,6 +1386,8 @@ export function useYouTubePlayer(containerId: string) {
     // Troca de faixa invalida qualquer alvo de alinhamento da faixa anterior.
     stopClipSyncWatch();
     clipSyncRef.current = { ...clipSyncRef.current, targetSec: null, corrections: 0, userSeekedSince: false };
+    // Nova faixa: orçamento de briga de qualidade recomeça.
+    qualityRecapsRef.current = 0;
     if (playerRef.current?.loadVideoById) {
       clearUserPausedFlag(); // Clear persistent flag when loading new video
       userPausedRef.current = false;
@@ -1448,6 +1466,8 @@ export function useYouTubePlayer(containerId: string) {
     userPausedRef.current = false;
     shouldBePlayingRef.current = true; setShouldBePlayingGlobal(true);
     errorCountRef.current = 0;
+    // Nova faixa: orçamento de briga de qualidade recomeça.
+    qualityRecapsRef.current = 0;
     ensureSilentAudio().play().catch(() => {});
     resumeAudioContext();
 
@@ -1612,13 +1632,22 @@ export function useYouTubePlayer(containerId: string) {
     }
 
     setTimeout(() => {
-      const confirmedTime = playerRef.current?.getCurrentTime?.() || 0;
-      if (Math.abs(confirmedTime - safeSeconds) > 1.5) {
-        playerRef.current?.seekTo?.(safeSeconds, true);
-        if (shouldBePlayingRef.current && !userPausedRef.current) {
-          playerRef.current?.playVideo?.();
+      try {
+        // Confirmação do pouso do seek: durante BUFFERING o getCurrentTime
+        // ainda reporta a posição ANTIGA — re-seek agora causaria um SEGUNDO
+        // corte de áudio (o glitch duplo no seekbar). Espera o buffering
+        // resolver; se o alvo estiver errado de verdade, o próximo seek do
+        // usuário corrige.
+        const st = playerRef.current?.getPlayerState?.();
+        if (st === window.YT?.PlayerState?.BUFFERING) return;
+        const confirmedTime = playerRef.current?.getCurrentTime?.() || 0;
+        if (Math.abs(confirmedTime - safeSeconds) > 1.5) {
+          playerRef.current?.seekTo?.(safeSeconds, true);
+          if (shouldBePlayingRef.current && !userPausedRef.current) {
+            playerRef.current?.playVideo?.();
+          }
         }
-      }
+      } catch {}
     }, 250);
   }, [applyVolumeToPlayer]);
 

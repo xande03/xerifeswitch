@@ -32,7 +32,7 @@ const FALLBACK_INSTANCES = [
   "https://pipedapi.leptons.xyz",
 ];
 
-const REQUEST_TIMEOUT_MS = 5000;
+const REQUEST_TIMEOUT_MS = 4000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -54,7 +54,10 @@ async function discoverInstances(): Promise<string[]> {
       .map((entry: any) => typeof entry === "string" ? entry : entry?.api_url || entry?.apiUrl)
       .filter((url): url is string => typeof url === "string" && url.startsWith("http"))
       .map((url) => url.replace(/\/$/, ""));
-    return [...new Set([...discovered, ...FALLBACK_INSTANCES])].slice(0, 8);
+    // Teto de 5 instâncias: cada tentativa custa até 4s (timeout). Um ciclo
+    // completo de sondagem acontece QUANDO O USUÁRIO ESTÁ SEM VÍDEO —
+    // encurtar esse teto encurta o silêncio antes do fallback do YouTube.
+    return [...new Set([...discovered, ...FALLBACK_INSTANCES])].slice(0, 5);
   } catch {
     return FALLBACK_INSTANCES;
   }

@@ -404,14 +404,87 @@ const Index = () => {
   const playerStateRef = useRef(playerState);
   playerStateRef.current = playerState;
 
+  // Espelho da fonte nativa ativa: o efeito de continuidade abaixo precisa do
+  // valor ATUAL (o vídeo nativo pode ter sido resolvido depois do render).
+  const nativeVideoSourceRef = useRef(nativeVideoSource);
+  nativeVideoSourceRef.current = nativeVideoSource;
+
+  // ── Watchdog de stall do vídeo NATIVO (Piped) ────────────────────────────
+  // Streams muxados de instâncias públicas Piped congelam/morrem no meio
+  // (429 rate-limit, URL assinada expirada, throttle). O elemento <video>
+  // para de avançar SEM disparar 'error' — o usuário fica em silêncio para
+  // sempre ("áudio cortando"). Quando o tempo não avança por ~5s em
+  // reprodução, o YouTube assume na MESMA posição (sem reiniciar do zero).
+  const nativeStallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nativeStallSinceRef = useRef(0);
+  // Uma tentativa de fallback por faixa: evita loop YT↔nativo quando AMBAS
+  // as superfícies estão degradadas (rede ruim de verdade).
+  const nativeFallbackTriedRef = useRef<string | null>(null);
+
+  const clearNativeStallWatch = useCallback(() => {
+    if (nativeStallTimerRef.current) {
+      clearTimeout(nativeStallTimerRef.current);
+      nativeStallTimerRef.current = null;
+    }
+  }, []);
+
+  // YT assume a faixa na posição atual do vídeo nativo (continuidade de áudio)
+  const fallbackNativeToYouTube = useCallback((reason: string) => {
+    clearNativeStallWatch();
+    const source = nativeVideoSourceRef.current;
+    const videoId = source?.videoId || currentSong.youtubeId;
+    if (!videoId) return;
+    if (nativeFallbackTriedRef.current === videoId) return;
+    nativeFallbackTriedRef.current = videoId;
+    const pos = nativeVideoRef.current?.currentTime || 0;
+    console.warn("[NativeVideo] sem progresso — YT assume na mesma posição", { reason, videoId, pos });
+    setNativeVideoSource(null);
+    loadVideo(videoId);
+    if (pos > 2) {
+      window.setTimeout(() => seekTo(pos), 450);
+    }
+  }, [clearNativeStallWatch, currentSong.youtubeId, loadVideo, seekTo]);
+
   useEffect(() => {
-    let cancelled = false;
     const videoId = currentSong.youtubeId;
+    let cancelled = false;
+
+    // CONTINUIDADE DE SUPERFÍCIE (2026-09-21 — fix "áudio cortando"):
+    // este efeito re-executa quando deps AUXILIARES mudam (blobSavedSongIds
+    // ao concluir um download, playerMode ao alternar painel, callbacks
+    // estáveis). Antes, CADA re-execução fazia setNativeVideoSource(null) —
+    // matando o <video> nativo COM O ÁUDIO TOCANDO — e re-sondava o Piped
+    // (5-45s de silêncio) para depois recomeçar do zero. Agora: se a fonte
+    // nativa ativa já é o MESMO vídeo alvo, NÃO mexemos em NADA — a faixa
+    // continua exatamente de onde está.
+    const currentNative = nativeVideoSourceRef.current;
+    if (currentNative && currentNative.videoId === videoId) {
+      nativeFallbackTriedRef.current = null; // nova faixa permitirá fallback
+      return;
+    }
+
+    // Troca REAL de faixa/superfície: limpa o estado do vídeo nativo.
+    const previous = currentNative;
     setNativeVideoSource(null);
     setNativeVideoIsPlaying(false);
     setNativeVideoCurrentTime(0);
     setNativeVideoDuration(0);
     setNativeVideoEnded(false);
+    clearNativeStallWatch();
+    nativeFallbackTriedRef.current = null;
+
+    // Continuidade de áudio ao SAIR do modo vídeo com vídeo nativo tocando:
+    // o player do YouTube assume a MESMA faixa na MESMA posição (antes, o
+    // src=undefined derrubava o áudio e a faixa ficava muda até novo play).
+    if (previous && playerMode !== "video" && videoId && previous.videoId === videoId) {
+      const pos = nativeVideoRef.current?.currentTime || 0;
+      loadVideo(videoId);
+      if (pos > 2) {
+        window.setTimeout(() => { if (!cancelled) seekTo(pos); }, 450);
+      }
+      return () => { cancelled = true; };
+    }
+
     if (playerMode !== "video" || !videoId) return;
 
     resolvePipedVideo(videoId).then((source) => {
@@ -438,7 +511,7 @@ const Index = () => {
       loadVideo(videoId);
     });
     return () => { cancelled = true; };
-  }, [currentSong.youtubeId, playerMode, loadVideo, pause, currentSong.id, blobSavedSongIds]);
+  }, [currentSong.youtubeId, playerMode, loadVideo, pause, seekTo, currentSong.id, blobSavedSongIds, clearNativeStallWatch]);
 
   useEffect(() => {
     if (!nativeVideoSource || !nativeVideoRef.current) return;
@@ -1235,6 +1308,10 @@ const Index = () => {
         offlineShouldBePlayingRef.current = false;
         loadVideo(song.youtubeId);
       }
+    }).catch(() => {
+      // Falha de leitura (IndexedDB) NÃO pode deixar a faixa muda: cai para o YouTube.
+      offlineShouldBePlayingRef.current = false;
+      loadVideo(song.youtubeId);
     });
 
     // Refresh queue list from localStorage
@@ -2116,7 +2193,10 @@ const Index = () => {
               playsInline
               controls={false}
               onPlay={() => {
-                if (nativeVideoActive) setNativeVideoIsPlaying(true);
+                if (nativeVideoActive) {
+                  clearNativeStallWatch();
+                  setNativeVideoIsPlaying(true);
+                }
                 else {
                   offlineUserPausedRef.current = false;
                   offlineShouldBePlayingRef.current = true;
@@ -2124,7 +2204,10 @@ const Index = () => {
                 }
               }}
               onPause={() => {
-                if (nativeVideoActive) setNativeVideoIsPlaying(false);
+                if (nativeVideoActive) {
+                  clearNativeStallWatch();
+                  setNativeVideoIsPlaying(false);
+                }
                 else {
                   setOfflineIsPlaying(false);
                   const hiddenForMs = offlineHiddenSinceRef.current ? Date.now() - offlineHiddenSinceRef.current : 0;
@@ -2136,6 +2219,7 @@ const Index = () => {
               }}
               onEnded={() => {
                 if (nativeVideoActive) {
+                  clearNativeStallWatch();
                   setNativeVideoIsPlaying(false);
                   setNativeVideoEnded(true);
                   handleNext();
@@ -2147,7 +2231,12 @@ const Index = () => {
                 }
               }}
               onTimeUpdate={(e) => {
-                if (nativeVideoActive) setNativeVideoCurrentTime(e.currentTarget.currentTime);
+                if (nativeVideoActive) {
+                  // timeupdate só dispara quando o tempo AVANÇA: limpa o
+                  // watchdog de stall (a faixa está de fato progredindo).
+                  clearNativeStallWatch();
+                  setNativeVideoCurrentTime(e.currentTarget.currentTime);
+                }
                 else setOfflineCurrentTime(e.currentTarget.currentTime);
               }}
               onLoadedMetadata={(e) => {
@@ -2156,8 +2245,36 @@ const Index = () => {
               }}
               onError={() => {
                 if (!nativeVideoActive || !currentSong.youtubeId) return;
+                // Fallback ao YouTube PRESERVANDO a posição (antes: load do
+                // zero = "áudio pulou para o início").
+                const pos = nativeVideoRef.current?.currentTime || 0;
+                clearNativeStallWatch();
                 setNativeVideoSource(null);
                 loadVideo(currentSong.youtubeId);
+                if (pos > 2) {
+                  window.setTimeout(() => seekTo(pos), 450);
+                }
+              }}
+              onWaiting={() => {
+                if (!nativeVideoActive) return;
+                const v = nativeVideoRef.current;
+                if (!v || v.paused || v.ended) return;
+                nativeStallSinceRef.current = v.currentTime || 0;
+                clearNativeStallWatch();
+                nativeStallTimerRef.current = setTimeout(() => {
+                  const vv = nativeVideoRef.current;
+                  if (!vv || vv.paused || vv.ended) return;
+                  // Sem avanço desde o 'waiting' => stream congelada: YT assume.
+                  if (Math.abs((vv.currentTime || 0) - (nativeStallSinceRef.current || 0)) < 0.25) {
+                    fallbackNativeToYouTube("stall-sem-progresso");
+                  }
+                }, 5000);
+              }}
+              onPlaying={() => {
+                if (nativeVideoActive) {
+                  clearNativeStallWatch();
+                  setNativeVideoIsPlaying(true);
+                }
               }}
             />
             <div id="yt-player-slot" className={nativeVideoActive ? "hidden" : undefined} />
