@@ -4,6 +4,7 @@ import { track as trackMetric } from "@/lib/playbackMetrics";
 import { Song, formatDuration } from "@/data/mockSongs";
 import SeekBar from "@/components/SeekBar";
 import PausedVideoPoster from "@/components/PausedVideoPoster";
+import CenterChromeShield from "@/components/CenterChromeShield";
 
 /** Delay fixo para auto-ocultar os controles do fullscreen — UNIFICADO 4s
  *  para TODOS os players (Xerife Vídeos, Music modo Vídeo, Podcasts modo Vídeo)
@@ -53,6 +54,12 @@ interface FullscreenOverlayProps {
    *  stream. Durante o buffering os controles inferiores permanecem visíveis
    *  até a reprodução confirmar; todos minimizam juntos quando roda de verdade. */
   surfaceBuffering?: boolean;
+  /** ESCUDO DO CHROME CENTRAL DO YT (v9): TRUE quando a superfície YouTube
+   *  está de fato reproduzindo/buffering — renderiza a lente fosca central
+   *  que dissolve o indicador ⏸/▶ pintado DENTRO do iframe (congelado, pois
+   *  o auto-hide do YT nunca recebe eventos de pointer). O Index calcula a
+   *  condição (YT-only, não-finalizado, não-travado) e passa pronta. */
+  chromeShield?: boolean;
 }
 
 const MIN_SCALE = 1;
@@ -65,6 +72,7 @@ const FullscreenOverlay = ({
   isEnded = false,
   videoSurfaceIdle = false,
   surfaceBuffering = false,
+  chromeShield = false,
 }: FullscreenOverlayProps) => {
   const [showControls, setShowControls] = useState(true);
   const [zoom, setZoom] = useState<{ scale: number; x: number; y: number }>({ scale: 1, x: 0, y: 0 });
@@ -410,6 +418,14 @@ const FullscreenOverlay = ({
           e das barras de controle. pointer-events-none. */}
       {videoMode && !isEnded && !surfaceBuffering && (!isPlaying || videoSurfaceIdle) && (
         <PausedVideoPoster cover={song?.cover} zIndexClass="z-[204]" />
+      )}
+
+      {/* ESCUDO DO CHROME CENTRAL DO YT (v9): estado complementar ao poster —
+          enquanto a superfície YT reproduz/buffera de verdade, a lente fosca
+          dissolve o indicador central congelado do embed (cross-origin). Mesmo
+          z-[204] do poster: os dois estados são mutuamente exclusivos. */}
+      {videoMode && chromeShield && (
+        <CenterChromeShield zIndexClass="z-[204]" />
       )}
 
       {/* CAPA OPACA de fim de vídeo: com o vídeo TERMINADO o YouTube desenha a

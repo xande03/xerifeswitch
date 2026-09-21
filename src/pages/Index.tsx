@@ -59,6 +59,7 @@ import DesktopSidebar from "@/components/DesktopSidebar";
 import DesktopTopIsland from "@/components/DesktopTopIsland";
 import DesktopPlayerIsland from "@/components/DesktopPlayerIsland";
 import PausedVideoPoster from "@/components/PausedVideoPoster";
+import CenterChromeShield from "@/components/CenterChromeShield";
 import SearchSkeleton from "@/components/SearchSkeleton";
 import SidebarPlayer from "@/components/SidebarPlayer";
 
@@ -2305,6 +2306,19 @@ const Index = () => {
           {/* Overlay controls on top of the actual YouTube player */}
           {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && (
             <>
+              {/* ── ESCUDO DO CHROME CENTRAL DO YT (v9): o embed pinta um
+                  indicador ⏸/▶ DENTRO do iframe a cada transição de estado e,
+                  sem eventos de pointer (tap-catcher), ele congela visível —
+                  o "segundo botão de pause" que sangrava através do nosso
+                  transporte translúcido. A lente fosca (CenterChromeShield)
+                  dissolve esse glifo cross-origin SEM tocar na reprodução
+                  (zero chamadas de API — sem seek/pause que cortam áudio).
+                  Só na reprodução real da superfície YT: pausado/travado o
+                  poster abaixo cobre tudo; vídeo nativo não tem chrome. */}
+              {(playerState.isPlaying || playerState.surfaceBuffering) && !playerState.videoSurfaceIdle && !playerState.isEnded && !nativeVideoActive && (
+                <CenterChromeShield />
+              )}
+
               {/* POSTER DO ESTADO PAUSADO (v8): cobre o iframe enquanto
                   pausado/travado — o bezel ⏸ do YouTube (cross-origin, congela
                   na camada pintada em alguns devices) não pode aparecer onde o
@@ -2366,7 +2380,7 @@ const Index = () => {
                       onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleTogglePlay(); }}
                       aria-label={isPlaying ? "Pausar" : "Reproduzir"}
                       title={isPlaying ? "Pausar" : "Reproduzir"}
-                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition flex items-center justify-center"
+                      className="w-[5.5rem] h-[5.5rem] sm:w-24 sm:h-24 rounded-full bg-[#161616] text-white ring-1 ring-white/10 shadow-[0_10px_36px_rgba(0,0,0,0.5)] hover:bg-black active:scale-90 transition flex items-center justify-center"
                     >
                       {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
                     </button>
@@ -2491,6 +2505,14 @@ const Index = () => {
               isEnded={nativeVideoActive ? nativeVideoEnded : playerState.isEnded}
               videoSurfaceIdle={nativeVideoActive ? !nativeVideoIsPlaying : playerState.videoSurfaceIdle}
               surfaceBuffering={nativeVideoActive ? false : playerState.surfaceBuffering}
+              chromeShield={
+                // Escudo do chrome central do YT (v9) — só superfície YouTube
+                // em reprodução/buffering real (mesma condição do overlay).
+                !nativeVideoActive &&
+                !playerState.isEnded &&
+                (isPlaying || playerState.surfaceBuffering) &&
+                !playerState.videoSurfaceIdle
+              }
             />
           </Suspense>
           )}
