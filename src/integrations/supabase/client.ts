@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://hvslfbcsokurljstmtip.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2c2xmYmNzb2t1cmxqc3RtdGlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3NDkxMzAsImV4cCI6MjA5MDMyNTEzMH0.Te8_gliizzwkmSzfQtdosjzz7pE_9gUHBd7PS1VM6Jk";
+const SUPABASE_URL = "https://hcdqvynbfjjtoaihwkul.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_DMRXVOfH2BQSMyiFE1UPaQ_ZZpV0KAZ";
 
 export const supabase = createClient<Database>(
   SUPABASE_URL,
@@ -15,4 +15,4 @@ export const supabase = createClient<Database>(
       autoRefreshToken: true,
     }
   }
-);
+);

@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://hvslfbcsokurljstmtip.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2c2xmYmNzb2t1cmxqc3RtdGlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU2NzI5MjcsImV4cCI6MjA2MTI0ODkyN30.NZhv8qRZqI3jYKZCJXVqCHpLfNg5UKxq0zH3L7-1KBs';
+const SUPABASE_URL = 'https://hcdqvynbfjjtoaihwkul.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_DMRXVOfH2BQSMyiFE1UPaQ_ZZpV0KAZ';
 
 /**
  * Hook to keep the Supabase project active - DESATIVADO para economizar EGRESS
