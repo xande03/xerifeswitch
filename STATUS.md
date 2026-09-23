@@ -1,8 +1,39 @@
 # Status do Xerife Music
 
-Atualizado em 2026-09-18 (7ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-09-23 (8ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-09-23 (2) — auto-hide definitivo dos controles do player de vídeo (fim do keepOpen-pausado)
+
+Pedido: **TODOS os controles/botões de reprodução do player de vídeo minimizarem após os
+segundos determinados, em qualquer estado, para a tela ficar limpa.**
+
+1. **Causa raiz**: o overlay inline do [`Index.tsx`](src/pages/Index.tsx) mantinha
+   `keepOpen = expanded && playerMode === "video" && !isPlaying` — **pausado, os controles
+   ficavam visíveis para sempre** (barra inferior, transporte central, voltar, QualityBadge,
+   gradiente). Tocando já escondia (timer 4 s), mas pausado nunca. O fullscreen
+   ([`FullscreenOverlay`](src/components/FullscreenOverlay.tsx)) já se comportava certo
+   (auto-hide SEMPRE arma — coberto por `fullscreen-center-sync.test.tsx`).
+2. **Correção — `keepOpen` removido**: o efeito de overlay agora chama `revealVideoOverlay()`
+   em QUALQUER transição de `isPlaying`/abertura do painel → o timer **sempre arma**, tocando
+   ou pausado. Ao terminar o delay, todos os controles minimizam **JUNTOS**
+   (opacity-0 + pointer-events-none). O toque na superfície continua fazendo toggle e rearma.
+   Pausado oculto = tela limpa com o **poster** (`PausedVideoPoster`) cobrindo o bezel do
+   YouTube — sem chrome.
+3. **Fonte única dos segundos determinados**: novo
+   [`src/lib/autoHideControls.ts`](src/lib/autoHideControls.ts) (`AUTOHIDE_OPTS`
+   2000/3500/5000/8000 ms, default **3500**, localStorage `demus-fs-autohide-ms`) — o overlay
+   inline deixou de usar 4000 ms hardcoded e passa a ler o MESMO valor do fullscreen
+   (as duas superfícies agora sincronizadas). Coberto pelo novo
+   `src/test/auto-hide-controls.test.ts` (4 testes).
+4. **Sem risco do bug antigo do Netlify** ("botão de pause sempre ativo"): no
+   [`useYouTubePlayer`](src/hooks/useYouTubePlayer.ts) `isPlaying = playing || buffering`,
+   então oscilações BUFFERING↔PLAYING não re-executam o efeito nem limpam o timer — só
+   transições reais de play/pause/fim revelam de novo.
+
+Medido neste checkout após as mudanças: `npm run check` ✅ (typecheck + **106 testes** em
+19 arquivos + build + e2e:anchor 16 combinações + smoke).
 
 ## Sessão 2026-09-18 (2) — causa raiz do branding do YouTube encontrado e corrigido (slot interno)
 

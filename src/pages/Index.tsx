@@ -43,6 +43,7 @@ import ModuleSwitcher, { MODULE_LABEL, type SwitchableModule } from "@/component
 
 
 import { getSearchSuggestions, searchYouTubeMusic } from "@/lib/youtubeSearch";
+import { readAutoHideMs } from "@/lib/autoHideControls";
 import { fetchVideoInfo } from "@/lib/youtubeVideoInfo";
 import { hdThumbnail } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -266,7 +267,6 @@ const Index = () => {
   const [showVideoOverlayControls, setShowVideoOverlayControls] = useState(true);
   const videoOverlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoOverlayInteractingRef = useRef(false);
-  const videoOverlayKeepOpenRef = useRef(false);
   /** Guarda contra toggle duplicado: dois toques dentro desta janela contam como um. */
   const videoOverlayTapGuardRef = useRef(0);
 
@@ -276,17 +276,21 @@ const Index = () => {
       clearTimeout(videoOverlayTimerRef.current);
       videoOverlayTimerRef.current = null;
     }
-    // Don't schedule auto-hide while user is interacting (e.g. dragging seekbar)
-    // or when caller explicitly wants controls to stay visible (paused/buffering).
-    if (opts?.sticky || videoOverlayInteractingRef.current || videoOverlayKeepOpenRef.current) return;
-    videoOverlayTimerRef.current = setTimeout(() => setShowVideoOverlayControls(false), 4000);
+    // Não arma o auto-hide enquanto o usuário arrasta a seekbar (sticky /
+    // interacting). Em TODOS os demais estados — tocando, pausado, buffering,
+    // fim — o timer roda com os segundos DETERMINADOS (fonte única
+    // demus-fs-autohide-ms, mesma do fullscreen): após o delay TODOS os
+    // controles minimizam e a tela fica limpa.
+    if (opts?.sticky || videoOverlayInteractingRef.current) return;
+    videoOverlayTimerRef.current = setTimeout(() => setShowVideoOverlayControls(false), readAutoHideMs());
   }, []);
   useEffect(() => () => { if (videoOverlayTimerRef.current) clearTimeout(videoOverlayTimerRef.current); }, []);
 
   // (module accent, localStorage, URL query, back/forward — todos centralizados
   // em useModuleMode; não replicar aqui.)
-  // Nota: a visibilidade inicial do overlay de vídeo é decidida pelo efeito
-  // "keepOpen" abaixo (visível pausado, oculto tocando) — sem reveal na abertura.
+  // Nota: a visibilidade do overlay de vídeo é decidida pelo efeito de
+  // auto-hide abaixo — revela nas transições de estado e SEMPRE arma o timer
+  // (pausado inclusive); o toque na superfície faz toggle.
 
 
 
@@ -922,32 +926,24 @@ const Index = () => {
     isPlaying,
   );
 
-  // Overlay do player de vídeo: MINIMIZADO enquanto o vídeo roda DE VERDADE —
-  // aparece ao tocar na área do vídeo (tap catcher faz toggle) ou quando a
-  // reprodução pausa/termina/buffera (o usuário precisa enxergar play/seek/tempo).
-  // O centro do vídeo não recebe controles, disco, flash ou botão do Xerife;
-  // Play/Pause existe exclusivamente na barra inferior.
-  // keepOpen enquanto o estado REAL da superfície não confirma reprodução:
-  // pausado, finalizado, BUFFERING (stream carregando — o último frame pintado
-  // pode conter o botão central do YouTube) ou videoSurfaceIdle (live travada,
-  // playVideo ignorado, erro sem evento). Só quando o vídeo está RODANDO é que
-  // os controles minimizam — TODOS JUNTOS, no mesmo timer de 4s.
+  // Overlay do player de vídeo: auto-hide SEMPRE arma (ALSE-STYLE) — em
+  // QUALQUER estado (tocando, pausado, buffering, fim) TODOS os controles
+  // minimizam JUNTOS após os segundos determinados (fonte única
+  // demus-fs-autohide-ms, mesma do fullscreen) e a tela fica 100% limpa.
+  // O toque na área do vídeo faz toggle (tap catcher) e rearma o timer.
+  //
+  // O antigo keepOpen-pausado — que mantinha barra/transporte fixos para
+  // sempre com o vídeo parado (tela suja) — foi REMOVIDO a pedido: pausado
+  // agora TAMBÉM esconde, como já acontecia no fullscreen. O poster do estado
+  // pausado (PausedVideoPoster) continua cobrindo o bezel do YouTube quando os
+  // controles estão ocultos — tela limpa com a capa, sem chrome.
+  //
+  // Segurança anti-"botão de pause sempre ativo" (Netlify): o efeito só
+  // re-executa em transições REAIS de isPlaying — e no hook isPlaying =
+  // playing || buffering, então oscilações de rede (BUFFERING↔PLAYING) NÃO
+  // re-reve nem re-armam o timer.
   useEffect(() => {
-    // ALSE-STYLE (exato): keepOpen apenas quando PAUSADO. Durante a
-    // reprodução vale UM único mecanismo — revela no resume e minimiza no
-    // timer de 4s. Oscilações de rede (buffering/idle/surface) NÃO
-    // re-armam nem re-mostram os controles: eram a causa do "botão de
-    // pause sempre ativo" no Netlify (cada hiccup de rede limpava o timer
-    // e os controles nunca escondiam; no preview com rede estável, sim).
-    const shouldKeepOpen = expanded && playerMode === "video" && !isPlaying;
-    videoOverlayKeepOpenRef.current = shouldKeepOpen;
-    if (shouldKeepOpen) {
-      if (videoOverlayTimerRef.current) {
-        clearTimeout(videoOverlayTimerRef.current);
-        videoOverlayTimerRef.current = null;
-      }
-      setShowVideoOverlayControls(true);
-    } else if (expanded && playerMode === "video") {
+    if (expanded && playerMode === "video") {
       revealVideoOverlay();
     }
   }, [isPlaying, expanded, playerMode, revealVideoOverlay]);
@@ -2281,8 +2277,9 @@ const Index = () => {
           </div>
 
 
-          {/* QualityBadge — agora segue a mesma regra de visibilidade dos demais controles
-              (showVideoOverlayControls): TODOS juntos, mesma duração de 4s. */}
+          {/* QualityBadge — segue a mesma regra de visibilidade dos demais controles
+              (showVideoOverlayControls): TODOS juntos, mesmos segundos determinados
+              (demus-fs-autohide-ms, fonte única com o fullscreen). */}
           {expanded && playerMode === "video" && !playerState.isFullscreen && (
             <div className={`absolute top-2 left-1/2 -translate-x-1/2 z-[213] transition-opacity duration-300 ${showVideoOverlayControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
               <QualityBadge />
@@ -2333,9 +2330,9 @@ const Index = () => {
                 onClick={(e) => {
                   e.stopPropagation();
                   // ALSE-STYLE (referência): o toque SEMPRE alterna — inclusive
-                  // pausado/buffering/idle. O keepOpen apenas segura o AUTO-HIDE
-                  // (usuário vendo play/seek quando pausado); ele NUNCA bloqueia
-                  // o clique do usuário em minimizar os controles.
+                  // pausado/buffering/idle. Minimizar é decisão do usuário
+                  // (toque) ou do timer determinado; nenhum estado trava os
+                  // controles visíveis sobre o vídeo.
                   if (showVideoOverlayControls) {
                     if (videoOverlayTimerRef.current) { clearTimeout(videoOverlayTimerRef.current); videoOverlayTimerRef.current = null; }
                     setShowVideoOverlayControls(false);
@@ -2358,9 +2355,10 @@ const Index = () => {
                     showVideoOverlayControls: aparecem com os controles e
                     somem JUNTOS com eles (fade 300ms + pointer-events-none).
                     stopPropagation em cada botão: o clique não sobe para a
-                    superfície (não fecha os controles). Quando pausado
-                    (keepOpen) ficam de pé — e o play central cobre o bezel
-                    do YouTube no centro (substitui o disco de capa v5). */}
+                    superfície (não fecha os controles). Quando pausado ficam
+                    de pé ATÉ o auto-hide determinado — o play central cobre o
+                    bezel do YouTube no centro enquanto visíveis; ao minimizar,
+                    o poster pausado (PausedVideoPoster) segue cobrindo o bezel. */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div data-central-transport className={`flex items-center justify-center gap-8 sm:gap-12 transition-opacity duration-300 ${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"}`}>
                     <button

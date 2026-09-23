@@ -5,24 +5,12 @@ import { Song, formatDuration } from "@/data/mockSongs";
 import SeekBar from "@/components/SeekBar";
 import PausedVideoPoster from "@/components/PausedVideoPoster";
 
-/** Delay fixo para auto-ocultar os controles do fullscreen — UNIFICADO 4s
- *  para TODOS os players (Xerife Vídeos, Music modo Vídeo, Podcasts modo Vídeo)
- *  — TODOS JUNTOS, mesma duração. A preferência "Auto-ocultar (tela cheia)" foi
- *  removida das Configurações — comportamento único. */
-// ALSE-STYLE: auto-hide configurável pelo usuário (ms), persistido.
-const AUTOHIDE_OPTS = [2000, 3500, 5000, 8000] as const;
-const AUTOHIDE_DEFAULT = 3500;
-function readAutoHideMs(): number {
-  try {
-    const raw = localStorage.getItem("demus-fs-autohide-ms");
-    if (raw == null || raw === "") return AUTOHIDE_DEFAULT;
-    const n = Number(raw);
-    if (!Number.isFinite(n) || !AUTOHIDE_OPTS.includes(n as any)) return AUTOHIDE_DEFAULT;
-    return n;
-  } catch {
-    return AUTOHIDE_DEFAULT;
-  }
-}
+/** Auto-ocultar dos controles do fullscreen — FONTE ÚNICA em
+ *  src/lib/autoHideControls.ts (compartilhada com o overlay inline do Index):
+ *  mesmos "segundos determinados" em TODOS os players (Xerife Vídeos, Music
+ *  modo Vídeo, Podcasts modo Vídeo), TODOS JUNTOS. ALSE-STYLE: o timer arma
+ *  em qualquer estado (pausado inclusive). */
+import { AUTOHIDE_OPTS, readAutoHideMs } from "@/lib/autoHideControls";
 
 
 interface FullscreenOverlayProps {
