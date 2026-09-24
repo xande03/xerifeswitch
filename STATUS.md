@@ -4,6 +4,39 @@ Atualizado em 2026-09-24 (9ª revisão). **Todos os itens abaixo foram medidos n
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
 
+## Sessão 2026-09-24 (2) — "botão de pause ainda sobra": player morto no preview + seeks/stamps faltando
+
+Reporte pós-fix: a minimização completa só acontecia uma vez; depois, com os controles
+ocultos, **o botão de pause central continuava aparecendo** durante a reprodução; pausado,
+tudo eschia. Reproduzido ao vivo com Playwright contra o dev server (sessão Xerife Vídeos +
+`xerife:auto-play-video`):
+
+1. **No preview (dev/StrictMode) o player do YouTube nascia MORTO**: o effect de criação
+   rodava 2×; a 2ª construção partia do iframe deixado pela 1ª (alvo inválido) e
+   `playerRef` ficava apontando para um player cujo `onReady` nunca dispara. A API atual
+   só anexa `loadVideoById`/`playVideo` **na instância, no onReady** — então `loadVideo`
+   era **descartado em silêncio** (nem state atualizava) e o vídeo nunca tocava. Correção
+   em [`useYouTubePlayer`](src/hooks/useYouTubePlayer.ts): guarda "um player só" +
+   recriação de div limpa se o slot virou iframe; **`destroy()` removido do cleanup**
+   (mataria a sessão inteira no StrictMode/HMR); **fila `pendingLoadRef`**: `loadVideo`/
+  `loadVideoAt` chamados antes do ready são aplicados no flush do `onReady` (antes perdidos).
+2. **Eventos que pintam o glifo sem stamp de `glyphPaintAt`** (disco não cobria → "botão de
+   pause fantasma" com controles já ocultos — encaixe exato no "só minimizou uma vez"):
+   - **seek de correção do guard de sincronia** (`runClipSyncCheck` → `p.seekTo` direto;
+     `windowMs` 6s + folga 2s > janela `GLYPH_COVER_MS` 6,5s do load ⇒ correções tardias
+     caíam FORA da janela);
+   - **re-seek de confirmação** do wrapper `seekTo` (+250ms);
+   - **reload de troca de qualidade** (`loadVideoById` no trick da qualidade).
+   Todos agora fazem `setState({ glyphPaintAt: Date.now() })`.
+3. **Validação ao vivo (roteiro Playwright)**: `onReady` ✓, `[YT] Loading new video` ✓,
+   `PLAYING` ✓; disc=1 + controles visíveis juntos até ~6s; somem **juntos** no fade
+   (ov 1→0.54→0 com disc=0); **18 s seguidos de centro 100% limpo** (sem glifo/disco/botão);
+   pausa revela controles e re-esconde em ~3,5 s; frames conferidos numericamente e
+   visualmente (janela = 1 botão unificado; steady = vídeo limpo).
+
+Medido neste checkout: `npm run check` ✅ (typecheck + **117 testes**/20 arquivos + build +
+e2e:anchor 16 combinações + smoke, exit 0).
+
 ## Sessão 2026-09-24 — "dois botões de pause sobrepostos": causa raiz medida em lab + disco transitório + lease do auto-hide
 
 Reporte com screenshot: dois botões de pause sobrepostos no centro do player (um atrás do

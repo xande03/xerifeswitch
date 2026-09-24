@@ -441,6 +441,8 @@ function enforceQualityCap(p: any, quality: string) {
 
 export function useYouTubePlayer(containerId: string) {
   const playerRef = useRef<any>(null);
+  /** Load solicitado antes do onReady — aplicado no flush do onReady. */
+  const pendingLoadRef = useRef<{ id: string; startSeconds?: number } | null>(null);
   const [state, setState] = useState<YouTubePlayerState>(() => {
     try {
       const savedTime = localStorage.getItem('demus-current-time');
@@ -566,6 +568,11 @@ export function useYouTubePlayer(containerId: string) {
       c.corrections += 1;
       const driftMs = Math.round(Math.abs(observed - c.targetSec) * 1000);
       try { p.seekTo?.(verdict.targetSec, true); } catch { /* seek indisponivel: o proximo tick reavalia */ }
+      // Seek do guard PINTA o feedback central do embed (medido em lab) — e esta
+      // correção pode cair DEPOIS da janela do load (windowMs 6s + folga vs
+      // GLYPH_COVER_MS 6,5s): sem este stamp o disco não cobria e o "botão de
+      // pause" fantasma reaparecia com os controles já ocultos.
+      setState((s) => ({ ...s, glyphPaintAt: Date.now() }));
       console.info('[YT clipSync] correcao aplicada', { reason: verdict.reason, driftMs, target: verdict.targetSec, attempt: c.corrections });
       trackMetric('clip-sync', 'seek', { reason: verdict.reason, driftMs, attempt: c.corrections });
       return true;
@@ -792,8 +799,23 @@ export function useYouTubePlayer(containerId: string) {
 
   useEffect(() => {
     loadYouTubeAPI().then(() => {
-      const el = document.getElementById(containerId);
-      if (!el) return;
+      // Guarda contra reexecução do efeito (StrictMode/HMR): a API atual anexa
+      // loadVideoById/playVideo na INSTÂNCIA apenas no onReady — uma segunda
+      // construção em cima do iframe deixava playerRef apontando para um
+      // player morto (onReady nunca dispara) e o load era descartado em
+      // silêncio para sempre.
+      if (playerRef.current) return;
+      let host = document.getElementById(containerId);
+      // Após destroy/HMR o slot pode ter virado iframe ou sumir: recria um div
+      // limpo com o mesmo id para a próxima construção.
+      if (host && host.tagName === "IFRAME") {
+        const fresh = document.createElement("div");
+        fresh.id = containerId;
+        host.replaceWith(fresh);
+        host = fresh;
+      }
+      if (!host) return;
+      const pendingAtStart = pendingLoadRef.current;
 
       playerRef.current = new window.YT.Player(containerId, {
         height: "100%",
@@ -822,6 +844,25 @@ export function useYouTubePlayer(containerId: string) {
         },
         events: {
           onReady: () => {
+            console.debug("[xerife] yt onReady");
+            // Load pendente: loadVideo()/loadVideoAt() foi chamado antes do
+            // player estar pronto (clique no vídeo logo na abertura) — aplica agora.
+            if (pendingLoadRef.current) {
+              const pending = pendingLoadRef.current;
+              pendingLoadRef.current = null;
+              try {
+                const p: any = playerRef.current;
+                if (pending.startSeconds != null) {
+                  p?.loadVideoById?.({ videoId: pending.id, startSeconds: pending.startSeconds });
+                } else {
+                  p?.loadVideoById?.(pending.id);
+                }
+                setState((s) => ({ ...s, videoId: pending.id, isEnded: false, glyphPaintAt: Date.now() }));
+                console.log("[YT] flush pending load:", pending.id, pending.startSeconds ?? "");
+              } catch (e) {
+                console.warn("[YT] pending load failed:", e);
+              }
+            }
             const iframe = playerRef.current?.getIframe?.() as HTMLIFrameElement | null;
             if (iframe) {
               // Fullscreen EXCLUSIVO do #yt-fullscreen-container do Xerife:
@@ -1081,12 +1122,18 @@ export function useYouTubePlayer(containerId: string) {
           },
         },
       });
+      console.debug("[xerife] yt player constructed");
     });
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       stopClipSyncWatch();
-      playerRef.current?.destroy?.();
+      // NÃO destroy() aqui: no StrictMode/HMR o effect roda 2x e o slot já
+      // virou iframe — destruir/renullar sem conseguir recriar matava o player
+      // da sessão inteira (onReady nunca dispara → sem loadVideoById/playVideo
+      // → vídeo nunca toca no preview). O Index mantém este hook vivo por toda
+      // a vida da página; um eventual player órfão de HMR perde o iframe ao
+      // ser substituído no próximo mount.
     };
   }, [containerId, applyVolumeToPlayer, runClipSyncCheck, stopClipSyncWatch]);
 
@@ -1466,6 +1513,14 @@ export function useYouTubePlayer(containerId: string) {
 
       setState((s) => ({ ...s, videoId, currentTime: 0, isEnded: false, glyphPaintAt: Date.now() }));
       console.log('[YT] Loading new video:', videoId, 'quality-lock:', savedQ);
+    } else {
+      // Player ainda sem onReady — a API atual só anexa loadVideoById/playVideo
+      // na instância QUANDO o ready dispara. Antes esta chamada era descartada
+      // em silêncio (vídeo nunca carregava no preview). Enfileira para o flush
+      // do onReady; o state já registra o vídeo para os guards de anti-restart.
+      pendingLoadRef.current = { id: videoId };
+      setState((s) => ({ ...s, videoId, isEnded: false }));
+      console.log('[YT] loadVideo queued (player not ready):', videoId);
     }
   }, [applyVolumeToPlayer, applyCaptionsState, clearUserPausedFlag]);
 
@@ -1476,7 +1531,14 @@ export function useYouTubePlayer(containerId: string) {
    */
   const loadVideoAt = useCallback((videoId: string, startSeconds: number, opts?: { crossfade?: boolean }) => {
     const p: any = playerRef.current;
-    if (!p?.loadVideoById) return;
+    if (!p?.loadVideoById) {
+      // Player sem ready: enfileira com a posição para o flush do onReady
+      // (mesma fila do loadVideo — nunca descartar a troca em silêncio).
+      pendingLoadRef.current = { id: videoId, startSeconds: Math.max(0, startSeconds || 0) };
+      setState((s) => ({ ...s, videoId, currentTime: Math.max(0, startSeconds || 0), isEnded: false }));
+      console.log('[YT] loadVideoAt queued (player not ready):', videoId, startSeconds);
+      return;
+    }
     clearUserPausedFlag();
     userPausedRef.current = false;
     shouldBePlayingRef.current = true; setShouldBePlayingGlobal(true);
@@ -1661,6 +1723,8 @@ export function useYouTubePlayer(containerId: string) {
         const confirmedTime = playerRef.current?.getCurrentTime?.() || 0;
         if (Math.abs(confirmedTime - safeSeconds) > 1.5) {
           playerRef.current?.seekTo?.(safeSeconds, true);
+          // Re-seek de confirmação também pinta o glifo — renova a janela.
+          setState((s) => ({ ...s, glyphPaintAt: Date.now() }));
           if (shouldBePlayingRef.current && !userPausedRef.current) {
             playerRef.current?.playVideo?.();
           }
@@ -2120,6 +2184,10 @@ export function useYouTubePlayer(containerId: string) {
         } else {
           p.loadVideoById?.({ videoId, startSeconds, suggestedQuality: quality });
         }
+        // Reload de qualidade pinta o glifo central do embed (feedback de UI) —
+        // sem esta janela, o disco do CenterGlyphCover não cobria e o "botão de
+        // pause" fantasma ficava sobre o vídeo com os controles já ocultos.
+        setState((s) => ({ ...s, glyphPaintAt: Date.now() }));
 
         setTimeout(() => {
           try {
