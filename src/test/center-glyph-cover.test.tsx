@@ -16,8 +16,12 @@ import CenterGlyphCover from "@/components/CenterGlyphCover";
  *  1. glyphCover + superfície jogando → [data-center-glyph-cover] presente,
  *     opaco, INERTE (aria-hidden, pointer-events-none), SEM backdrop-blur.
  *  2. Janela expirada (glyphCover=false) → ausente — centro 100% limpo.
- *  3. Pausado/idle/buffering/finalizado → ausente (poster/capa/spinner assumem;
- *     jamais dois elementos centrais juntos).
+ *  3. Pausado/idle/finalizado → ausente (poster/capa assumem; jamais dois
+ *     elementos centrais juntos). BUFFERING → PRESENTE (v12, reporte
+ *     "símbolos ainda presentes"): o spinner/bezel do cross-origin iframe
+ *     ficava SOZNO com disco e poster ambos barrados por !surfaceBuffering;
+ *     o ramo de buffering é estado (dura TODO o buffering, ignora o
+ *     watchdog idle) e continua mutuamente exclusivo com o poster.
  *  4. O disco é TRANSITÓRIO por construção: não é a antiga CenterChromeShield
  *     permanente (componente deletado em ccdad4b) — só renderiza com a prop.
  */
@@ -103,11 +107,26 @@ describe("CenterGlyphCover — disco transitório do glifo do YT", () => {
     expect(queryPoster()).not.toBeNull();
   });
 
-  it("buffering: spinner do próprio embed — sem disco", () => {
+  it("buffering: disco rende (estado > janela; watchdog idle não derruba)", () => {
+    // v12 (reporte "símbolos ainda presentes"): durante surfaceBuffering o
+    // spinner/bezel do cross-origin iframe jamais pode ficar descoberto —
+    // nem quando a janela (glyphCover) já expirou, nem quando o watchdog de
+    // stall marca videoSurfaceIdle (o poster segue bloqueado por
+    // !surfaceBuffering; sem o disco não haveria NENHUMA cobertura).
     act(() => {
-      render(<FullscreenOverlay {...makeProps({ glyphCover: true, surfaceBuffering: true })} />);
+      render(
+        <FullscreenOverlay
+          {...makeProps({
+            glyphCover: false,
+            surfaceBuffering: true,
+            videoSurfaceIdle: true,
+          })}
+        />,
+      );
     });
-    expect(queryCover()).toBeNull();
+    const disc = queryCover();
+    expect(disc).not.toBeNull();
+    expect(queryPoster()).toBeNull(); // mutuamente exclusivo: poster exige !surfaceBuffering
   });
 
   it("finalizado: capa opaca de fim — sem disco", () => {

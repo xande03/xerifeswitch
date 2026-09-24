@@ -407,16 +407,16 @@ const FullscreenOverlay = ({
         <PausedVideoPoster cover={song?.cover} zIndexClass="z-[204]" />
       )}
 
-      {/* DISCO DO GLIFO (v11): no fullscreen não existe transporte central —
+      {/* DISCO DO GLIFO (v12): no fullscreen não existe transporte central —
           sem este disco o indicador do YT (pintado em play/seek/load) ficaria
-          SOZINHO no centro por ~5s. Opaco, transitório (janela GLYPH_COVER_MS),
-          sem blur — some junto com o glifo. Mútuo exclusivo com o poster. */}
+          SOZINHO no centro por ~5s. Opaco, transitório (janela GLYPH_COVER_MS
+          OU buffering ativo — v12: buffering é estado e dura TODO o
+          buffering; antes !surfaceBuffering deixava o spinner/bezel do YT
+          descoberto), sem blur — some junto com o glifo. Mútuo exclusivo com
+          o poster. */}
       {videoMode &&
-        glyphCover &&
-        isPlaying &&
-        !videoSurfaceIdle &&
-        !surfaceBuffering &&
-        !isEnded && (
+        !isEnded &&
+        ((glyphCover && isPlaying && !videoSurfaceIdle) || surfaceBuffering) && (
           <CenterGlyphCover zIndexClass="z-[204]" />
         )}
 

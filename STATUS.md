@@ -1,8 +1,36 @@
 # Status do Xerife Music
 
-Atualizado em 2026-09-24 (10ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-09-24 (11ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-09-24 (4) — "os símbolos ainda estão presentes": buffering descoberto
+
+Reporte com 2 screenshots: um ⏸ branco solto no centro, SEM disco, SEM pôster, SEM
+controles (fundo = frame congelado do vídeo). Causa medida em lab: durante
+`surfaceBuffering` o disco (v11 exigia `!surfaceBuffering`) **E** o pôster (mesma
+trava) ficavam fora AO MESMO TEMPO — o indicador central do iframe cross-origin
+(spinner/⏸ do YouTube) aparecia sem nenhuma cobertura; com os controles já
+ocultos, virava "símbolo fantasma". Agravante: o watchdog de stall marca
+`videoSurfaceIdle` enquanto o tempo não avança (exatamente durante o buffering) e
+também derrubava o disco — restando 0 coberturas mesmo com a janela do glifo
+ainda aberta.
+
+**Fix (v12)** — ramo de buffering, em `Index.tsx` + `FullscreenOverlay.tsx`:
+disco rende por **estado** (`surfaceBuffering`) além da janela (`glyphCoverOn`),
+ignorando `videoSurfaceIdle` e janela expirada; a saída PLAYING reabre a janela
+via `glyphPaintAt` e cobre o repintar (~6,5s). Pôster segue dono exclusivo de
+pausado; fim segue capa opaca; controles NÃO mudam (lease continua só em
+`actionGlyphPaintAt` — oscilação de rede não estende controles). Contrato
+travado no teste `center-glyph-cover.test.tsx` (buffering → disco presente).
+
+Validação: `lab/repro-buffer-glyph.mjs` — pré-fix 6,5s de buffering = **100%
+descoberto** (screenshot com spinner nu); pós-fix 4,5s = **0s descoberto**;
+roda longa 90s @90kbps com buffering único de ~62s → disco presente **100% do
+tempo** (muito além dos 6,5s da janela), prova pixel no miolo `(22,22,22)` com
+0 px brancos. Baseline steady (Gap A): centro 0,00–0,03% de brilho — não
+reproduzido no desktop (janela 6,5s > glifo do YT ~5s). `npm run check`:
+117/117 testes, build, e2e 16 combinações, SMOKE OK.
 
 ## Sessão 2026-09-24 (3) — "no Netlify os controles nunca minimizam": interacting preso + cadeia de BUFFERING
 

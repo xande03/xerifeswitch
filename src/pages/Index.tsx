@@ -2425,7 +2425,7 @@ const Index = () => {
                 <PausedVideoPoster cover={currentSong?.cover} />
               )}
 
-              {/* DISCO DO GLIFO (v11): durante a janela da pintura do indicador
+              {/* DISCO DO GLIFO (v11→v12): durante a janela da pintura do indicador
                   central do YT (play/seek/load, ~5s) um disco opaco #161616 —
                   sem ícone, transitório, SEM blur — cobre o glifo por
                   construção: com controles visíveis não há mais DOIS botões de
@@ -2433,14 +2433,26 @@ const Index = () => {
                   controles ocultos não sobra o "botão de pause" sozinho. Some
                   junto com o glifo (GLYPH_COVER_MS), nunca é permanente.
                   Mútuo exclusivo com o poster (pausado = poster; janela de
-                  glifo = disco). Fora da superfície YT (nativa/offline/
-                  buffering/fim/idle) não renderiza. */}
-              {glyphCoverOn &&
-                !nativeVideoActive &&
-                playerState.isPlaying &&
-                !playerState.videoSurfaceIdle &&
-                !playerState.surfaceBuffering &&
-                !playerState.isEnded && (
+                  glifo = disco).
+                  v12 (reporte "símbolos ainda presentes"): buffering TAMBÉM
+                  rende o disco (estado, dura TODO o buffering mesmo >
+                  GLYPH_COVER_MS) — antes, surfaceBuffering tirava disco E
+                  poster ao mesmo tempo (ambos exigiam !surfaceBuffering) e o
+                  spinner/bezel do cross-origin iframe ficava SOZNO no centro
+                  com os controles já ocultos; a saída PLAYING reabre a janela
+                  via glyphPaintAt e cobre o repintar. O ramo de buffering
+                  IGNORA videoSurfaceIdle de propósito: o watchdog de stall
+                  (poll 1s) marca idle quando o tempo não avança — exatamente
+                  durante o buffering — e, sem isto, derrubava o disco no
+                  meio do buffering enquanto o poster segue bloqueado por
+                  !surfaceBuffering (sem cobertura nenhuma). Fora da
+                  superfície YT (nativa/offline/fim/idle) não renderiza. */}
+              {!nativeVideoActive &&
+                !playerState.isEnded &&
+                ((glyphCoverOn &&
+                  playerState.isPlaying &&
+                  !playerState.videoSurfaceIdle) ||
+                  playerState.surfaceBuffering) && (
                   <CenterGlyphCover />
                 )}
 
