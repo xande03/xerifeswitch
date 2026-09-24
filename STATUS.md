@@ -1,8 +1,42 @@
 # Status do Xerife Music
 
-Atualizado em 2026-09-24 (11ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-09-24 (12ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-09-24 (5) — lógica do Alse aplicada ao painel: auto-hide do chrome (showFsControls ligado)
+
+Pedido: aplicar ao Xerife o mesmo mecanismo de "tela limpa" do app Alse
+(estado + timer + gate de fade), para o player de vídeo e os controles de
+reprodução, nos contextos **modo vídeo** e **Xerife Vídeos**. Auditoria
+primeiro: o overlay do player (Index + FullscreenOverlay) **já cobria** as 7
+regras do Alse nos dois contextos (com N configurável do usuário); o gap real
+era o `NowPlayingView` — `showFsControls`/`resetFsControlsTimer` existiam mas
+estavam **mortos** (armavam em fullscreen e nunca gateavam nenhum elemento;
+`chromeFade` nunca existiu no repo).
+
+Mecanismo aplicado (N = **3000ms fixo**, escolha do usuário; overlay mantém os
+segundos configuráveis):
+
+1. **Escopo**: `chromeHidden = mode === "video" && isPlaying && !showFsControls`
+   — arma SÓ em modo vídeo + tocando (escopo checado antes do timer, regra 6);
+   áudio/lírica/pausado → chrome visível fixo.
+2. **Ocultar**: fade 300ms `opacity-0 pointer-events-none` SOMENTE na barra
+   superior mobile do painel (`[data-panel-top-bar]` — único chrome gateável
+   em modo vídeo; o transporte/SeekBar do painel já era removido em modo vídeo
+   e o rail Xerife Vídeos não tem barra no painel).
+3. **Nunca ocultar** (regra 4): info (título/artista), action-bar
+   (favoritar/ícones), `VideoInfoBar`, abas Recomendados/Discussão, descrição
+   de podcast.
+4. **Restaurar** (regra 5): `onPointerDown`/`onPointerMove` na raiz do painel;
+   pausar mantém visível permanente até reproduzir de novo (divergência
+   deliberada do overlay, onde pausado esconde a pedido — pôster toma conta).
+
+Validação `lab/probe-panel-chrome.mjs` (mobile 390×844, fluxo real: card →
+mini → painel → botão "Vídeo"): 6/6 — barra `1|auto` em t+0.5s; `0|none` em
+t+4.5s sem interação com **info `1`** (nunca some); pointermove restaura
+`1|auto`; pausar >3.6s mantém `1|auto`. `npm run check`: 117/117 + build +
+e2e 16 combinações + SMOKE OK.
 
 ## Sessão 2026-09-24 (4) — "os símbolos ainda estão presentes": buffering descoberto
 

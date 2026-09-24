@@ -390,7 +390,15 @@ const NowPlayingView = ({
 
 
 
-  // Auto-hide fullscreen controls after 3s
+  // ── Auto-hide do chrome do painel no modo vídeo (mesma lógica do Alse) ──
+  // Tocando em modo vídeo + sem interação por 3000ms → a BARRA SUPERIOR do
+  // painel some (fade 300ms + pointer-events-none). Nunca gateados: info
+  // (título/artista), action-bar (favoritar/ícones), VideoInfoBar, abas
+  // Recomendados/Discussão, descrição de podcast (regra 4 do Alse).
+  // Escopo checado ANTES de armar (regra 6): fora de "modo vídeo + tocando"
+  // o chrome fica visível fixo e o timer é cancelado. Pausado → visível
+  // permanente até reproduzir de novo (regra 5). N fixo de 3000ms (pedido);
+  // o overlay do player continua com os segundos configuráveis do usuário.
   const resetFsControlsTimer = useCallback(() => {
     setShowFsControls(true);
     if (fsControlsTimerRef.current) clearTimeout(fsControlsTimerRef.current);
@@ -398,14 +406,17 @@ const NowPlayingView = ({
   }, []);
 
   useEffect(() => {
-    if (isFullscreen) {
+    if (mode === "video" && isPlaying) {
       resetFsControlsTimer();
     } else {
       setShowFsControls(true);
       if (fsControlsTimerRef.current) clearTimeout(fsControlsTimerRef.current);
     }
     return () => { if (fsControlsTimerRef.current) clearTimeout(fsControlsTimerRef.current); };
-  }, [isFullscreen, resetFsControlsTimer]);
+  }, [mode, isPlaying, resetFsControlsTimer]);
+
+  // Decisão (Alse: chromeHidden): só o modo vídeo + tocando + timer expirado.
+  const chromeHidden = mode === "video" && isPlaying && !showFsControls;
 
   const loadLyrics = useCallback((skipCache = false) => {
     const songId = song.id;
@@ -915,6 +926,10 @@ const NowPlayingView = ({
       // (14px de respiro vertical) — ver .frame-inset no index.css.
       // Em fullscreen de vídeo mantém inset-0 (cobre a janela toda).
       className={`fixed inset-0 z-50 flex flex-col animate-slide-up bg-background ${isFullscreen ? 'z-[9999]' : 'frame-inset'} ${context === "video" ? 'xerife-video-context' : ''}`}
+      // Restauração do chrome do painel (Alse regra 5): qualquer interação
+      // (pointerdown/pointermove — cobre toque e mouse) rearma o timer.
+      onPointerDown={resetFsControlsTimer}
+      onPointerMove={resetFsControlsTimer}
       style={{
         paddingTop: isFullscreen ? '0' : 'env(safe-area-inset-top)',
         paddingBottom: isFullscreen ? '0' : 'env(safe-area-inset-bottom)',
@@ -1008,9 +1023,14 @@ const NowPlayingView = ({
           <div className={`${isPodcastVideo ? "flex flex-col h-full w-full max-w-[900px] mx-auto lg:px-8 lg:pb-8" : isRailVideoMode ? "md:flex md:flex-row md:gap-4 md:items-start md:px-4 w-full" : `flex flex-col ${isMobileLandscape ? "landscape-mobile-player" : "lg:flex-row"} h-full lg:gap-16 w-full max-w-[1600px] mx-auto lg:px-12 lg:pb-12`}`}>
 
 
-            {/* Mobile top bar — collapse on the left, room for notch */}
+            {/* Mobile top bar — collapse on the left, room for notch.
+                GATEADA pelo auto-hide em modo vídeo (Alse regra 3): fade 300ms
+                + pointer-events-none junto com o vídeo tocando; áudio/lírica
+                nunca escondem (chromeHidden exige mode==="video"). */}
             {!isRailVideoMode && (
-              <div className="lg:hidden flex items-center justify-between px-4 pt-3 pb-1 relative z-[70]">
+              <div
+                data-panel-top-bar
+                className={`lg:hidden flex items-center justify-between px-4 pt-3 pb-1 relative z-[70] transition-opacity duration-300 ${chromeHidden ? "opacity-0 pointer-events-none" : ""}`}>
                 <button onClick={onCollapse} className="p-2 -ml-1 rounded-full bg-background/70 backdrop-blur text-foreground/90 hover:text-foreground active:scale-95 transition">
                   <ChevronDown size={28} />
                 </button>
