@@ -24,3 +24,34 @@ export function readAutoHideMs(): number {
     return AUTOHIDE_DEFAULT;
   }
 }
+
+/**
+ * JANELA DO GLIFO CENTRAL DO YOUTUBE (medida em lab real, controls=0 +
+ * pointer-events:none): a cada play/resume/seek o embed PINTA um indicador
+ * central (⏸/▶, círculo translúcido de ~16% da largura do player) que some
+ * SOZINHO em ~5 s — mesmo sem eventos de pointer. 6500 ms = fade ~5 s +
+ * margem de jitter/troxe de rede. Durante essa janela o app mantém:
+ *  - o disco opaco CenterGlyphCover (esconde o glifo por construção);
+ *  - o lease do auto-hide dos controles (somem JUNTOS com o disco/glifo).
+ * Assim nunca há "dois botões de pause" nem "botão de pause sobrando" após
+ * a minimização.
+ */
+export const GLYPH_COVER_MS = 6500;
+
+/** TRUE enquanto a janela do glifo (contada a partir de glyphPaintAt) está aberta. */
+export function glyphCoverActive(glyphPaintAt: number | null | undefined, now: number): boolean {
+  if (!glyphPaintAt) return false;
+  return now - glyphPaintAt < GLYPH_COVER_MS;
+}
+
+/**
+ * Delay do auto-hide: os "segundos determinados" (preferência do usuário) com
+ * PISO na ponta da janela do glifo — revelações disparadas por uma transição
+ * (play/seek/load) nunca escondem os controles antes do glifo do YouTube sumir.
+ * Sem glifo pendente, devolve exatamente o valor determinado.
+ */
+export function autoHideDelayMs(userMs: number, glyphPaintAt: number | null | undefined, now: number): number {
+  if (!glyphPaintAt) return userMs;
+  const remaining = glyphPaintAt + GLYPH_COVER_MS - now;
+  return Math.max(userMs, remaining);
+}

@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><style>
+  body { margin:0; background:#111; display:flex; gap:24px; padding:16px; font-family:monospace; color:#fff; }
+  .box { position:relative; width:530px; height:298px; overflow:hidden; background:#000; border-radius:16px; }
+  /* Espelha o masking do Xerife: iframe 240px mais alto, sobe 120px, sem pointer */
+  .box > iframe {
+    position:absolute !important; left:0 !important; top:-120px !important;
+    width:100% !important; height:calc(100% + 240px) !important;
+    border:0 !important; pointer-events:none !important;
+  }
+  .box.events > iframe { pointer-events:auto !important; }
+  /* Transporte opaco central do app (88px) */
+  .transport { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:5; pointer-events:none; }
+  .btn { width:88px; height:88px; border-radius:50%; background:#161616; color:#fff; display:flex; align-items:center; justify-content:center; font-size:34px; box-shadow:0 10px 36px rgba(0,0,0,.5); }
+  .log { width:420px; font-size:12px; white-space:pre-wrap; }
+  button { margin:4px; padding:6px 10px; }
+</style></head>
+<body>
+  <div>
+    <div class="box" id="box">
+      <div id="player"></div>
+      <div class="transport"><div class="btn" id="glyph-overlay">⏸</div></div>
+    </div>
+    <div>
+      <button id="b-play">play</button>
+      <button id="b-pause">pause</button>
+      <button id="b-seek">seek+30</button>
+      <button id="b-events">toggle pointer-events</button>
+      <button id="b-hover">dispatch mousemove no iframe</button>
+      <button id="b-hidebtn">esconder meu botão</button>
+    </div>
+  </div>
+  <div class="log" id="log"></div>
+<script>
+  const logEl = document.getElementById('log');
+  const log = (m) => { logEl.textContent += m + '\n'; console.log(m); };
+  let player, ready = false;
+  window.onYouTubeIframeAPIReady = () => {
+    player = new YT.Player('player', {
+      width:'100%', height:'100%',
+      videoId:'aqz-KE-bpKQ',
+      playerVars:{ autoplay:0, controls:0, modestbranding:1, rel:0, playsinline:1, iv_load_policy:3, disablekb:1, fs:0, enablejsapi:1 },
+      events:{
+        onReady:()=>{ ready=true; log('READY'); },
+        onStateChange:(e)=>log('STATE='+({[-1]:'CUED',0:'ENDED',1:'PLAYING',2:'PAUSED',3:'BUFFERING',5:'CUED'}[e.data]||e.data)),
+      }
+    });
+  };
+  const s = document.createElement('script'); s.src='https://www.youtube.com/iframe_api'; document.body.appendChild(s);
+  document.getElementById('b-play').onclick = () => player.playVideo();
+  document.getElementById('b-pause').onclick = () => player.pauseVideo();
+  document.getElementById('b-seek').onclick = () => player.seekTo((player.getCurrentTime()+30), true);
+  document.getElementById('b-events').onclick = () => document.getElementById('box').classList.toggle('events');
+  document.getElementById('b-hover').onclick = () => {
+    const ifr = player.getIframe();
+    const r = ifr.getBoundingClientRect();
+    // mousemove sintético no ELEMENTO iframe (não atravessa cross-origin, mas registra)
+    ifr.dispatchEvent(new MouseEvent('mousemove', {bubbles:true, clientX:r.left+r.width/2, clientY:r.top+r.height/2}));
+    log('mouse event dispatched on iframe el (inner doc provavelmente NÃO recebe)');
+  };
+  document.getElementById('b-hidebtn').onclick = () => document.querySelector('.transport').classList.toggle('hide');
+  window.__state = () => player && player.getPlayerState();
+  window.__t = () => player && player.getCurrentTime();
+  window.__ready = () => ready;
+</script>
+</body>
+</html>

@@ -43,7 +43,8 @@ import ModuleSwitcher, { MODULE_LABEL, type SwitchableModule } from "@/component
 
 
 import { getSearchSuggestions, searchYouTubeMusic } from "@/lib/youtubeSearch";
-import { readAutoHideMs } from "@/lib/autoHideControls";
+import { readAutoHideMs, autoHideDelayMs, GLYPH_COVER_MS } from "@/lib/autoHideControls";
+import CenterGlyphCover from "@/components/CenterGlyphCover";
 import { fetchVideoInfo } from "@/lib/youtubeVideoInfo";
 import { hdThumbnail } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -269,6 +270,12 @@ const Index = () => {
   const videoOverlayInteractingRef = useRef(false);
   /** Guarda contra toggle duplicado: dois toques dentro desta janela contam como um. */
   const videoOverlayTapGuardRef = useRef(0);
+  /** Espelho síncrono de playerState.glyphPaintAt (o reveal é declarado ANTES
+   *  do hook do player e precisa do valor atual no fecho). */
+  const glyphPaintAtRef = useRef(0);
+  /** Estado do CenterGlyphCover: TRUE enquanto a janela do glifo do YT está aberta. */
+  const [glyphCoverOn, setGlyphCoverOn] = useState(false);
+  const glyphCoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const revealVideoOverlay = useCallback((opts?: { sticky?: boolean }) => {
     setShowVideoOverlayControls(true);
@@ -278,11 +285,13 @@ const Index = () => {
     }
     // Não arma o auto-hide enquanto o usuário arrasta a seekbar (sticky /
     // interacting). Em TODOS os demais estados — tocando, pausado, buffering,
-    // fim — o timer roda com os segundos DETERMINADOS (fonte única
-    // demus-fs-autohide-ms, mesma do fullscreen): após o delay TODOS os
-    // controles minimizam e a tela fica limpa.
+    // fim — o timer roda: piso nos segundos DETERMINADOS (demus-fs-autohide-ms)
+    // estendido até o FIM da janela do glifo do YouTube (transição play/seek/load
+    // pinta o indicador central por ~5s) — controles e disco somem JUNTOS e a
+    // tela nunca fica com "botão de pause sobrando" nem com o glifo sozinho.
     if (opts?.sticky || videoOverlayInteractingRef.current) return;
-    videoOverlayTimerRef.current = setTimeout(() => setShowVideoOverlayControls(false), readAutoHideMs());
+    const delay = autoHideDelayMs(readAutoHideMs(), glyphPaintAtRef.current, Date.now());
+    videoOverlayTimerRef.current = setTimeout(() => setShowVideoOverlayControls(false), delay);
   }, []);
   useEffect(() => () => { if (videoOverlayTimerRef.current) clearTimeout(videoOverlayTimerRef.current); }, []);
 
@@ -400,6 +409,9 @@ const Index = () => {
   });
 
   const { state: playerState, loadVideo, loadVideoAt, preloadClip, play, pause, seekTo, setVolume: setPlayerVolume, togglePiP, requestAirPlay, requestFullscreen, exitFullscreen, setPlaybackRate, toggleCaptions, proxyAudioElement, getCurrentTime: getPlayerCurrentTime } = useYouTubePlayer("yt-player-slot");
+  // Espelho do timestamp de pintura do glifo central (o reveal/cover precisam
+  // do valor ATUAL; declarado antes do hook por ordem de fechos).
+  glyphPaintAtRef.current = playerState.glyphPaintAt || 0;
   const nativeVideoActive = playerMode === "video" && Boolean(nativeVideoSource?.videoId === currentSong.youtubeId);
 
   // Espelho live do estado do player: a guarda anti-reinício abaixo precisa
@@ -932,6 +944,12 @@ const Index = () => {
   // demus-fs-autohide-ms, mesma do fullscreen) e a tela fica 100% limpa.
   // O toque na área do vídeo faz toggle (tap catcher) e rearma o timer.
   //
+  // JANELA DO GLIFO (v11): play/seek/load pintam o indicador central do YT
+  // (~5s medidos em lab). O efeito abaixo também dispara em glyphPaintAt —
+  // seeks mid-playing (troca de clipe, resume-seek) que NÃO mudam isPlaying
+  // rearman controles + disco, então o glifo nunca aparece sozinho nem
+  // duplicado com o nosso botão.
+  //
   // O antigo keepOpen-pausado — que mantinha barra/transporte fixos para
   // sempre com o vídeo parado (tela suja) — foi REMOVIDO a pedido: pausado
   // agora TAMBÉM esconde, como já acontecia no fullscreen. O poster do estado
@@ -941,12 +959,42 @@ const Index = () => {
   // Segurança anti-"botão de pause sempre ativo" (Netlify): o efeito só
   // re-executa em transições REAIS de isPlaying — e no hook isPlaying =
   // playing || buffering, então oscilações de rede (BUFFERING↔PLAYING) NÃO
-  // re-reve nem re-armam o timer.
+  // re-reve nem re-armam o timer (o refresh do glyphPaintAt nessas transições
+  // é intencional: cada oscilação pode repintar o glifo).
   useEffect(() => {
     if (expanded && playerMode === "video") {
       revealVideoOverlay();
     }
   }, [isPlaying, expanded, playerMode, revealVideoOverlay]);
+
+  // Espelho/lease do CenterGlyphCover: liga na pintura do glifo e desliga
+  // quando a janela (GLYPH_COVER_MS) fecha — sincronizado com o lease do
+  // auto-hide (ambos contados a partir do mesmo glyphPaintAt).
+  useEffect(() => {
+    if (glyphCoverTimerRef.current) {
+      clearTimeout(glyphCoverTimerRef.current);
+      glyphCoverTimerRef.current = null;
+    }
+    const at = playerState.glyphPaintAt || 0;
+    if (!at) { setGlyphCoverOn(false); return; }
+    const remaining = at + GLYPH_COVER_MS - Date.now();
+    if (remaining <= 0) { setGlyphCoverOn(false); return; }
+    setGlyphCoverOn(true);
+    glyphCoverTimerRef.current = setTimeout(() => setGlyphCoverOn(false), remaining);
+    return () => {
+      if (glyphCoverTimerRef.current) {
+        clearTimeout(glyphCoverTimerRef.current);
+        glyphCoverTimerRef.current = null;
+      }
+    };
+  }, [playerState.glyphPaintAt]);
+
+  // Rearma controles em QUALQUER pintura de glifo (play, seek, load) — inclusive
+  // mid-playing sem mudança de isPlaying.
+  useEffect(() => {
+    if (!playerState.glyphPaintAt) return;
+    if (expanded && playerMode === "video") revealVideoOverlay();
+  }, [playerState.glyphPaintAt, expanded, playerMode, revealVideoOverlay]);
 
   const { trendingSongs, isLoading: trendingLoading } = useTrendingMusic();
   useNativeCapabilities(isPlaying);
@@ -2321,6 +2369,25 @@ const Index = () => {
                 <PausedVideoPoster cover={currentSong?.cover} />
               )}
 
+              {/* DISCO DO GLIFO (v11): durante a janela da pintura do indicador
+                  central do YT (play/seek/load, ~5s) um disco opaco #161616 —
+                  sem ícone, transitório, SEM blur — cobre o glifo por
+                  construção: com controles visíveis não há mais DOIS botões de
+                  pause (o glifo sangrava ao redor do nosso 88/96px); com
+                  controles ocultos não sobra o "botão de pause" sozinho. Some
+                  junto com o glifo (GLYPH_COVER_MS), nunca é permanente.
+                  Mútuo exclusivo com o poster (pausado = poster; janela de
+                  glifo = disco). Fora da superfície YT (nativa/offline/
+                  buffering/fim/idle) não renderiza. */}
+              {glyphCoverOn &&
+                !nativeVideoActive &&
+                playerState.isPlaying &&
+                !playerState.videoSurfaceIdle &&
+                !playerState.surfaceBuffering &&
+                !playerState.isEnded && (
+                  <CenterGlyphCover />
+                )}
+
               {/* Full-inset tap catcher: ALWAYS active so clicks never reach the YouTube iframe.
                   Tapping the background only toggles the visibility of our custom controls —
                   it never plays/pauses the video. Play/pause happens exclusively via the bottom bar. */}
@@ -2498,6 +2565,7 @@ const Index = () => {
               isEnded={nativeVideoActive ? nativeVideoEnded : playerState.isEnded}
               videoSurfaceIdle={nativeVideoActive ? !nativeVideoIsPlaying : playerState.videoSurfaceIdle}
               surfaceBuffering={nativeVideoActive ? false : playerState.surfaceBuffering}
+              glyphCover={glyphCoverOn && !nativeVideoActive}
             />
           </Suspense>
           )}

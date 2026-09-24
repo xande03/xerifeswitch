@@ -31,6 +31,11 @@ export interface YouTubePlayerState {
    *  que TODOS os controles — inclusive o botão central — minimizem JUNTOS, só
    *  quando o vídeo está de fato rodando, e que nada fique exposto no meio. */
   surfaceBuffering: boolean;
+  /** Timestamp da ÚLTIMA transição/play/seek/load que faz (ou fez) o embed
+   *  PINTAR o indicador central (⏸/▶). Medido em lab: o glifo some sozinho
+   *  em ~5 s; o Index usa este valor para manter o CenterGlyphCover + o lease
+   *  do auto-hide até a janela fechar (nunca "dois botões" nem resíduo). */
+  glyphPaintAt: number;
   currentTime: number;
   duration: number;
   videoId: string | null;
@@ -448,6 +453,7 @@ export function useYouTubePlayer(containerId: string) {
         isEnded: false,
         videoSurfaceIdle: true,
         surfaceBuffering: false,
+        glyphPaintAt: 0,
         currentTime: savedTime ? parseFloat(savedTime) : 0,
         duration: savedDur ? parseFloat(savedDur) : 0,
         videoId: savedVideoId || null,
@@ -461,6 +467,7 @@ export function useYouTubePlayer(containerId: string) {
         isEnded: false,
         videoSurfaceIdle: true,
         surfaceBuffering: false,
+        glyphPaintAt: 0,
         currentTime: 0,
         duration: 0,
         videoId: null,
@@ -926,6 +933,14 @@ export function useYouTubePlayer(containerId: string) {
             const ended = event.data === window.YT.PlayerState.ENDED;
             const buffering = event.data === window.YT.PlayerState.BUFFERING;
             const isHidden = document.visibilityState === 'hidden';
+
+            // JANELA DO GLIFO CENTRAL: entrar em PLAYING/BUFFERING é a transição
+            // em que o embed pinta seu indicador central (⏸/▶ ~16% da largura).
+            // Marca o instante — o Index mantém CenterGlyphCover + lease do
+            // auto-hide até o glifo sumir (~5s medidos em lab; janela = 6,5s).
+            if (playing || buffering) {
+              setState((s) => ({ ...s, glyphPaintAt: Date.now() }));
+            }
 
             // Handle playlist progression for Xerife Videos
             if (ended) {
@@ -1449,7 +1464,7 @@ export function useYouTubePlayer(containerId: string) {
         }
       }, 1200);
 
-      setState((s) => ({ ...s, videoId, currentTime: 0, isEnded: false }));
+      setState((s) => ({ ...s, videoId, currentTime: 0, isEnded: false, glyphPaintAt: Date.now() }));
       console.log('[YT] Loading new video:', videoId, 'quality-lock:', savedQ);
     }
   }, [applyVolumeToPlayer, applyCaptionsState, clearUserPausedFlag]);
@@ -1486,7 +1501,7 @@ export function useYouTubePlayer(containerId: string) {
       } catch {
         try { p.loadVideoById(videoId); } catch {}
       }
-      setState((s) => ({ ...s, videoId, currentTime: Math.max(0, startSeconds || 0), isEnded: false }));
+      setState((s) => ({ ...s, videoId, currentTime: Math.max(0, startSeconds || 0), isEnded: false, glyphPaintAt: Date.now() }));
       // Re-força a preferência de legendas (YT reseta módulos no load — ver loadVideo).
       applyCaptionsState(loadCaptionsPref());
       // Re-enforce cap + volume shortly after
@@ -1545,7 +1560,8 @@ export function useYouTubePlayer(containerId: string) {
     shouldBePlayingRef.current = true; setShouldBePlayingGlobal(true);
     pauseTimestampRef.current = 0; // Reset pause timestamp
     try { localStorage.removeItem('__was_playing'); } catch {}
-    setState((s) => ({ ...s, isPlaying: true, isEnded: false }));
+    // Resume pinta o indicador central do embed — abre a janela de cobertura.
+    setState((s) => ({ ...s, isPlaying: true, isEnded: false, glyphPaintAt: Date.now() }));
     ensureSilentAudio().play().catch((e) => trackMetric('error', 'silent-audio-play', { msg: String(e) }));
     ensureProxyAudio().play().catch((e) => trackMetric('error', 'proxy-audio-play', { msg: String(e) }));
     resumeAudioContext();
@@ -1620,6 +1636,8 @@ export function useYouTubePlayer(containerId: string) {
       currentTime: safeSeconds,
       duration: duration || s.duration,
       isEnded: false,
+      // Seek PINTA o feedback central do embed (medido em lab) — janela de cobertura.
+      glyphPaintAt: Date.now(),
     }));
 
     player.seekTo(safeSeconds, true);

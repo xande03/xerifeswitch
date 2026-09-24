@@ -4,6 +4,7 @@ import { track as trackMetric } from "@/lib/playbackMetrics";
 import { Song, formatDuration } from "@/data/mockSongs";
 import SeekBar from "@/components/SeekBar";
 import PausedVideoPoster from "@/components/PausedVideoPoster";
+import CenterGlyphCover from "@/components/CenterGlyphCover";
 
 /** Auto-ocultar dos controles do fullscreen — FONTE ÚNICA em
  *  src/lib/autoHideControls.ts (compartilhada com o overlay inline do Index):
@@ -41,6 +42,11 @@ interface FullscreenOverlayProps {
    *  stream. Durante o buffering os controles inferiores permanecem visíveis
    *  até a reprodução confirmar; todos minimizam juntos quando roda de verdade. */
   surfaceBuffering?: boolean;
+  /** JANELA DO GLIFO (v11): TRUE durante a pintura do indicador central do YT
+   *  (play/seek/load, ~5s medidos em lab) — renderiza o CenterGlyphCover opaco
+   *  transitório que esconde o glifo (nunca "botão de pause" fantasma no centro
+   *  da tela cheia). O Index calcula a janela e passa pronta. */
+  glyphCover?: boolean;
 }
 
 const MIN_SCALE = 1;
@@ -53,6 +59,7 @@ const FullscreenOverlay = ({
   isEnded = false,
   videoSurfaceIdle = false,
   surfaceBuffering = false,
+  glyphCover = false,
 }: FullscreenOverlayProps) => {
   const [showControls, setShowControls] = useState(true);
   const [zoom, setZoom] = useState<{ scale: number; x: number; y: number }>({ scale: 1, x: 0, y: 0 });
@@ -399,6 +406,19 @@ const FullscreenOverlay = ({
       {videoMode && !isEnded && !surfaceBuffering && (!isPlaying || videoSurfaceIdle) && (
         <PausedVideoPoster cover={song?.cover} zIndexClass="z-[204]" />
       )}
+
+      {/* DISCO DO GLIFO (v11): no fullscreen não existe transporte central —
+          sem este disco o indicador do YT (pintado em play/seek/load) ficaria
+          SOZINHO no centro por ~5s. Opaco, transitório (janela GLYPH_COVER_MS),
+          sem blur — some junto com o glifo. Mútuo exclusivo com o poster. */}
+      {videoMode &&
+        glyphCover &&
+        isPlaying &&
+        !videoSurfaceIdle &&
+        !surfaceBuffering &&
+        !isEnded && (
+          <CenterGlyphCover zIndexClass="z-[204]" />
+        )}
 
       {/* VÍDEO 100% VISÍVEL (v10): durante a reprodução real NENHUMA lente/
           sombra fosca fica no centro — o vídeo aparece integralmente. A antiga

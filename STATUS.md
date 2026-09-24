@@ -1,8 +1,54 @@
 # Status do Xerife Music
 
-Atualizado em 2026-09-23 (8ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-09-24 (9ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-09-24 — "dois botões de pause sobrepostos": causa raiz medida em lab + disco transitório + lease do auto-hide
+
+Reporte com screenshot: dois botões de pause sobrepostos no centro do player (um atrás do
+outro) e, após a minimização dos controles, "sobrava" um botão de pause no meio do vídeo.
+
+1. **Causa raiz medida em LAB real** (novo `lab/` — embed `controls=0` +
+   `pointer-events:none` via Playwright contra o YouTube ao vivo, screenshots 1 fps):
+   - A cada **play/resume/seek/load** o embed pinta um indicador central (círculo
+     translúcido + ⏸/▶, **~16% da largura do player**, centro ~5px acima do eixo) que some
+     **SOZINHO em ~5 s** — mesmo **sem** eventos de pointer (a tese antiga de que o
+     auto-hide "nunca dispara" valia para o overlay de PAUSA, não para o feedback de
+     transição). `r01–r04` com glifo, `r05` limpo; idem `t01–t04`/`t05` no play inicial.
+   - Overlay de **pausa** (▶) **não** some sem interação (p01–p15 idênticos) — mas isso
+     já é coberto pelo `PausedVideoPoster`.
+   - Com os controles visíveis, o glifo (~85px + offset) **sangrava ao redor** do nosso
+     botão opaco de 88/96px = DOIS botões. Com os controles ocultos (auto-hide 3,5 s <
+     glifo ~5 s), o glifo **sozava** por ~1,5 s = "botão de pause apenas".
+2. **Correção**:
+   - **`glyphPaintAt`** no [`useYouTubePlayer`](src/hooks/useYouTubePlayer.ts): timestamp de
+     toda transição que pinta o glifo (eventos PLAYING/BUFFERING, `play()`, `seekTo()`,
+     `loadVideo`/`loadVideoAt` — inclusive seeks mid-playing da troca de clipe, que NÃO
+     mudam `isPlaying` e por isso não re-armavam nada antes).
+   - **`CenterGlyphCover`** (novo componente): disco opaco `#161616` **transitório**
+     (26% da largura, min 112px/max 240px, `aspect-square`, inerte) — cobre o glifo por
+     construção durante a janela. **SEM blur** (a lente fosca permanente segue banida pelo
+     v10): ele só existe durante a janela e some junto com o glifo. No inline vive em
+     z-[209] (mútuo exclusivo com o poster); no fullscreen em z-[204] via prop
+     `glyphCover`.
+   - **Lease do auto-hide** ([`autoHideControls`](src/lib/autoHideControls.ts)
+     `autoHideDelayMs`): delay = `max(segundosDeterminados, fimDaJanela(GLYPH_COVER_MS=6500))`
+     — controles e disco **somem juntos**; nunca sobra glifo nem disco. Toque no vídeo
+     durante a janela também respeita o piso da janela; disco NÃO depende do estado dos
+     controles (mesmo forcando o hide, o disco cobre até o glifo sumir).
+   - Efeito em `glyphPaintAt` no Index: seeks programáticos mid-playing re-armam controles
+     (a troca de clipe volta a mostrar transporte junto com a pintura).
+3. **Cobertura validada no lab** (fase5): anel a 55px do centro = `#161616` com disco
+   (glifo totalmente coberto, raio do disco ~69px > extensão máxima do glifo ~55px);
+   após 6500 ms centro = conteúdo do vídeo (limpo). Um único botão unificado
+   (disco+botão fundidos, mesma cor) durante a janela.
+4. **Nada muda fora da janela**: steady-state de reprodução sem transições = centro 100%
+   limpo, sem elemento algum (invariante v10 preservado — `center-video-fully-visible`
+   continua verde com `glyphCover` default false).
+
+Medido neste checkout após as mudanças: `npm run check` ✅ (typecheck + **117 testes** em
+20 arquivos + build + e2e:anchor 16 combinações + smoke).
 
 ## Sessão 2026-09-23 (2) — auto-hide definitivo dos controles do player de vídeo (fim do keepOpen-pausado)
 
