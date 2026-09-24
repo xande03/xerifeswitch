@@ -36,6 +36,11 @@ export interface YouTubePlayerState {
    *  em ~5 s; o Index usa este valor para manter o CenterGlyphCover + o lease
    *  do auto-hide até a janela fechar (nunca "dois botões" nem resíduo). */
   glyphPaintAt: number;
+  /** Subconjunto de glyphPaintAt vindo de AÇÕES (play/seek/load/correction).
+   *  Oscilações BUFFERING↔PLAYING do sistema renovam só glyphPaintAt (disco
+   *  cobre o glifo) mas NÃO este campo — senão a rede instável re-armava o
+   *  lease dos controles em cadeia e eles nunca mais minimizavam (Netlify). */
+  actionGlyphPaintAt: number;
   currentTime: number;
   duration: number;
   videoId: string | null;
@@ -456,6 +461,7 @@ export function useYouTubePlayer(containerId: string) {
         videoSurfaceIdle: true,
         surfaceBuffering: false,
         glyphPaintAt: 0,
+        actionGlyphPaintAt: 0,
         currentTime: savedTime ? parseFloat(savedTime) : 0,
         duration: savedDur ? parseFloat(savedDur) : 0,
         videoId: savedVideoId || null,
@@ -470,6 +476,7 @@ export function useYouTubePlayer(containerId: string) {
         videoSurfaceIdle: true,
         surfaceBuffering: false,
         glyphPaintAt: 0,
+        actionGlyphPaintAt: 0,
         currentTime: 0,
         duration: 0,
         videoId: null,
@@ -571,8 +578,9 @@ export function useYouTubePlayer(containerId: string) {
       // Seek do guard PINTA o feedback central do embed (medido em lab) — e esta
       // correção pode cair DEPOIS da janela do load (windowMs 6s + folga vs
       // GLYPH_COVER_MS 6,5s): sem este stamp o disco não cobria e o "botão de
-      // pause" fantasma reaparecia com os controles já ocultos.
-      setState((s) => ({ ...s, glyphPaintAt: Date.now() }));
+      // pause" fantasma reaparecia com os controles já ocultos. É um seek de
+      // verdade → renova disco E lease (ação).
+      setState((s) => ({ ...s, glyphPaintAt: Date.now(), actionGlyphPaintAt: Date.now() }));
       console.info('[YT clipSync] correcao aplicada', { reason: verdict.reason, driftMs, target: verdict.targetSec, attempt: c.corrections });
       trackMetric('clip-sync', 'seek', { reason: verdict.reason, driftMs, attempt: c.corrections });
       return true;
@@ -857,7 +865,7 @@ export function useYouTubePlayer(containerId: string) {
                 } else {
                   p?.loadVideoById?.(pending.id);
                 }
-                setState((s) => ({ ...s, videoId: pending.id, isEnded: false, glyphPaintAt: Date.now() }));
+                setState((s) => ({ ...s, videoId: pending.id, isEnded: false, glyphPaintAt: Date.now(), actionGlyphPaintAt: Date.now() }));
                 console.log("[YT] flush pending load:", pending.id, pending.startSeconds ?? "");
               } catch (e) {
                 console.warn("[YT] pending load failed:", e);
@@ -977,8 +985,10 @@ export function useYouTubePlayer(containerId: string) {
 
             // JANELA DO GLIFO CENTRAL: entrar em PLAYING/BUFFERING é a transição
             // em que o embed pinta seu indicador central (⏸/▶ ~16% da largura).
-            // Marca o instante — o Index mantém CenterGlyphCover + lease do
-            // auto-hide até o glifo sumir (~5s medidos em lab; janela = 6,5s).
+            // Renova SÓ glyphPaintAt (disco CenterGlyphCover cobre a pintura) —
+            // NÃO actionGlyphPaintAt: oscilações BUFFERING↔PLAYING da rede não
+            // podem re-armar o lease dos controles em cadeia (senão os controles
+            // nunca mais minimizavam sob rede instável — reporte Netlify).
             if (playing || buffering) {
               setState((s) => ({ ...s, glyphPaintAt: Date.now() }));
             }
@@ -1511,7 +1521,7 @@ export function useYouTubePlayer(containerId: string) {
         }
       }, 1200);
 
-      setState((s) => ({ ...s, videoId, currentTime: 0, isEnded: false, glyphPaintAt: Date.now() }));
+      setState((s) => ({ ...s, videoId, currentTime: 0, isEnded: false, glyphPaintAt: Date.now(), actionGlyphPaintAt: Date.now() }));
       console.log('[YT] Loading new video:', videoId, 'quality-lock:', savedQ);
     } else {
       // Player ainda sem onReady — a API atual só anexa loadVideoById/playVideo
@@ -1563,7 +1573,7 @@ export function useYouTubePlayer(containerId: string) {
       } catch {
         try { p.loadVideoById(videoId); } catch {}
       }
-      setState((s) => ({ ...s, videoId, currentTime: Math.max(0, startSeconds || 0), isEnded: false, glyphPaintAt: Date.now() }));
+      setState((s) => ({ ...s, videoId, currentTime: Math.max(0, startSeconds || 0), isEnded: false, glyphPaintAt: Date.now(), actionGlyphPaintAt: Date.now() }));
       // Re-força a preferência de legendas (YT reseta módulos no load — ver loadVideo).
       applyCaptionsState(loadCaptionsPref());
       // Re-enforce cap + volume shortly after
@@ -1623,7 +1633,7 @@ export function useYouTubePlayer(containerId: string) {
     pauseTimestampRef.current = 0; // Reset pause timestamp
     try { localStorage.removeItem('__was_playing'); } catch {}
     // Resume pinta o indicador central do embed — abre a janela de cobertura.
-    setState((s) => ({ ...s, isPlaying: true, isEnded: false, glyphPaintAt: Date.now() }));
+    setState((s) => ({ ...s, isPlaying: true, isEnded: false, glyphPaintAt: Date.now(), actionGlyphPaintAt: Date.now() }));
     ensureSilentAudio().play().catch((e) => trackMetric('error', 'silent-audio-play', { msg: String(e) }));
     ensureProxyAudio().play().catch((e) => trackMetric('error', 'proxy-audio-play', { msg: String(e) }));
     resumeAudioContext();
@@ -1700,6 +1710,7 @@ export function useYouTubePlayer(containerId: string) {
       isEnded: false,
       // Seek PINTA o feedback central do embed (medido em lab) — janela de cobertura.
       glyphPaintAt: Date.now(),
+      actionGlyphPaintAt: Date.now(),
     }));
 
     player.seekTo(safeSeconds, true);
@@ -1723,8 +1734,8 @@ export function useYouTubePlayer(containerId: string) {
         const confirmedTime = playerRef.current?.getCurrentTime?.() || 0;
         if (Math.abs(confirmedTime - safeSeconds) > 1.5) {
           playerRef.current?.seekTo?.(safeSeconds, true);
-          // Re-seek de confirmação também pinta o glifo — renova a janela.
-          setState((s) => ({ ...s, glyphPaintAt: Date.now() }));
+          // Re-seek de confirmação também pinta o glifo — renova disco + lease.
+          setState((s) => ({ ...s, glyphPaintAt: Date.now(), actionGlyphPaintAt: Date.now() }));
           if (shouldBePlayingRef.current && !userPausedRef.current) {
             playerRef.current?.playVideo?.();
           }
@@ -2187,7 +2198,8 @@ export function useYouTubePlayer(containerId: string) {
         // Reload de qualidade pinta o glifo central do embed (feedback de UI) —
         // sem esta janela, o disco do CenterGlyphCover não cobria e o "botão de
         // pause" fantasma ficava sobre o vídeo com os controles já ocultos.
-        setState((s) => ({ ...s, glyphPaintAt: Date.now() }));
+        // Geralmente disparado pelo usuário → renova disco E lease.
+        setState((s) => ({ ...s, glyphPaintAt: Date.now(), actionGlyphPaintAt: Date.now() }));
 
         setTimeout(() => {
           try {

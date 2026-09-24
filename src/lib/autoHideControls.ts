@@ -38,6 +38,18 @@ export function readAutoHideMs(): number {
  */
 export const GLYPH_COVER_MS = 6500;
 
+/**
+ * Fail-safe da interação "sticky" (arraste da seekbar / press na barra):
+ * se o pointerup/cancel nunca chegar (janela perde o evento, gesture de
+ * sistema, unmount no meio do press), o videoOverlayInteractingRef ficaria
+ * preso em TRUE para sempre e TODO reveal futuro retornaria sem armar o
+ * timer — auto-hide morria até recarregar a página (reportado no deploy
+ * do Netlify: controles nunca mais minimizavam sozinhos). Após este prço
+ * sem nenhum pointermove/pointerup, assume interação perdida, limpa o flag
+ * e re-arma o hide normal.
+ */
+export const INTERACTING_FAILSAFE_MS = 2500;
+
 /** TRUE enquanto a janela do glifo (contada a partir de glyphPaintAt) está aberta. */
 export function glyphCoverActive(glyphPaintAt: number | null | undefined, now: number): boolean {
   if (!glyphPaintAt) return false;

@@ -43,7 +43,7 @@ import ModuleSwitcher, { MODULE_LABEL, type SwitchableModule } from "@/component
 
 
 import { getSearchSuggestions, searchYouTubeMusic } from "@/lib/youtubeSearch";
-import { readAutoHideMs, autoHideDelayMs, GLYPH_COVER_MS } from "@/lib/autoHideControls";
+import { readAutoHideMs, autoHideDelayMs, GLYPH_COVER_MS, INTERACTING_FAILSAFE_MS } from "@/lib/autoHideControls";
 import CenterGlyphCover from "@/components/CenterGlyphCover";
 import { fetchVideoInfo } from "@/lib/youtubeVideoInfo";
 import { hdThumbnail } from "@/lib/utils";
@@ -273,9 +273,53 @@ const Index = () => {
   /** Espelho síncrono de playerState.glyphPaintAt (o reveal é declarado ANTES
    *  do hook do player e precisa do valor atual no fecho). */
   const glyphPaintAtRef = useRef(0);
+  /** Espelho de actionGlyphPaintAt — pinturas vindas de AÇÕES (play/seek/load).
+   *  Só ESTAS estendem o lease dos controles; oscilações BUFFERING↔PLAYING do
+   *  sistema renovam apenas glyphPaintAt (disco). */
+  const actionGlyphPaintAtRef = useRef(0);
+  /** Listeners/timer do fail-safe de interação "sticky" perdida (ver abaixo). */
+  const interactingFailSafeRef = useRef<{ cleanup: () => void } | null>(null);
   /** Estado do CenterGlyphCover: TRUE enquanto a janela do glifo do YT está aberta. */
   const [glyphCoverOn, setGlyphCoverOn] = useState(false);
   const glyphCoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Armas o fail-safe da interação "sticky": se pointerup/cancel/leave nunca
+   *  chegar (evento comido, janela perdeu o botão, unmount no meio do press),
+   *  videoOverlayInteractingRef ficaria preso em TRUE e TODO reveal futuro
+   *  retornaria sem timer — auto-hide morria até recarregar (reporte Netlify:
+   *  controles nunca mais minimizavam). O fail-safe: listeners de NÍVEL DE
+   *  JANELA (pointerup/pointercancel/blur) + teto por inatividade
+   *  (INTERACTING_FAILSAFE_MS sem pointermove), e ao disparar limpa o flag e
+   *  re-arma o hide normal. */
+  const armInteractingFailSafe = useCallback(() => {
+    interactingFailSafeRef.current?.cleanup();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const end = () => {
+      if (!videoOverlayInteractingRef.current) { cleanup(); return; }
+      videoOverlayInteractingRef.current = false;
+      cleanup();
+      revealVideoOverlay();
+    };
+    const onMove = () => {
+      // Arraste vivo (movendo) adia o teto.
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(end, INTERACTING_FAILSAFE_MS);
+    };
+    const cleanup = () => {
+      if (timer) { clearTimeout(timer); timer = null; }
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("blur", end);
+      if (interactingFailSafeRef.current?.cleanup === cleanup) interactingFailSafeRef.current = null;
+    };
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("blur", end);
+    timer = setTimeout(end, INTERACTING_FAILSAFE_MS);
+    interactingFailSafeRef.current = { cleanup };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const revealVideoOverlay = useCallback((opts?: { sticky?: boolean }) => {
     setShowVideoOverlayControls(true);
@@ -284,16 +328,24 @@ const Index = () => {
       videoOverlayTimerRef.current = null;
     }
     // Não arma o auto-hide enquanto o usuário arrasta a seekbar (sticky /
-    // interacting). Em TODOS os demais estados — tocando, pausado, buffering,
-    // fim — o timer roda: piso nos segundos DETERMINADOS (demus-fs-autohide-ms)
-    // estendido até o FIM da janela do glifo do YouTube (transição play/seek/load
-    // pinta o indicador central por ~5s) — controles e disco somem JUNTOS e a
-    // tela nunca fica com "botão de pause sobrando" nem com o glifo sozinho.
-    if (opts?.sticky || videoOverlayInteractingRef.current) return;
-    const delay = autoHideDelayMs(readAutoHideMs(), glyphPaintAtRef.current, Date.now());
+    // interacting) — mas GARANTE o fail-safe acima (interação perdida não
+    // pode brickar o auto-hide). Em TODOS os demais estados — tocando,
+    // pausado, buffering, fim — o timer roda: piso nos segundos DETERMINADOS
+    // (demus-fs-autohide-ms) estendido até o FIM da janela de uma AÇÃO de
+    // play/seek/load (actionGlyphPaintAt) — não de oscilações BUFFERING do
+    // sistema, senão rede instável re-armava em cadeia e os controles nunca
+    // mais escondiam (deploy Netlify).
+    if (opts?.sticky || videoOverlayInteractingRef.current) {
+      armInteractingFailSafe();
+      return;
+    }
+    const delay = autoHideDelayMs(readAutoHideMs(), actionGlyphPaintAtRef.current, Date.now());
     videoOverlayTimerRef.current = setTimeout(() => setShowVideoOverlayControls(false), delay);
+  }, [armInteractingFailSafe]);
+  useEffect(() => () => {
+    if (videoOverlayTimerRef.current) clearTimeout(videoOverlayTimerRef.current);
+    interactingFailSafeRef.current?.cleanup();
   }, []);
-  useEffect(() => () => { if (videoOverlayTimerRef.current) clearTimeout(videoOverlayTimerRef.current); }, []);
 
   // (module accent, localStorage, URL query, back/forward — todos centralizados
   // em useModuleMode; não replicar aqui.)
@@ -412,6 +464,7 @@ const Index = () => {
   // Espelho do timestamp de pintura do glifo central (o reveal/cover precisam
   // do valor ATUAL; declarado antes do hook por ordem de fechos).
   glyphPaintAtRef.current = playerState.glyphPaintAt || 0;
+  actionGlyphPaintAtRef.current = (playerState as { actionGlyphPaintAt?: number }).actionGlyphPaintAt || 0;
   const nativeVideoActive = playerMode === "video" && Boolean(nativeVideoSource?.videoId === currentSong.youtubeId);
 
   // Espelho live do estado do player: a guarda anti-reinício abaixo precisa
@@ -989,12 +1042,15 @@ const Index = () => {
     };
   }, [playerState.glyphPaintAt]);
 
-  // Rearma controles em QUALQUER pintura de glifo (play, seek, load) — inclusive
-  // mid-playing sem mudança de isPlaying.
+  // Rearma controles SOMENTE em pinturas vindas de AÇÕES (play, seek, load,
+  // correção do guard, troca de qualidade) — actionGlyphPaintAt. Pinturas de
+  // OSCILAÇÃO de rede (BUFFERING↔PLAYING) renovam só glyphPaintAt e mexem
+  // apenas no disco: senão uma rede instável re-armava o lease em cadeia e os
+  // controles nunca mais minimizavam (reporte no deploy do Netlify).
   useEffect(() => {
-    if (!playerState.glyphPaintAt) return;
+    if (!playerState.actionGlyphPaintAt) return;
     if (expanded && playerMode === "video") revealVideoOverlay();
-  }, [playerState.glyphPaintAt, expanded, playerMode, revealVideoOverlay]);
+  }, [playerState.actionGlyphPaintAt, expanded, playerMode, revealVideoOverlay]);
 
   const { trendingSongs, isLoading: trendingLoading } = useTrendingMusic();
   useNativeCapabilities(isPlaying);

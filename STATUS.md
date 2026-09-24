@@ -1,8 +1,42 @@
 # Status do Xerife Music
 
-Atualizado em 2026-09-24 (9ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-09-24 (10ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-09-24 (3) — "no Netlify os controles nunca minimizam": interacting preso + cadeia de BUFFERING
+
+Reporte: no localhost/preview os controles minimizam e a tela fica limpa; no deploy
+Netlify (<https://xerifeswitch.netlify.app/>) **não minimizam totalmente** e o botão de
+pause fica no centro. O bundle do Netlify foi conferido: é o código mais recente (marcadores
+`flush pending load` / `data-center-glyph-cover` presentes). Reproduzido contra o próprio
+deploy com Playwright — DUAS causas confirmadas, ambas corrigidas:
+
+1. **`videoOverlayInteractingRef` travava em TRUE** (experimento `lab/repro-stuck.mjs`
+   contra o deploy): qualquer `pointerdown` na barra inferior cujo `pointerup` não chega
+   (evento comido, janela/unmount no meio do press) deixava TODO `revealVideoOverlay()`
+   futuro retornar **sem armar o timer** — auto-hide morto até recarregar (ov=1 aos 12s,
+   estava 0 antes do down; toggle manual ainda funcionava). Correção: **fail-safe**
+   `INTERACTING_FAILSAFE_MS=2500` (`autoHideControls`) — durante a interação sticky
+   instala listeners de `pointerup`/`pointercancel`/`pointermove`/`blur` **em nível de
+   janela** + teto por inatividade; ao disparar limpa o flag e re-arma o hide normal.
+   Pós-fix: mesmo cenário → ov=0 aos 12s ✓.
+2. **Oscilações BUFFERING↔PLAYING re-armavam o lease em cadeia** (experimento
+   `lab/repro-buffer.mjs`, rede 400kbps): cada `onStateChange` PLAYING/BUFFERING
+   refreshava `glyphPaintAt` → efeito de re-reveal do Index re-armava `max(userMs, janela)`
+   infinitamente enquanto a rede oscilava (12 amostras com ov>0.5 em 40s; com
+   micro-buffering contínuo, nunca escondia). Correção: **split de stamps** — novo campo
+   `actionGlyphPaintAt` no hook, renovado SÓ por ações (play/seek/load/correção do
+   guard/troca de qualidade/pending-flush); `onStateChange` renova só `glyphPaintAt`
+   (disco CenterGlyphCover continua cobrindo QUALQUER pintura). Lease e re-reveal dos
+   controles agora usam `actionGlyphPaintAt`. Pós-fix: 6 bufferings em 40s → **ov=0 em
+   100% das amostras** ✓; disco liga/desliga com as pinturas ✓.
+   Observação: isto ajusta a regra anterior "qualquer pintura re-revela controles" —
+   pinturas de SISTEMA (rede) renovam só a cobertura; ações do usuário renovam disco+lease.
+
+Medido neste checkout: `npm run check` ✅ (typecheck + **117 testes**/20 arquivos + build +
+e2e:anchor 16 combinações + smoke, exit 0). Validações A/B pós-fix nos `lab/repro-*.mjs`
+com `TARGET=http://localhost:5173/`.
 
 ## Sessão 2026-09-24 (2) — "botão de pause ainda sobra": player morto no preview + seeks/stamps faltando
 
