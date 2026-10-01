@@ -4,7 +4,6 @@ import { getFavoritesMetadata } from "@/lib/localStorage";
 import { getFavoriteEpisodes } from "@/lib/podcastStorage";
 
 import Logo from "@/components/Logo";
-import AppHeartbeatStatus from "@/components/AppHeartbeatStatus";
 import ProfileButton from "@/components/ProfileButton";
 import HeaderMenu from "@/components/HeaderMenu";
 import xerifeHubLogo from "@/assets/xerife-hub-logo.png";

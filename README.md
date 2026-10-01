@@ -34,7 +34,7 @@ O backend aponta para o projeto Supabase `hvslfbcsokurljstmtip` por padrão
 | Rodar no celular / emulador | [`COMO_EXECUTAR_APP.md`](COMO_EXECUTAR_APP.md), [`COMO_TESTAR_NO_IOS.md`](COMO_TESTAR_NO_IOS.md) |
 | Áudio em background e controles da tela bloqueada | [`SOLUCAO_PROXY_AUDIO.md`](SOLUCAO_PROXY_AUDIO.md), [`scripts/patch-capacitor-music-controls.cjs`](scripts/patch-capacitor-music-controls.cjs) |
 | Edge Functions (deploy, TTL, cache) | [`DEPLOY_SETUP.md`](DEPLOY_SETUP.md), [`GUIA_EDGE_FUNCTIONS_OTIMIZADAS.md`](GUIA_EDGE_FUNCTIONS_OTIMIZADAS.md) |
-| Heartbeat anti-pausa do Supabase | [`SUPABASE_HEARTBEAT_SETUP.md`](SUPABASE_HEARTBEAT_SETUP.md), [`migrations/001_create_app_heartbeat.sql`](supabase/migrations/001_create_app_heartbeat.sql) |
+| Heartbeat anti-pausa do Supabase | **REMOVIDO (2026-09-25)** — zero egress; liberação do projeto via `scripts/supabase-release.mjs` + ver `STATUS.md` |
 | Histórico de sessões de trabalho (congelado) | [`docs/history/`](docs/history/) |
 
 ## Estrutura

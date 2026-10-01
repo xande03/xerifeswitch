@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Settings, Music, MonitorPlay, Sun, Moon, Palette, Cast, X, ListMusic, ZoomIn, Plus, Minus, Sparkles, User, LogIn, LogOut, SlidersHorizontal, Download, EyeOff, Eye, ChevronDown, Lock } from "lucide-react";
 
-import AppHeartbeatStatus from "@/components/AppHeartbeatStatus";
 import LockScreenSetupGuide from "@/components/LockScreenSetupGuide";
 
 type HomeMode = "hub" | "music" | "video";
@@ -309,7 +308,6 @@ const HeaderMenu = ({
           </button>
           {showServerStatus && (
             <div className="px-3 py-3 border-t border-border bg-muted/10 space-y-2.5">
-              <AppHeartbeatStatus />
               <button
                 onClick={checkUpdateNow}
                 disabled={updateState === "checking"}

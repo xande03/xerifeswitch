@@ -3,7 +3,7 @@
 ## ✅ STATUS ATUAL
 
 - ✅ Todas as atualizações da Lovable puxadas
-- ✅ Sistema de Heartbeat implementado
+- ✅ Heartbeat removido (zero egress Supabase — 2026-09-25)
 - ✅ Controles de mídia nativos instalados
 - ✅ `capacitor-music-controls-plugin@6.1.0` sincronizado
 - ✅ Build completo (dist/)
@@ -144,25 +144,11 @@ npx cap run ios
    - ✅ Play/Pause responde
    - ✅ Next/Previous muda música (se disponível)
 
-### 6. **Sistema de Heartbeat**
+### 6. **Sistema de Heartbeat — REMOVIDO (2026-09-25)**
 
-**Teste:**
-1. Abra o app
-2. Clique no ícone ⚙️ (Ferramentas) na sidebar
-3. **Resultado esperado:**
-   - ✅ Status do Servidor visível no topo
-   - ✅ Hora local atualizando em tempo real
-   - ✅ Última atualização do BD visível
-   - ✅ Indicador verde pulsante
-   - ✅ Status: ATIVO
-
-**Console (DevTools):**
-- Abra DevTools no navegador (F12)
-- Console deve mostrar:
-  ```
-  [Heartbeat] ✅ Updated at [data/hora]
-  ```
-- A cada 5 minutos, novo log aparece
+**Antes:** status do servidor/pulso a cada 5 min no menu Ferramentas.
+**Agora:** removido por completo — nenhum pulso é enviado ao Supabase
+(egress zerado; o projeto Free pausa sozinho após 7 dias sem acessos).
 
 ---
 
@@ -343,10 +329,10 @@ rm -rf DerivedData
 - `src/hooks/useYouTubePlayer.ts` - Integração com player
 - `src/hooks/useMediaSession.ts` - Media Session API
 
-### Heartbeat System
-- `supabase/migrations/001_create_app_heartbeat.sql` - SQL da tabela
-- `src/hooks/useAppHeartbeat.ts` - Hook de atualização
-- `src/components/AppHeartbeatStatus.tsx` - Componente visual
+### Heartbeat System — REMOVIDO (2026-09-25)
+- Removido por completo (hook, componente e UI) para zerar egress ao Supabase
+- `supabase/migrations/001_create_app_heartbeat.sql` - SQL da tabela (histórico)
+- Liberação do projeto: `scripts/supabase-release.mjs` (pausa/apaga com PAT)
 
 ---
 
@@ -360,7 +346,7 @@ rm -rf DerivedData
 - [ ] Testar Control Center (iOS)
 - [ ] Verificar background audio (5+ minutos)
 - [ ] Testar controles de fone de ouvido
-- [ ] Confirmar heartbeat funcionando
+- [x] Heartbeat removido (nenhum pulso ao Supabase)
 - [ ] Verificar Edge Functions ativas
 - [ ] Testar em diferentes versões de OS
 
@@ -383,8 +369,7 @@ rm -rf DerivedData
 
 ### Documentação Local
 - `ATUALIZACOES_LOVABLE_PUXADAS.md` - Detalhes das atualizações
-- `ATUALIZACAO_HEARTBEAT_CONCLUIDA.md` - Sistema de heartbeat
-- `SUPABASE_HEARTBEAT_SETUP.md` - Setup do heartbeat
+- `ATUALIZACAO_HEARTBEAT_CONCLUIDA.md` - Sistema de heartbeat (histórico — removido)
 
 ---
 

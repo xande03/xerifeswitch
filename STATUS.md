@@ -1,8 +1,33 @@
 # Status do Xerife Music
 
-Atualizado em 2026-09-24 (12ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-09-25 (13ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-09-25 — heartbeat removido por completo + liberação do projeto (egress a zero)
+
+Pedido: "retire todo pulso enviado ao Supabase; deixe a remoção e a liberação
+automática do projeto a partir dos acessos do usuário — para não consumir egress."
+
+- **Pulso removido de ponta a ponta**: os pulsos já estavam desligados em
+  runtime (histórico: 358GB de egress por polling de 5min/30s); agora os
+  resíduos mortos também saíram — `src/hooks/useAppHeartbeat.ts`,
+  `src/components/AppHeartbeatStatus.tsx` (render no HeaderMenu + import
+  morto no DesktopSidebar) e `SUPABASE_HEARTBEAT_SETUP.md`. Grep final: zero
+  referências. O `HEARTBEAT` do service worker e o `__bg_heartbeat` são
+  LOCAIS (`postMessage`/localStorage) — não tocam a rede, ficaram.
+- **Escopo (escolha do usuário): manter todas as features** — edge functions
+  `fetch-lyrics`, `fetch-chords`, `youtube-download`, `youtube-playlist`,
+  `ad-links` + camada `/functions/v1` continuam; egress só sob demanda de uso
+  real. Sem nenhum acesso por 7 dias, o Free **pausa o projeto sozinho**
+  (liberação automática por inatividade).
+- **Liberação administrativa**: `scripts/supabase-release.mjs` —
+  `list`/`pause`/`restore`/`delete` pela Management API a partir do acesso do
+  usuário. Requer PAT do Supabase (`sbp_…`, dashboard → Account → Access
+  Tokens); o token `ghp_…` enviado é do GitHub e a publishable key do `.env`
+  não tem permissão de gestão. `delete` exige `CONFIRMAR_APAGAR=sim`
+  (irreversível). Pendente: usuário fornecer o `sbp_` para eu executar
+  pause/delete de fato.
 
 ## Sessão 2026-09-24 (5) — lógica do Alse aplicada ao painel: auto-hide do chrome (showFsControls ligado)
 
@@ -489,6 +514,6 @@ scripts/push-main.sh "mensagem"  # commit + push direto na main (helper da sess�
 
 Guias mantidos na raiz: [`COMANDOS_RAPIDOS.md`](COMANDOS_RAPIDOS.md),
 [`COMO_EXECUTAR_APP.md`](COMO_EXECUTAR_APP.md), [`COMO_TESTAR_NO_IOS.md`](COMO_TESTAR_NO_IOS.md),
-[`DEPLOY_SETUP.md`](DEPLOY_SETUP.md), [`SUPABASE_HEARTBEAT_SETUP.md`](SUPABASE_HEARTBEAT_SETUP.md),
+[`DEPLOY_SETUP.md`](DEPLOY_SETUP.md),
 [`GUIA_EDGE_FUNCTIONS_OTIMIZADAS.md`](GUIA_EDGE_FUNCTIONS_OTIMIZADAS.md),
 [`SOLUCAO_PROXY_AUDIO.md`](SOLUCAO_PROXY_AUDIO.md), [`QUICK_REFERENCE.md`](QUICK_REFERENCE.md).
