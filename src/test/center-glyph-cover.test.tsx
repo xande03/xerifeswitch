@@ -15,7 +15,11 @@ import CenterGlyphCover from "@/components/CenterGlyphCover";
  * Contrato travado aqui:
  *  1. glyphCover + superfície jogando → [data-center-glyph-cover] presente,
  *     opaco, INERTE (aria-hidden, pointer-events-none), SEM backdrop-blur.
- *  2. Janela expirada (glyphCover=false) → ausente — centro 100% limpo.
+ *  2. v13 (reporte "símbolo pause/play ainda presente", screenshot): o glifo
+ *     do YT CONGELA em alguns devices ALÉM da janela — com controles visíveis
+ *     (showControls) o disco rende mesmo com glyphCover=false (nunca ⏸
+ *     exposto na barra aberta). Controles OCULTOS + janela expirada →
+ *     ausente — centro 100% limpo (v10 preservado).
  *  3. Pausado/idle/finalizado → ausente (poster/capa assumem; jamais dois
  *     elementos centrais juntos). BUFFERING → PRESENTE (v12, reporte
  *     "símbolos ainda presentes"): o spinner/bezel do cross-origin iframe
@@ -23,7 +27,8 @@ import CenterGlyphCover from "@/components/CenterGlyphCover";
  *     o ramo de buffering é estado (dura TODO o buffering, ignora o
  *     watchdog idle) e continua mutuamente exclusivo com o poster.
  *  4. O disco é TRANSITÓRIO por construção: não é a antiga CenterChromeShield
- *     permanente (componente deletado em ccdad4b) — só renderiza com a prop.
+ *     permanente (componente deletado em ccdad4b) — só renderiza com a prop,
+ *     com controles visíveis ou durante buffering.
  */
 
 const song = {
@@ -90,9 +95,24 @@ describe("CenterGlyphCover — disco transitório do glifo do YT", () => {
     expect(queryPoster()).toBeNull(); // mutuamente exclusivo com o poster
   });
 
-  it("janela expirada (glyphCover=false): disco ausente — centro limpo", () => {
+  it("controles visíveis + janela expirada: disco cobre o glifo congelado (v13)", () => {
+    // Reporte task5 (screenshot): FS tocando, barra visível, janela GLYPH_COVER
+    // expirada e o ⏸ congelado do embed aparecia no centro. Com showControls
+    // (default true aqui) o disco deve renderizar mesmo com glyphCover=false.
     act(() => {
       render(<FullscreenOverlay {...makeProps({ glyphCover: false })} />);
+    });
+    expect(queryCover()).not.toBeNull();
+  });
+
+  it("controles ocultos + janela expirada: disco ausente — centro limpo", () => {
+    act(() => {
+      render(<FullscreenOverlay {...makeProps({ glyphCover: false })} />);
+    });
+    // Auto-hide padrão 3500ms (demus-fs-autohide-ms) esconde a barra →
+    // sem janela + sem controles = centro 100% livre (v10).
+    act(() => {
+      vi.advanceTimersByTime(3600);
     });
     expect(queryCover()).toBeNull();
   });

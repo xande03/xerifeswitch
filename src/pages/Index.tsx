@@ -2447,9 +2447,20 @@ const Index = () => {
                   meio do buffering enquanto o poster segue bloqueado por
                   !surfaceBuffering (sem cobertura nenhuma). Fora da
                   superfície YT (nativa/offline/fim/idle) não renderiza. */}
+              {/* v13 (reporte "símbolo pause/play ainda presente" com
+                  screenshot): o glifo do embed CONGELA em alguns devices e
+                  persiste além da janela GLYPH_COVER_MS — o screenshot mostra
+                  controles visíveis + tocando + SEM disco (janela expirada,
+                  tap só re-reve os controles sem re-armar glyphPaintAt).
+                  Agora o disco também rende enquanto os controles estão
+                  visíveis (glyphCoverOn || showVideoOverlayControls): com
+                  controles na tela o centro jamais mostra o ⏸ congelado.
+                  Controles ocultos + janela expirada = centro 100% limpo
+                  (v10 preservado); pausado = poster; buffering = disco. */}
               {!nativeVideoActive &&
                 !playerState.isEnded &&
-                ((glyphCoverOn &&
+                (((glyphCoverOn ||
+                  showVideoOverlayControls) &&
                   playerState.isPlaying &&
                   !playerState.videoSurfaceIdle) ||
                   playerState.surfaceBuffering) && (

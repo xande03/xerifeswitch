@@ -13,7 +13,11 @@
  *
  * Solução: disco opaco #161616 (mesma linguagem do nosso botão central),
  * sem ícone, SEM blur (a lente fosca permanente foi rejeitada — este disco é
- * TRANSITÓRIO: só existe durante a janela do glifo e some junto com ele).
+ * TRANSITÓRIO: existe durante a janela do glifo, enquanto o buffering rende
+ * (v12) e enquanto os controles estão visíveis (v13 — o glifo congela em
+ * alguns devices além da janela; reporte com screenshot: controles na tela +
+ * tocando + ⏸ exposto no centro). Controles ocultos + janela expirada =
+ * centro 100% limpo.
  *  - 26% da largura do player (cobre ~16% + offset com folga), com min/max
  *    para players pequenos/grandes.
  *  - pointer-events-none + aria-hidden: inerte; os toques seguem para o

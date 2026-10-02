@@ -1,8 +1,41 @@
 # Status do Xerife Music
 
-Atualizado em 2026-10-02 (16ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-10-02 (17ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-10-02 (17ª) — ⏸ central ainda presente (glifo congelado do embed além da janela)
+
+Pedido (com screenshot `image-1.png`): "no player de vídeos do xerife videos e modo vídeo do
+xerife music e xerife podcast ainda está com o botão ou símbolo de pause/play… entenda e
+corrija". A imagem mostra o player INLINE em landscape (barra inferior nova da16ª visível:
+⏮ ⏸ ⏭ 0:32 seek CC ⤢), vídeo tocando, controles visíveis e um **⏸ branco centralizado**.
+
+- **Diagnóstico**: não era botão nosso (transporte central foi removido na16ª e os testes
+  garantem `[data-central-transport]` null) nem poster (`PausedVideoPoster` é capa pura).
+  É o **glifo de pause do próprio embed do YouTube** — docs internos do
+  `CenterGlyphCover` já alertam que ele "some sozinho em ~5 s, mas CONGELA em alguns
+  devices". O disco `CenterGlyphCover` só cobre a janela `GLYPH_COVER_MS=6500` iniciada em
+  `glyphPaintAt` (load/seek/play); o tap que re-revela os controles **não re-arma essa
+  janela** (só `actionGlyphPaintAt` de ações re-arma o lease dos controles). Screenshot =
+  controles visíveis + tocando + janela expirada → disco ausente → ⏸ congelado exposto.
+- **Correção (v13)** — o disco agora também rende **enquanto os controles estão visíveis**:
+  - `Index.tsx` (overlay inline): gate
+    `(((glyphCoverOn || showVideoOverlayControls) && isPlaying && !videoSurfaceIdle) || surfaceBuffering)`;
+  - `FullscreenOverlay.tsx`: gate
+    `(((glyphCover || showControls) && isPlaying && !videoSurfaceIdle) || surfaceBuffering)`.
+  Invariantes preservados: pausado → poster (disco exige `isPlaying`), buffering → disco,
+  fim/nativo → nada, **controles ocultos + janela expirada → centro 100% limpo** (v10).
+  Comentários/docs do componente e contrato dos testes atualizados para v13.
+- **Testes**: `center-glyph-cover` adaptado — "janela expirada" agora é cenário de DOIS
+  casos: controles visíveis → disco PRESENTE (novo, cobre o glifo congelado) e controles
+  ocultos (auto-hide 3500ms) → disco AUSENTE. Suíte alvo **30/30**.
+- **Validação visual** (Playwright, mobile landscape1117×619, janela expirada + tap nos3
+  contextos reais: Xerife Vídeos via dispatch, Podcast via aba+pill, Music via ilha →
+  "Expandir player" → pill "Vídeo" — NUNCA dispatch direto no music, o force-audio do NPV
+  derruba o modo): em TODOS `cover=true` com barra visível (disco #161616 no centro, sem
+  ⏸) e `cover=false` após auto-hide (centro limpo). Fullscreen também validado (disco
+  presente com barra). `npm run check` **EXIT=0** (118/118 + build + e2e + SMOKE).
 
 ## Sessão 2026-10-02 (16ª) — controles duplicados no player de vídeo (Xerife Vídeos / modo vídeo do Music e Podcast)
 
