@@ -128,7 +128,7 @@ async function searchPodcasts(query: string, limit: number) {
 
     // Buscar em paralelo com timeout
     const results = await Promise.allSettled(
-      queries.map(q => fetchWithTimeout(() => fetchPodcastResults(q), 5000))
+      queries.map(q => fetchWithTimeout(() => fetchPodcastResults(q), 14000))
     );
 
     // Processar resultados
@@ -164,19 +164,27 @@ async function searchPodcasts(query: string, limit: number) {
  */
 async function fetchPodcastResults(query: string): Promise<PodcastResult[]> {
   const instances = [
+    "https://invidious.f5.si",
     "https://inv.nadeko.net",
     "https://invidious.nerdvpn.de",
     "https://invidious.jing.rocks",
   ];
 
+  const headers = {
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Accept": "application/json",
+  };
+
   for (const instance of instances) {
     try {
       const url = `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video`;
-      const response = await fetch(url, { signal: AbortSignal.timeout(4000) });
+      const response = await fetch(url, { signal: AbortSignal.timeout(9000), headers });
 
       if (!response.ok) continue;
 
-      const data: any[] = await response.json();
+      const data: any = await response.json();
+      if (!Array.isArray(data)) continue;
 
       return data.slice(0, 40).map(v => ({
         videoId: v.videoId || v.id || "",
@@ -186,7 +194,9 @@ async function fetchPodcastResults(query: string): Promise<PodcastResult[]> {
         thumbnail: v.videoThumbnails?.[0]?.url || "",
         duration: formatDuration(v.lengthSeconds || 0),
         views: formatViews(v.viewCount || 0),
-        publishedTime: formatPublishedTime(v.uploadedAt || 0),
+        publishedTime: formatPublishedTime(
+          Number(v.published) || (typeof v.uploadedAt === "number" ? v.uploadedAt : 0),
+        ),
         lengthSeconds: v.lengthSeconds || 0,
         description: v.description || "",
       }));
@@ -256,7 +266,8 @@ function formatPublishedTime(timestamp: number): string {
 }
 
 function generateContinuationToken(query: string): string {
-  return Buffer.from(`${query}:${Date.now()}`).toString("base64");
+  // btoa é global no runtime edge; encodeURIComponent garante ASCII (acentos na query).
+  return btoa(encodeURIComponent(`${query}:${Date.now()}`));
 }
 
 function hashContinuation(token: string): number {

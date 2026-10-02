@@ -6,6 +6,30 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-client-ip, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
+const UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+/**
+ * Descobre APIs cobalt em cobalt.directory (tabela HTML, atualizada ~10 min).
+ * Best-effort: se o site bloquear, retorna []. A lista estática continua válida.
+ */
+async function discoverCobaltApis(skip: string[]): Promise<string[]> {
+  try {
+    const r = await fetch('https://cobalt.directory/', {
+      signal: AbortSignal.timeout(5000),
+      headers: { 'User-Agent': UA, 'Accept': 'text/html' },
+    });
+    if (!r.ok) return [];
+    const html = await r.text();
+    const hosts = [...html.matchAll(/<td>\s*([a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+)\s*<\/td>/gi)]
+      .map((m) => `https://${m[1].toLowerCase()}`)
+      .filter((u) => !skip.includes(u));
+    return [...new Set(hosts)].slice(0, 8);
+  } catch {
+    return [];
+  }
+}
+
 serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
@@ -25,11 +49,17 @@ serve(async (req) => {
     }
 
     const isAudio = format === 'mp3'
-    
-    // Use cobalt.tools public API (v10+)
-    const cobaltEndpoints = [
+
+    // Instâncias estáticas (sem auth) + descoberta dinâmica via cobalt.directory.
+    // A API oficial (api.cobalt.tools) exige JWT e demais listas públicas sumiram.
+    const staticEndpoints = [
+      'https://rue-cobalt.xenon.zone',
+      'https://cobaltapi.cjs.nz',
       'https://api.cobalt.tools',
-      'https://cobalt-api.kwiatekmiki.com',
+    ];
+    const cobaltEndpoints = [
+      ...staticEndpoints,
+      ...(await discoverCobaltApis(staticEndpoints)),
     ];
 
     let data: any = null;
@@ -46,6 +76,7 @@ serve(async (req) => {
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
+            'User-Agent': UA,
           },
           body: JSON.stringify({
             url: `https://www.youtube.com/watch?v=${videoId}`,

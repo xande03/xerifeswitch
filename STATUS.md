@@ -1,8 +1,41 @@
 # Status do Xerife Music
 
-Atualizado em 2026-10-02 (14ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-10-02 (15ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-10-02 (15ª) — reparo dos3 upstreams externos (`fetch-chords`, `podcast-search`, `youtube-download`)
+
+Pedido: "sim. Repare a aça o comit". As três falhas eram **externas** (confirmado na14ª) e foram
+corrigidas nas Edge Functions + redeploy no projeto `fiohpfx…`:
+
+- **`fetch-chords`** — causa dupla: (1) regex do `data-content` esperava a ordem antiga de
+  atributos (`… id="js-store"`), mas a UG serve `class="js-store" data-content="…"`; (2) o JSON
+  de busca vem com aninhamento variante (`store.store.page.data.results` no edge) — agora
+  extração **recursiva** (`deepFindUg`). Além disso a página de **tab é SSR** e expõe
+  `tab_view.wiki_tab.content` com a cifra **real** → a função agora devolve o conteúdo
+  convertido (`[ch]X[/ch]`→`X`, `[tab]` removido, entidades `&aacute;`→`á` decodificadas) em vez
+  de placeholder. Ordem das fontes: **UG primeiro** (única viva), vagalume (503)/cifraclub (403)
+  ficam como fallback.
+- **`podcast-search`** — instâncias: **`invidious.f5.si` primeira** + header `User-Agent`
+  (sem UA o f5 responde, mas outras bloqueiam) + guarda `Array.isArray`; timeouts4s→9s por
+  instância e5s→14s no `fetchWithTimeout` (f5 leva ~1,5–6s do edge). **Bug real encontrado**:
+  `generateContinuationToken` usava `Buffer.from()` — `Buffer` **não é global** no runtime edge →
+  quando `final.length >= limit` (≥40 resultados) o token lançava, o `catch` devolvia
+  `{results:[]}` — por isso buscas amplas retornavam vazias mesmo com20–40 itens coletados.
+  Corrigido com `btoa(encodeURIComponent(…))`.
+- **`youtube-download`** — cobalt oficial/comunidade hoje exige **JWT/turnstile**
+  (`error.api.auth.jwt.missing` em quase todas as listas). Instâncias **sem auth** descobertas
+  via `cobalt.directory`: **`rue-cobalt.xenon.zone` (funcional)** e `cobaltapi.cjs.nz` como
+  segunda + `api.cobalt.tools` (oficial, caso mude) + descoberta best-effort em
+  `cobalt.directory` (do edge o site responde **403 CF**, então a lista estática é o caminho
+  real). Tunnel testado: POST→`{url}`, GET→`ACAO:*`, bytes MP3 ok.
+- **Matriz final (invoke real, todos ✓)**: chords `Cássia Eller – Malandragem` = cifra real
+  (`source:ug`,2931 chars, `tabs.ultimate-guitar.com/tab/958126`); podcast
+  `?q=historia+do+brasil&fresh=true` = **40 results + continuation** (página2 =
+  10 results ✓); download áudio e vídeo = `{url}` tunnel (GET baixa bytes ✓);
+  `npm run check` **EXIT=0**. Função temporária `debug-upstream` (usada p/ diagnosticar via
+  edge) **excluída** do projeto.
 
 ## Sessão 2026-10-02 — migração do backend para o projeto próprio "Xerife Switch" (`fiohpfx…`)
 

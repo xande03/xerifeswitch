@@ -233,6 +233,86 @@ async function cifraClub(artist: string, title: string): Promise<ChordsPayload |
 
 /* =========================== Ultimate Guitar =========================== */
 
+/** Decodifica entidades HTML comuns (acentos) — a UG embute &aacute; etc. nos valores. */
+function decodeEntities(s: string): string {
+  if (!s) return s;
+  const map: Record<string, string> = {
+    "&aacute;": "á", "&Aacute;": "Á", "&eacute;": "é", "&Eacute;": "É",
+    "&iacute;": "í", "&Iacute;": "Í", "&oacute;": "ó", "&Oacute;": "Ó",
+    "&uacute;": "ú", "&Uacute;": "Ú", "&ccedil;": "ç", "&Ccedil;": "Ç",
+    "&ntilde;": "ñ", "&Ntilde;": "Ñ", "&agrave;": "à", "&Agrave;": "À",
+    "&uuml;": "ü", "&Uuml;": "Ü", "&ocirc;": "ô", "&Ocirc;": "Ô",
+    "&atilde;": "ã", "&Atilde;": "Ã", "&quot;": '"', "&lt;": "<", "&gt;": ">",
+  };
+  let out = s;
+  for (const [k, v] of Object.entries(map)) out = out.split(k).join(v);
+  out = out.split("&amp;").join("&");
+  return out;
+}
+
+/** Extrai o JSON do estado inicial (data-content) da UG, em qualquer ordem de atributos. */
+function parseUgStore(html: string): any | null {
+  const patterns = [
+    /class=["']js-store["'][^>]*data-content=["']([^"']+)["']/,
+    /data-content=["']([^"']+)["'][^>]*class=["']js-store["']/,
+    /data-content=["']([^"']+)["']\s*id=["']js-store["']/,
+  ];
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (!m) continue;
+    try {
+      return JSON.parse(decodeEntities(m[1]));
+    } catch {
+      /* tenta próximo padrão */
+    }
+  }
+  return null;
+}
+
+/**
+ * Varre o store recursivamente: a UG muda o aninhamento entre variantes
+ * (page.data.results vs store.page.data.results).
+ */
+function deepFindUg(
+  node: any,
+  depth = 0,
+): { results?: any[]; content?: string; meta?: any } {
+  const out: { results?: any[]; content?: string; meta?: any } = {};
+  if (!node || typeof node !== "object" || depth > 7) return out;
+  if (Array.isArray(node)) return out;
+
+  if (Array.isArray(node.results) && node.results.length) {
+    const ok = node.results.some((r: any) => r?.type && r?.tab_url);
+    if (ok) out.results = node.results;
+  }
+  const wt = node.wiki_tab;
+  if (!out.content && wt && typeof wt.content === "string" && wt.content.length > 40) {
+    out.content = wt.content;
+  }
+  if (!out.meta && node.tab && typeof node.tab.artist_name === "string" && typeof node.tab.song_name === "string") {
+    out.meta = node.tab;
+  }
+  if (out.results && out.content && out.meta) return out;
+  for (const k of Object.keys(node)) {
+    const found = deepFindUg(node[k], depth + 1);
+    if (!out.results && found.results) out.results = found.results;
+    if (!out.content && found.content) out.content = found.content;
+    if (!out.meta && found.meta) out.meta = found.meta;
+    if (out.results && out.content && out.meta) break;
+  }
+  return out;
+}
+
+/** Converte o wiki markup da UG ([tab]/[ch]) em texto pronto para <pre>. */
+function convertUgWiki(content: string): string {
+  return content
+    .replace(/\[\/?tab\]/g, "")
+    .replace(/\[ch\]([^[\]]+)\[\/ch\]/g, "$1")
+    .replace(/\r\n?/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 async function ultimateGuitar(artist: string, title: string): Promise<ChordsPayload | null> {
   const q = `${artist} ${title}`.trim();
   const html = await safeText(
@@ -240,31 +320,41 @@ async function ultimateGuitar(artist: string, title: string): Promise<ChordsPayl
     7000,
   );
   if (!html) return null;
-  // UG expõe estado inicial num data-content JSON no root; extraímos o 1o resultado do tipo Chords.
-  const m = html.match(/data-content=["'](\{.+?\})["']\s*id=["']js-store["']/);
-  if (!m) return null;
-  try {
-    const raw = m[1]
-      .replace(/&quot;/g, '"')
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">");
-    const data = JSON.parse(raw);
-    const results: any[] = data?.store?.page?.data?.results || [];
-    const chord = results.find((r) => r?.type === "Chords" && r?.tab_url);
-    if (!chord) return null;
-    return {
-      source: "ug",
-      artist: chord.artist_name || artist,
-      title: chord.song_name || title,
-      key: chord.tonality_name || null,
-      capo: null,
-      chords: `Cifra disponível em Ultimate Guitar. Toque em "Abrir no site original" para visualizar a versão completa.`,
-      url: chord.tab_url,
-    };
-  } catch {
-    return null;
+  const searchStore = parseUgStore(html);
+  if (!searchStore) return null;
+  const results: any[] = deepFindUg(searchStore).results || [];
+  const chord = results.find((r) => r?.type === "Chords" && r?.tab_url);
+  if (!chord) return null;
+
+  // Tenta obter a cifra real na página da tab (SSR com wiki_tab.content).
+  const tabHtml = await safeText(chord.tab_url, 8000);
+  if (tabHtml) {
+    const tabStore = parseUgStore(tabHtml);
+    const found = tabStore ? deepFindUg(tabStore) : {};
+    if (found.content) {
+      const meta = found.meta || {};
+      return {
+        source: "ug",
+        artist: decodeEntities(meta.artist_name || chord.artist_name || artist),
+        title: decodeEntities(meta.song_name || chord.song_name || title),
+        key: meta.tonality_name || null,
+        capo: null,
+        chords: decodeEntities(convertUgWiki(found.content)),
+        url: meta.tab_url || chord.tab_url,
+      };
+    }
   }
+
+  // Fallback: link para a cifra no site original.
+  return {
+    source: "ug",
+    artist: decodeEntities(chord.artist_name || artist),
+    title: decodeEntities(chord.song_name || title),
+    key: chord.tonality_name || null,
+    capo: null,
+    chords: `Cifra disponível em Ultimate Guitar. Toque em "Abrir no site original" para visualizar a versão completa.`,
+    url: chord.tab_url,
+  };
 }
 
 /* =========================== handler =========================== */
@@ -289,10 +379,11 @@ serve(async (req) => {
     const cA = cleanArtist(rawArtist);
     const cT = cleanTitle(rawTitle);
 
+    // Ordem: UG primeiro (única fonte viva); vagalume/cifraclub como fallback.
     let result: ChordsPayload | null = null;
-    try { result = await vagalume(cA, cT); } catch { /* noop */ }
+    try { result = await ultimateGuitar(cA, cT); } catch { /* noop */ }
+    if (!result) { try { result = await vagalume(cA, cT); } catch { /* noop */ } }
     if (!result) { try { result = await cifraClub(cA, cT); } catch { /* noop */ } }
-    if (!result) { try { result = await ultimateGuitar(cA, cT); } catch { /* noop */ } }
 
     if (!result) {
       return new Response(JSON.stringify({ chords: null, error: "not_found" }), {
