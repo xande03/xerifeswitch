@@ -13,18 +13,21 @@
  *
  * Solução: disco opaco #161616 (mesma linguagem do nosso botão central),
  * sem ícone, SEM blur (a lente fosca permanente foi rejeitada — este disco é
- * TRANSITÓRIO: existe durante a janela do glifo, enquanto o buffering rende
- * (v12) e enquanto os controles estão visíveis (v13 — o glifo congela em
- * alguns devices além da janela; reporte com screenshot: controles na tela +
- * tocando + ⏸ exposto no centro). Controles ocultos + janela expirada =
- * centro 100% limpo.
+ * OPACO e cobre só o centro).
+ *  - v11: cobria a janela ~5s da pintura; v12: buffering também; v13: controles
+ *    visíveis; **v14 (pedido "o símbolo de pause ainda está no centro… corrija
+ *    para sempre sumir"): disco durante TODA a reprodução** — o glifo ⏸ do
+ *    embed CONGELA em alguns devices dentro do iframe cross-origin (sem como
+ *    detectá-lo), e com controles ocultos ele reaparecia junto com o vídeo
+ *    tocando. Pausado/idle = PausedVideoPoster; buffering = disco; fim/nativo
+ *    = nada.
  *  - 26% da largura do player (cobre ~16% + offset com folga), com min/max
  *    para players pequenos/grandes.
  *  - pointer-events-none + aria-hidden: inerte; os toques seguem para o
  *    tap-catcher (z-210).
  *  - z-[209] no overlay inline (mesma faixa do PausedVideoPoster — os dois
- *    estados são mutuamente exclusivos: pausado = poster, janela de glifo =
- *    disco); z-[204] no fullscreen.
+ *    estados são mutuamente exclusivos: pausado = poster, tocando = disco);
+ *    z-[204] no fullscreen.
  */
 const CenterGlyphCover = ({
   zIndexClass = "z-[209]",

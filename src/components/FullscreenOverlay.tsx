@@ -42,11 +42,9 @@ interface FullscreenOverlayProps {
    *  stream. Durante o buffering os controles inferiores permanecem visíveis
    *  até a reprodução confirmar; todos minimizam juntos quando roda de verdade. */
   surfaceBuffering?: boolean;
-  /** JANELA DO GLIFO (v11): TRUE durante a pintura do indicador central do YT
-   *  (play/seek/load, ~5s medidos em lab) — renderiza o CenterGlyphCover opaco
-   *  transitório que esconde o glifo (nunca "botão de pause" fantasma no centro
-   *  da tela cheia). O Index calcula a janela e passa pronta. */
-  glyphCover?: boolean;
+  /** Superfície NÃO-YT (vídeo nativo/offline) em tela cheia: não há glifo do
+   *  embed a cobrir — o disco do CenterGlyphCover nunca renderiza (v14). */
+  nativeVideoActive?: boolean;
 }
 
 const MIN_SCALE = 1;
@@ -59,7 +57,7 @@ const FullscreenOverlay = ({
   isEnded = false,
   videoSurfaceIdle = false,
   surfaceBuffering = false,
-  glyphCover = false,
+  nativeVideoActive = false,
 }: FullscreenOverlayProps) => {
   const [showControls, setShowControls] = useState(true);
   const [zoom, setZoom] = useState<{ scale: number; x: number; y: number }>({ scale: 1, x: 0, y: 0 });
@@ -407,27 +405,29 @@ const FullscreenOverlay = ({
         <PausedVideoPoster cover={song?.cover} zIndexClass="z-[204]" />
       )}
 
-      {/* DISCO DO GLIFO (v12→v13): no fullscreen não existe transporte central —
+      {/* DISCO DO GLIFO (v12→v14): no fullscreen não existe transporte central —
           sem este disco o indicador do YT (pintado em play/seek/load) ficaria
-          SOZINHO no centro por ~5s. Opaco — janela GLYPH_COVER_MS OU
-          buffering ativo (v12: buffering é estado e dura TODO o buffering) OU
-          controles visíveis (v13, reporte "símbolo pause/play ainda presente":
-          o glifo CONGELA em alguns devices além da janela e o screenshot
-          mostrava controles na tela + tocando + ⏸ exposto — com showControls
-          o disco cobre o glifo sempre que a barra está visível). Mútuo
-          exclusivo com o poster (pausado = poster; disc exige isPlaying). */}
+          SOZINHO no centro. O glifo CONGELA em alguns devices (dois reportes
+          com screenshot: com controles ocultos o ⏸ aparecia junto com o vídeo
+          tocando — pedido "corrija para sempre sumir"), então v14: disco
+          opaco durante TODA a reprodução (isPlaying && !videoSurfaceIdle) +
+          buffering como estado (dura TODO o buffering, ignora idle). Mútuo
+          exclusivo com o poster (pausado = poster; disco exige isPlaying);
+          superfície nativa/offline não tem glifo — nativo nunca rende disco. */}
       {videoMode &&
         !isEnded &&
-        (((glyphCover || showControls) && isPlaying && !videoSurfaceIdle) ||
+        !nativeVideoActive &&
+        ((isPlaying && !videoSurfaceIdle) ||
           surfaceBuffering) && (
           <CenterGlyphCover zIndexClass="z-[204]" />
         )}
 
-      {/* VÍDEO 100% VISÍVEL (v10): durante a reprodução real NENHUMA lente/
-          sombra fosca fica no centro — o vídeo aparece integralmente. A antiga
-          CenterChromeShield (backdrop-blur) foi removida a pedido do usuário:
-          o glifo transitório do embed some sozinho e, se o frame congelar, o
-          watchdog (videoSurfaceIdle) troca este estado pelo poster acima. */}
+      {/* VÍDEO SEM LENTE (v10): nenhuma lente/sombra fosca (blur) no centro —
+          a CenterChromeShield (backdrop-blur) foi banida a pedido do usuário.
+          O CenterGlyphCover OPACO permanece durante toda a reprodução desde a
+          v14 (o ⏸ do embed congela em alguns devices; pedido "sempre sumir"),
+          e se o frame congelar o watchdog (videoSurfaceIdle) troca este
+          estado pelo poster acima. */}
 
       {/* CAPA OPACA de fim de vídeo: com o vídeo TERMINADO o YouTube desenha a
           endscreen (grade de sugestões + replay) no CENTRO do iframe — região

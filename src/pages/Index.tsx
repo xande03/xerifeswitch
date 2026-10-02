@@ -43,7 +43,7 @@ import ModuleSwitcher, { MODULE_LABEL, type SwitchableModule } from "@/component
 
 
 import { getSearchSuggestions, searchYouTubeMusic } from "@/lib/youtubeSearch";
-import { readAutoHideMs, autoHideDelayMs, GLYPH_COVER_MS, INTERACTING_FAILSAFE_MS } from "@/lib/autoHideControls";
+import { readAutoHideMs, autoHideDelayMs, INTERACTING_FAILSAFE_MS } from "@/lib/autoHideControls";
 import CenterGlyphCover from "@/components/CenterGlyphCover";
 import { fetchVideoInfo } from "@/lib/youtubeVideoInfo";
 import { hdThumbnail } from "@/lib/utils";
@@ -270,18 +270,12 @@ const Index = () => {
   const videoOverlayInteractingRef = useRef(false);
   /** Guarda contra toggle duplicado: dois toques dentro desta janela contam como um. */
   const videoOverlayTapGuardRef = useRef(0);
-  /** Espelho síncrono de playerState.glyphPaintAt (o reveal é declarado ANTES
-   *  do hook do player e precisa do valor atual no fecho). */
-  const glyphPaintAtRef = useRef(0);
   /** Espelho de actionGlyphPaintAt — pinturas vindas de AÇÕES (play/seek/load).
    *  Só ESTAS estendem o lease dos controles; oscilações BUFFERING↔PLAYING do
-   *  sistema renovam apenas glyphPaintAt (disco). */
+   *  sistema renovam apenas glyphPaintAt (sem efeito no disco desde a v14). */
   const actionGlyphPaintAtRef = useRef(0);
   /** Listeners/timer do fail-safe de interação "sticky" perdida (ver abaixo). */
   const interactingFailSafeRef = useRef<{ cleanup: () => void } | null>(null);
-  /** Estado do CenterGlyphCover: TRUE enquanto a janela do glifo do YT está aberta. */
-  const [glyphCoverOn, setGlyphCoverOn] = useState(false);
-  const glyphCoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** Armas o fail-safe da interação "sticky": se pointerup/cancel/leave nunca
    *  chegar (evento comido, janela perdeu o botão, unmount no meio do press),
@@ -461,9 +455,8 @@ const Index = () => {
   });
 
   const { state: playerState, loadVideo, loadVideoAt, preloadClip, play, pause, seekTo, setVolume: setPlayerVolume, togglePiP, requestAirPlay, requestFullscreen, exitFullscreen, setPlaybackRate, toggleCaptions, proxyAudioElement, getCurrentTime: getPlayerCurrentTime } = useYouTubePlayer("yt-player-slot");
-  // Espelho do timestamp de pintura do glifo central (o reveal/cover precisam
-  // do valor ATUAL; declarado antes do hook por ordem de fechos).
-  glyphPaintAtRef.current = playerState.glyphPaintAt || 0;
+  // Espelho do timestamp de pintura do glifo central — só actionGlyphPaintAt
+  // é lido aqui (lease dos controles); declarado antes do hook por ordem de fechos.
   actionGlyphPaintAtRef.current = (playerState as { actionGlyphPaintAt?: number }).actionGlyphPaintAt || 0;
   const nativeVideoActive = playerMode === "video" && Boolean(nativeVideoSource?.videoId === currentSong.youtubeId);
 
@@ -997,11 +990,11 @@ const Index = () => {
   // demus-fs-autohide-ms, mesma do fullscreen) e a tela fica 100% limpa.
   // O toque na área do vídeo faz toggle (tap catcher) e rearma o timer.
   //
-  // JANELA DO GLIFO (v11): play/seek/load pintam o indicador central do YT
-  // (~5s medidos em lab). O efeito abaixo também dispara em glyphPaintAt —
-  // seeks mid-playing (troca de clipe, resume-seek) que NÃO mudam isPlaying
-  // rearman controles + disco, então o glifo nunca aparece sozinho nem
-  // duplicado com o nosso botão.
+  // JANELA DO GLIFO (v11→v14): play/seek/load pintam o indicador central do
+  // YT (~5s medidos em lab). seeks mid-playing (troca de clipe, resume-seek)
+  // que NÃO mudam isPlaying rearman os controles; o DISCO do centro deixou de
+  // observar a janela em v14 — ele cobre o glifo durante TODA a reprodução
+  // (reporte: o ⏸ congelado reaparecia com controles ocultos).
   //
   // O antigo keepOpen-pausado — que mantinha barra/transporte fixos para
   // sempre com o vídeo parado (tela suja) — foi REMOVIDO a pedido: pausado
@@ -1020,33 +1013,13 @@ const Index = () => {
     }
   }, [isPlaying, expanded, playerMode, revealVideoOverlay]);
 
-  // Espelho/lease do CenterGlyphCover: liga na pintura do glifo e desliga
-  // quando a janela (GLYPH_COVER_MS) fecha — sincronizado com o lease do
-  // auto-hide (ambos contados a partir do mesmo glyphPaintAt).
-  useEffect(() => {
-    if (glyphCoverTimerRef.current) {
-      clearTimeout(glyphCoverTimerRef.current);
-      glyphCoverTimerRef.current = null;
-    }
-    const at = playerState.glyphPaintAt || 0;
-    if (!at) { setGlyphCoverOn(false); return; }
-    const remaining = at + GLYPH_COVER_MS - Date.now();
-    if (remaining <= 0) { setGlyphCoverOn(false); return; }
-    setGlyphCoverOn(true);
-    glyphCoverTimerRef.current = setTimeout(() => setGlyphCoverOn(false), remaining);
-    return () => {
-      if (glyphCoverTimerRef.current) {
-        clearTimeout(glyphCoverTimerRef.current);
-        glyphCoverTimerRef.current = null;
-      }
-    };
-  }, [playerState.glyphPaintAt]);
-
   // Rearma controles SOMENTE em pinturas vindas de AÇÕES (play, seek, load,
   // correção do guard, troca de qualidade) — actionGlyphPaintAt. Pinturas de
-  // OSCILAÇÃO de rede (BUFFERING↔PLAYING) renovam só glyphPaintAt e mexem
-  // apenas no disco: senão uma rede instável re-armava o lease em cadeia e os
-  // controles nunca mais minimizavam (reporte no deploy do Netlify).
+  // OSCILAÇÃO de rede (BUFFERING↔PLAYING) renovam só glyphPaintAt e NÃO
+  // mexem nos controles: senão uma rede instável re-armava o lease em cadeia e
+  // os controles nunca mais minimizavam (reporte no deploy do Netlify).
+  // (v14: o disco do centro deixou de observar a janela glyphPaintAt — ele
+  // cobre o glifo durante TODA a reprodução, ver gate abaixo.)
   useEffect(() => {
     if (!playerState.actionGlyphPaintAt) return;
     if (expanded && playerMode === "video") revealVideoOverlay();
@@ -2406,14 +2379,15 @@ const Index = () => {
           {/* Overlay controls on top of the actual YouTube player */}
           {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && (
             <>
-              {/* VÍDEO 100% VISÍVEL (v10): NENHUMA lente/sombra fosca no centro
-                  durante a reprodução — o vídeo aparece integralmente. O glifo
-                  transitório do embed do YouTube é brevemente pintado a cada
-                  transição e some sozinho (fade interno do próprio iframe);
-                  se o frame congelar de verdade, o watchdog (videoSurfaceIdle)
-                  detecta e o poster + CenterGlyphCover voltam a cobrir.
-                  Os controles vivem SOMENTE na barra inferior (sem botões
-                  centralizados — transporte central removido em2026-10-02). */}
+              {/* VÍDEO SEM LENTE (v10): NENHUMA lente/sombra fosca (blur) no
+                  centro — a CenterChromeShield foi banida e não volta. O que
+                  cobre o centro é o CenterGlyphCover OPACO, que desde a v14
+                  fica durante TODA a reprodução (pedido "corrija para sempre
+                  sumir" — o ⏸ do embed congela em alguns devices dentro do
+                  iframe cross-origin e não há como detectá-lo); pausado/idle =
+                  poster. Os controles vivem SOMENTE na barra inferior (sem
+                  botões centralizados — transporte central removido em
+                  2026-10-02). */}
 
               {/* POSTER DO ESTADO PAUSADO (v8): cobre o iframe enquanto
                   pausado/travado — o bezel ⏸ do YouTube (cross-origin, congela
@@ -2425,43 +2399,26 @@ const Index = () => {
                 <PausedVideoPoster cover={currentSong?.cover} />
               )}
 
-              {/* DISCO DO GLIFO (v11→v12): durante a janela da pintura do indicador
-                  central do YT (play/seek/load, ~5s) um disco opaco #161616 —
-                  sem ícone, transitório, SEM blur — cobre o glifo por
-                  construção: com controles visíveis não há mais DOIS botões de
-                  pause (o glifo sangrava ao redor do nosso 88/96px); com
-                  controles ocultos não sobra o "botão de pause" sozinho. Some
-                  junto com o glifo (GLYPH_COVER_MS), nunca é permanente.
-                  Mútuo exclusivo com o poster (pausado = poster; janela de
-                  glifo = disco).
-                  v12 (reporte "símbolos ainda presentes"): buffering TAMBÉM
-                  rende o disco (estado, dura TODO o buffering mesmo >
-                  GLYPH_COVER_MS) — antes, surfaceBuffering tirava disco E
-                  poster ao mesmo tempo (ambos exigiam !surfaceBuffering) e o
-                  spinner/bezel do cross-origin iframe ficava SOZNO no centro
-                  com os controles já ocultos; a saída PLAYING reabre a janela
-                  via glyphPaintAt e cobre o repintar. O ramo de buffering
-                  IGNORA videoSurfaceIdle de propósito: o watchdog de stall
-                  (poll 1s) marca idle quando o tempo não avança — exatamente
-                  durante o buffering — e, sem isto, derrubava o disco no
-                  meio do buffering enquanto o poster segue bloqueado por
-                  !surfaceBuffering (sem cobertura nenhuma). Fora da
-                  superfície YT (nativa/offline/fim/idle) não renderiza. */}
-              {/* v13 (reporte "símbolo pause/play ainda presente" com
-                  screenshot): o glifo do embed CONGELA em alguns devices e
-                  persiste além da janela GLYPH_COVER_MS — o screenshot mostra
-                  controles visíveis + tocando + SEM disco (janela expirada,
-                  tap só re-reve os controles sem re-armar glyphPaintAt).
-                  Agora o disco também rende enquanto os controles estão
-                  visíveis (glyphCoverOn || showVideoOverlayControls): com
-                  controles na tela o centro jamais mostra o ⏸ congelado.
-                  Controles ocultos + janela expirada = centro 100% limpo
-                  (v10 preservado); pausado = poster; buffering = disco. */}
+              {/* DISCO DO GLIFO (v11→v12→v13→v14): o embed controls=0 pinta um
+                  indicador central (⏸/▶, ~16% da largura) a cada play/seek/load
+                  e, em alguns devices, o ⏸ CONGELA e não sai mais (dois
+                  reportes com screenshot: "símbolos ainda presentes" e
+                  "ainda está com o símbolo de pause… corrija para sempre
+                  sumir"). O glifo vive dentro do iframe cross-origin — não há
+                  como detectá-lo nem desativá-lo — então a ÚNICA cobertura
+                  possível é o disco opaco #161616 (sem ícone, sem blur).
+                  v14: o disco rende durante TODA a reprodução (isPlaying &&
+                  !videoSurfaceIdle), não só na janela/controles visíveis —
+                  com controles ocultos o ⏸ congelado também não pode aparecer.
+                  Mútuo exclusivo com o poster: pausado/idle = poster
+                  (poster exige !isPlaying || idle; disco exige isPlaying &&
+                  !idle), buffering = disco (ramo de estado, ignora idle —
+                  watchdog marca idle exatamente durante buffering e o poster
+                  segue bloqueado por !surfaceBuffering). Fora da superfície
+                  YT (nativa/offline/fim) não renderiza. */}
               {!nativeVideoActive &&
                 !playerState.isEnded &&
-                (((glyphCoverOn ||
-                  showVideoOverlayControls) &&
-                  playerState.isPlaying &&
+                ((playerState.isPlaying &&
                   !playerState.videoSurfaceIdle) ||
                   playerState.surfaceBuffering) && (
                   <CenterGlyphCover />
@@ -2636,7 +2593,7 @@ const Index = () => {
               isEnded={nativeVideoActive ? nativeVideoEnded : playerState.isEnded}
               videoSurfaceIdle={nativeVideoActive ? !nativeVideoIsPlaying : playerState.videoSurfaceIdle}
               surfaceBuffering={nativeVideoActive ? false : playerState.surfaceBuffering}
-              glyphCover={glyphCoverOn && !nativeVideoActive}
+              nativeVideoActive={nativeVideoActive}
             />
           </Suspense>
           )}

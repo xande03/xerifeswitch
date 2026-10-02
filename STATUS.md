@@ -1,8 +1,36 @@
 # Status do Xerife Music
 
-Atualizado em 2026-10-02 (17ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-10-02 (18ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-10-02 (18ª) — ⏸ ainda aparecia com vídeo tocando: disco fixo (v14)
+
+Reporte seguinte à17ª: "o símbolo de pause ainda está no centro aparecendo quando o vídeo
+ainda está em reprodução. Mas quando ele para o botão (símbolo de pause), some. Corrija
+isso para sempre sumir. Edite o círculo opaco do meio".
+
+- **Diagnóstico**: a v13 cobria o ⏸ congelado do embed só com controles visíveis (ou na
+  janela de6,5s). Depois do auto-hide a barra some, a janela expira e o disco também — mas
+  o glifo congelado do YouTube continua dentro do iframe cross-origin (indetectável) →
+  ⏸ branco sobre o vídeo TOCANDO com a tela "limpa". O estado pausado ficava coberto pelo
+  `PausedVideoPoster` (por isso "quando ele para, some").
+- **Correção (v14) — disco do meio cobre durante TODA a reprodução**:
+  - `Index.tsx` (inline): gate `((isPlaying && !videoSurfaceIdle) || surfaceBuffering)`
+    sob `!nativeVideoActive && !isEnded` — sem depender de `glyphCoverOn`/`showVideoOverlayControls`;
+  - `FullscreenOverlay.tsx`: gate idem; prop `glyphCover` (janela) **substituída** por
+    `nativeVideoActive` (superfície offline não tem glifo → nunca rende disco);
+  - removidos o espelho/mirror `glyphCoverOn` + timer + `glyphPaintAtRef` do Index (mortos);
+    `actionGlyphPaintAt` segue intacto (lease dos controles);
+  - invariantes: pausado/idle → poster (disco exige `isPlaying && !idle`), buffering → disco,
+    fim/nativo → nada; **nenhum blur** (lente fosca v10 segue banida — disco é opaco).
+- **Testes**: contrato do `center-glyph-cover` reescrito para v14 (8 casos: tocando SEMPRE,
+  controles ocultos SEMPRE, pausado=poster, buffering, fim, música, **nativo sem disco**,
+  componente isolado); suíte alvo **30/30**.
+- **Validação visual** (repro-v14,3 contextos reais, landscape1117×619):
+  `V14 CONTRACT: PASS` — (1) tocando + barra oculta → `cover=true` (★ estado do reporte);
+  (2) tap → controles visíveis → `cover=true`; (3) pausa → `cover=false` + `poster=true`.
+  `npm run check` **EXIT=0** (118/118 + build + e2e + SMOKE).
 
 ## Sessão 2026-10-02 (17ª) — ⏸ central ainda presente (glifo congelado do embed além da janela)
 

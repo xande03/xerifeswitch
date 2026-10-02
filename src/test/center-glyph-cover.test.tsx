@@ -5,30 +5,28 @@ import FullscreenOverlay from "@/components/FullscreenOverlay";
 import CenterGlyphCover from "@/components/CenterGlyphCover";
 
 /**
- * DISCO DO GLIFO CENTRAL — v11 (2026-09-24, "dois botões de pause sobrepostos"):
+ * DISCO DO GLIFO CENTRAL — v11→v14 (2026-10-02):
  * o embed controls=0 pinta um indicador central (⏸/▶, ~16% da largura) a cada
- * play/resume/seek que some sozinho em ~5s (medido em lab). Durante essa janela:
- *  - no fullscreen (sem transporte central) o glifo ficaria SOZINHO no centro;
- *  - no overlay inline ele sangrava ao redor do nosso botão 88/96px = DOIS
- *    botões sobrepostos.
+ * play/resume/seek; em ALGUNS devices o ⏸ CONGELA e não sai mais (dois
+ * reportes com screenshot). O glifo vive no iframe cross-origin — indetectável,
+ * indesativável — então o disco opaco #161616 é a única cobertura possível.
  *
- * Contrato travado aqui:
- *  1. glyphCover + superfície jogando → [data-center-glyph-cover] presente,
- *     opaco, INERTE (aria-hidden, pointer-events-none), SEM backdrop-blur.
- *  2. v13 (reporte "símbolo pause/play ainda presente", screenshot): o glifo
- *     do YT CONGELA em alguns devices ALÉM da janela — com controles visíveis
- *     (showControls) o disco rende mesmo com glyphCover=false (nunca ⏸
- *     exposto na barra aberta). Controles OCULTOS + janela expirada →
- *     ausente — centro 100% limpo (v10 preservado).
- *  3. Pausado/idle/finalizado → ausente (poster/capa assumem; jamais dois
- *     elementos centrais juntos). BUFFERING → PRESENTE (v12, reporte
- *     "símbolos ainda presentes"): o spinner/bezel do cross-origin iframe
- *     ficava SOZNO com disco e poster ambos barrados por !surfaceBuffering;
- *     o ramo de buffering é estado (dura TODO o buffering, ignora o
- *     watchdog idle) e continua mutuamente exclusivo com o poster.
- *  4. O disco é TRANSITÓRIO por construção: não é a antiga CenterChromeShield
- *     permanente (componente deletado em ccdad4b) — só renderiza com a prop,
- *     com controles visíveis ou durante buffering.
+ * Contrato travado aqui (v14 — pedido "o símbolo de pause ainda está no
+ * centro… corrija para sempre sumir"):
+ *  1. Superfície YT tocando → [data-center-glyph-cover] SEMPRE presente
+ *     (não depende mais da janela glyphPaintAt nem da visibilidade dos
+ *     controles), opaco, INERTE (aria-hidden, pointer-events-none), SEM
+ *     backdrop-blur (a lente fosca v10 segue banida).
+ *  2. Controles ocultos (auto-hide) + tocando → disco AINDA presente: é
+ *     exatamente o estado em que o ⏸ congelado reaparecia.
+ *  3. Pausado/idle → ausente (poster assume; jamais dois elementos centrais).
+ *  4. BUFFERING → presente (estado, dura TODO o buffering, ignora o watchdog
+ *     idle; poster segue bloqueado por !surfaceBuffering — v12).
+ *  5. Finalizado → ausente (capa opaca de fim). videoMode=false → ausente.
+ *  6. Superfície NATIVA (nativeVideoActive, vídeo offline) → ausente: não há
+ *     glifo do embed a cobrir.
+ *  7. O disco continua TRANSITÓRIO no sentido de ser inerte e trocar de estado
+ *     com poster/capa — não é a antiga CenterChromeShield de blur.
  */
 
 const song = {
@@ -80,10 +78,10 @@ afterEach(() => {
   document.getElementById("yt-player")?.remove();
 });
 
-describe("CenterGlyphCover — disco transitório do glifo do YT", () => {
-  it("janela aberta + tocando: disco presente, inerte, opaco, sem blur", () => {
+describe("CenterGlyphCover — disco fixo do glifo do YT (v14)", () => {
+  it("tocando na superfície YT: disco SEMPRE presente, inerte, opaco, sem blur", () => {
     act(() => {
-      render(<FullscreenOverlay {...makeProps({ glyphCover: true })} />);
+      render(<FullscreenOverlay {...makeProps()} />);
     });
     const disc = queryCover();
     expect(disc).not.toBeNull();
@@ -95,49 +93,33 @@ describe("CenterGlyphCover — disco transitório do glifo do YT", () => {
     expect(queryPoster()).toBeNull(); // mutuamente exclusivo com o poster
   });
 
-  it("controles visíveis + janela expirada: disco cobre o glifo congelado (v13)", () => {
-    // Reporte task5 (screenshot): FS tocando, barra visível, janela GLYPH_COVER
-    // expirada e o ⏸ congelado do embed aparecia no centro. Com showControls
-    // (default true aqui) o disco deve renderizar mesmo com glyphCover=false.
+  it("controles ocultos (auto-hide) + tocando: disco AINDA presente (v14)", () => {
+    // Estado exato do reporte: barra minimizada, vídeo tocando, ⏸ congelado
+    // do embed não pode aparecer — o disco não observa mais showControls.
     act(() => {
-      render(<FullscreenOverlay {...makeProps({ glyphCover: false })} />);
+      render(<FullscreenOverlay {...makeProps()} />);
+    });
+    act(() => {
+      vi.advanceTimersByTime(3600); // auto-hide padrão 3500ms esconde a barra
     });
     expect(queryCover()).not.toBeNull();
   });
 
-  it("controles ocultos + janela expirada: disco ausente — centro limpo", () => {
-    act(() => {
-      render(<FullscreenOverlay {...makeProps({ glyphCover: false })} />);
-    });
-    // Auto-hide padrão 3500ms (demus-fs-autohide-ms) esconde a barra →
-    // sem janela + sem controles = centro 100% livre (v10).
-    act(() => {
-      vi.advanceTimersByTime(3600);
-    });
-    expect(queryCover()).toBeNull();
-  });
-
-  it("pausado: poster assume e o disco NÃO renderiza (mesmo com glyphCover)", () => {
+  it("pausado: poster assume e o disco NÃO renderiza", () => {
     act(() => {
       render(
-        <FullscreenOverlay {...makeProps({ glyphCover: true, isPlaying: false, videoSurfaceIdle: true })} />,
+        <FullscreenOverlay {...makeProps({ isPlaying: false, videoSurfaceIdle: true })} />,
       );
     });
     expect(queryCover()).toBeNull();
     expect(queryPoster()).not.toBeNull();
   });
 
-  it("buffering: disco rende (estado > janela; watchdog idle não derruba)", () => {
-    // v12 (reporte "símbolos ainda presentes"): durante surfaceBuffering o
-    // spinner/bezel do cross-origin iframe jamais pode ficar descoberto —
-    // nem quando a janela (glyphCover) já expirou, nem quando o watchdog de
-    // stall marca videoSurfaceIdle (o poster segue bloqueado por
-    // !surfaceBuffering; sem o disco não haveria NENHUMA cobertura).
+  it("buffering: disco rende (estado > watchdog idle; poster bloqueado)", () => {
     act(() => {
       render(
         <FullscreenOverlay
           {...makeProps({
-            glyphCover: false,
             surfaceBuffering: true,
             videoSurfaceIdle: true,
           })}
@@ -151,16 +133,24 @@ describe("CenterGlyphCover — disco transitório do glifo do YT", () => {
 
   it("finalizado: capa opaca de fim — sem disco", () => {
     act(() => {
-      render(<FullscreenOverlay {...makeProps({ glyphCover: true, isEnded: true, isPlaying: false })} />);
+      render(<FullscreenOverlay {...makeProps({ isEnded: true, isPlaying: false })} />);
     });
     expect(queryCover()).toBeNull();
   });
 
   it("modo música (videoMode=false): nunca renderiza", () => {
     act(() => {
-      render(<FullscreenOverlay {...makeProps({ videoMode: false, glyphCover: true })} />);
+      render(<FullscreenOverlay {...makeProps({ videoMode: false })} />);
     });
     expect(queryCover()).toBeNull();
+  });
+
+  it("superfície nativa (nativeVideoActive): sem disco — não há glifo do embed", () => {
+    act(() => {
+      render(<FullscreenOverlay {...makeProps({ nativeVideoActive: true })} />);
+    });
+    expect(queryCover()).toBeNull();
+    expect(queryPoster()).toBeNull(); // tocando nativo: centro livre
   });
 
   it("componente isolado: contrato inerte + geometria de disco", () => {
