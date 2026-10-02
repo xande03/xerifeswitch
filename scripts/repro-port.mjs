@@ -36,7 +36,11 @@ await context.addInitScript(() => {
   localStorage.removeItem("demus-last-track");
 });
 const page = await context.newPage();
-page.on("pageerror", (e) => console.log("  [pageerror]", String(e).slice(0, 200)));
+const pageErrors = [];
+page.on("pageerror", (e) => {
+  pageErrors.push(String(e));
+  console.log("  [pageerror]", String(e).slice(0, 200));
+});
 
 await page.goto(BASE, { waitUntil: "domcontentloaded", timeout: 60000 });
 await page.waitForTimeout(2500);
@@ -134,6 +138,36 @@ const bottomPlay = await page.evaluate(() => {
   }).length;
 });
 check("bottom bar SEM botão play/pause", bottomPlay === 0, `bottomPlay=${bottomPlay}`);
+
+// --- Fullscreen: monta o FS overlay sem crash (regressão #426: lazy sem Suspense) ---
+if (!(await centralVisible())) await tapAt();
+const fsEnter = page.locator('button[title="Tela Cheia"]').first();
+if ((await fsEnter.count()) > 0) {
+  await fsEnter.tap().catch(() => fsEnter.click());
+  await page.waitForTimeout(1200);
+} else {
+  check("botao Tela Cheia encontrado", false);
+}
+const boundaryShown = (await page.locator('text=o Xerife tropeçou').count()) > 0;
+check("fullscreen sem ErrorBoundary (sem #426)", !boundaryShown);
+const fsVoltar = page.locator('button[aria-label="Voltar"]').first();
+const fsMounted = (await fsVoltar.count()) > 0 && (await fsVoltar.isVisible());
+check("FS overlay montado (transporte central no FS)", fsMounted);
+const fsTransport = (await page.locator('button[aria-label="Pausar"], button[aria-label="Reproduzir"]').count()) > 0;
+check("FS com transporte central proprio", fsTransport);
+const crashErr = pageErrors.filter((e) => e.includes("426") || e.includes("suspended"));
+check("nenhum pageerror de suspensao", crashErr.length === 0, crashErr[0] || "");
+// sai do fullscreen
+const fsExit = page.locator('button[title="Sair da Tela Cheia"], button[aria-label="Voltar"]').first();
+if ((await fsExit.count()) > 0) {
+  await fsExit.tap().catch(() => fsExit.click());
+  await page.waitForTimeout(900);
+}
+const stillInFs = (await page.locator('button[aria-label="Voltar"]').count()) > 0 &&
+  (await page.locator('button[aria-label="Voltar"]').first().isVisible().catch(() => false));
+check("saida do fullscreen volta ao painel", !stillInFs);
+const boundaryAfter = (await page.locator('text=o Xerife tropeçou').count()) > 0;
+check("sem crash apos sair do fullscreen", !boundaryAfter);
 
 await page.screenshot({ path: `${OUT}-final.png` });
 console.log("\nSCREENSHOT", `${OUT}-final.png`);

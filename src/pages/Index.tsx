@@ -9,10 +9,10 @@ import {
   LazyChannelProfile as ChannelProfile,
   LazyArtistProfile as ArtistProfile,
   LazySearchScreen as SearchScreen,
-  LazyFullscreenOverlay as FullscreenOverlay,
   LazyPodcastScreen as PodcastScreen,
   schedulePrefetchOnIdle,
 } from "@/lib/deferredScreens";
+import FullscreenOverlay from "@/components/FullscreenOverlay";
 import NowPlayingView, { type PlayerMode } from "@/components/NowPlayingView";
 import SeekBar from "@/components/SeekBar";
 import { formatDuration } from "@/data/mockSongs";

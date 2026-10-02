@@ -1,8 +1,30 @@
 # Status do Xerife Music
 
-Atualizado em 2026-10-02 (19ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-10-02 (20ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-10-02 (20ª) — fullscreen derrubava o app (#426): FullscreenOverlay lazy montado sem Suspense
+
+Reporte: "quando clico para colocar em fullscreen do Player de vídeo, aparece esta tela
+[Opa, o Xerife tropeçou] … Minified React error #426".
+
+- **Diagnóstico**: #426 = "A component suspended while responding to synchronous input".
+  A fusão da19ª trocou o bloco FS do Index para o estilo Alse (`<FullscreenOverlay/>`
+  direto, **sem `<Suspense>`**), mas a substituição do import era um replace silencioso
+  que NÃO casou — o `Index.tsx` continuou com `LazyFullscreenOverlay as FullscreenOverlay`
+  (barrel `@/lib/deferredScreens`). Resultado: o clique em "Tela Cheia" montava um
+  `lazy()` sem boundary durante um evento síncrono → React lança #426 → ErrorBoundary.
+  No Xerife pré-port isso não crashava porque o call site era envolto em `<Suspense>`.
+- **Fix**: import direto `import FullscreenOverlay from "@/components/FullscreenOverlay"`
+  (verbatim do Alse, linha71 deles); o alias lazy do barrel ficou órfão (sem uso).
+- **Prova causal (red/green)**: revertendo SÓ o import para o lazy, o harness reproduz
+  exatamente o reporte (ErrorBoundary visível + FS não monta, **12/16**); com o fix,
+  **PORT CONTRACT: PASS (16/16)** — novo trecho no `scripts/repro-port.mjs`: entra em
+  fullscreen (botão "Tela Cheia"), afirma ausência de ErrorBoundary/#426, FS overlay com
+  transporte próprio (aria-label Voltar/Pausar), e saída limpa.
+- **Validação**: `npm run check` **EXIT=0** (typecheck0, vitest74/74, build, e2e, SMOKE).
+  Nota: o `SyntaxError '<'` do dev segue sendo o `cast_sender.js` do gstatic (pré-existente).
 
 ## Sessão 2026-10-02 (19ª) — import EXATO do player do Alse Switch (transporte central volta ao overlay)
 
