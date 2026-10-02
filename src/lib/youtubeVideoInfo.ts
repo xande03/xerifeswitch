@@ -69,7 +69,7 @@ export async function fetchVideoInfo(
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 20000);
     const headers = await createFunctionHeadersWithIp();
     const res = await fetch(
       createFunctionUrl("youtube-video-info", { videoId }),

@@ -62,139 +62,234 @@ serve(async (req) => {
   }
 });
 
+type VideoInfoBundle = {
+  relatedVideos: any[];
+  comments: any[];
+  description: string;
+  /** Instância Invidious que forneceu os comentários (para buscar a página2). */
+  commentsSrc?: string;
+  commentsContinuation?: string | null;
+};
+
+function decodeEntities(t: string): string {
+  return (t || "")
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+}
+
+function mapInvidiousComments(rawComments: any[]): any[] {
+  return rawComments
+    .slice(0, 40)
+    .map((c: any) => ({
+      author: c.author || "Anônimo",
+      authorThumbnail: c.authorThumbnails?.[0]?.url || "",
+      content: decodeEntities(
+        (c.contentHtml?.replace(/<[^>]*>/g, "") || c.content || ""),
+      ),
+      likes: c.likeCount || 0,
+      // `publishedText` vem NO LOCALE DA INSTÂNCIA (obs.: árabe no nadeko).
+      // O epoch `published` é determinístico → data relativa pt-BR aqui.
+      publishedTime: Number.isFinite(Number(c.published)) && Number(c.published) > 0
+        ? formatRelativePtBR(Number(c.published) * 1000)
+        : (c.publishedText || ""),
+      isHearted: c.creatorHeart?.creatorThumbnail ? true : false,
+    }));
+}
+
+/**
+ * Fonte Invidious: APENAS a primeira leitura (vídeo + comentários, teto de
+ * 6s). Sem descrição extra e sem página2 aqui — ambos rodam DEPOIS, em
+ * paralelo, no pós-processamento (revisão21ª: o desenho serial anterior
+ * somava até ~17s POR instância e era descartado pelos caps).
+ */
+async function tryInvidiousInstance(base: string, videoId: string): Promise<VideoInfoBundle> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6000);
+
+  const [videoRes, commentsRes] = await Promise.all([
+    // Peça também "description" para receber a descrição completa do episódio/vídeo.
+    fetch(`${base}/api/v1/videos/${videoId}?fields=recommendedVideos,description`, {
+      signal: controller.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; Bot/1.0)" },
+    }),
+    fetch(`${base}/api/v1/comments/${videoId}?sort_by=top`, {
+      signal: controller.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; Bot/1.0)" },
+    }).catch(() => null),
+  ]);
+  clearTimeout(timeout);
+
+  let relatedVideos: any[] = [];
+  let comments: any[] = [];
+  let description = "";
+  let commentsContinuation: string | null = null;
+
+  if (videoRes.ok) {
+    const videoData = await videoRes.json();
+    description = (videoData.description || "").toString();
+    relatedVideos = (videoData.recommendedVideos || [])
+      .filter((v: any) => v.videoId)
+      .slice(0, 15)
+      .map((v: any) => ({
+        videoId: v.videoId,
+        title: v.title || "",
+        channel: v.author || "",
+        channelThumbnail: "",
+        thumbnail: v.videoThumbnails?.[v.videoThumbnails.length > 1 ? 1 : 0]?.url || "",
+        duration: formatSeconds(v.lengthSeconds || 0),
+        views: formatViews(v.viewCount || v.viewCountText || 0),
+        publishedTime: "",
+        lengthSeconds: v.lengthSeconds || 0,
+        description: "",
+      }));
+  }
+
+  if (commentsRes?.ok) {
+    const commentsData = await commentsRes.json();
+    const rawComments = commentsData.comments || [];
+    commentsContinuation = commentsData.continuation || null;
+    comments = mapInvidiousComments(rawComments);
+  }
+
+  return {
+    relatedVideos,
+    comments,
+    description,
+    commentsSrc: comments.length ? base : undefined,
+    commentsContinuation,
+  };
+}
+
+/** Página2 de comentários Invidious (objetivo:40 no total). */
+async function fetchInvidiousPage2(base: string, videoId: string, continuation: string): Promise<any[]> {
+  const res = await fetch(
+    `${base}/api/v1/comments/${videoId}?continuation=${encodeURIComponent(continuation)}`,
+    { signal: AbortSignal.timeout(5000), headers: { "User-Agent": "Mozilla/5.0 (compatible; Bot/1.0)" } },
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data?.comments) ? mapInvidiousComments(data.comments) : [];
+}
+
+/**
+ * PARALELO + merge INCREMENTAL (revisão21ª).
+ * Motivo: o desenho anterior era SEQUENCIAL (6 instâncias × 6s = ~29s medidos;
+ * client aborta em 15s → comentários/descrição nunca chegavam ao app). Depois,
+ * a primeira versão paralela esperava TODAS as fontes (~19s) e os caps
+ * descartavam fontes boas. Agora: todas as fontes correm juntas (caps7s/9s) e
+ * a resposta sai ASSIM QUE related+comments estiverem prontos em QUALQUER
+ * combinação — sem esperar instâncias mortas. Página2, descrição e tradução
+ * rodam em paralelo no pós-processamento.
+ */
 async function fetchVideoInfo(videoId: string, debug = false) {
-  // Try Invidious instances for related videos + comments
-  for (const base of INVIDIOUS_INSTANCES) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 6000);
+  const withCap = <T,>(p: Promise<T>, ms: number): Promise<T | null> =>
+    Promise.race([
+      p.catch((err) => { console.warn("[youtube-video-info] source error:", err); return null as T | null; }),
+      new Promise<T | null>((r) => setTimeout(() => r(null), ms)),
+    ]);
 
-      const [videoRes, commentsRes] = await Promise.all([
-        // Peça também "description" para receber a descrição completa do episódio/vídeo.
-        fetch(`${base}/api/v1/videos/${videoId}?fields=recommendedVideos,description`, {
-          signal: controller.signal,
-          headers: { "User-Agent": "Mozilla/5.0 (compatible; Bot/1.0)" },
-        }),
-        fetch(`${base}/api/v1/comments/${videoId}?sort_by=top`, {
-          signal: controller.signal,
-          headers: { "User-Agent": "Mozilla/5.0 (compatible; Bot/1.0)" },
-        }).catch(() => null),
-      ]);
-      clearTimeout(timeout);
+  const instanceSources = INVIDIOUS_INSTANCES.map((base) =>
+    withCap(tryInvidiousInstance(base, videoId), 7000).then((bundle) => ({ src: base, bundle })),
+  );
+  const innertubeSource = withCap(fetchFromInnertube(videoId, debug), 9000)
+    .then((bundle) => ({ src: "innertube" as const, bundle }));
+  const sources = [...instanceSources, innertubeSource];
 
-      let relatedVideos: any[] = [];
-      let comments: any[] = [];
-      let description = "";
+  // Aproximação de relacionadas desde o t0: hoje NENHUMA fonte devolve
+  // related direto (vídeo403 nas instâncias + /next barrado no datacenter),
+  // e esperar as instâncias mortas (caps de7s) antes de tentar o approx era o
+  // gate que mantinha a resposta em ~16s. Com o approx em paralelo, a saída
+  // acontece assim que HOUVER comentários + approx pronto.
+  const approxEarly: Promise<any[]> = approxRelatedFromSearch(videoId, debug ? {} : undefined)
+    .then((r) => r || [])
+    .catch(() => []);
+  let approxEarlyVal: any[] = [];
+  let approxEarlyDone = false;
+  approxEarly.then((r) => { approxEarlyVal = r; approxEarlyDone = true; });
 
-      if (videoRes.ok) {
-        const videoData = await videoRes.json();
-        description = (videoData.description || "").toString();
-        relatedVideos = (videoData.recommendedVideos || [])
-          .filter((v: any) => v.videoId)
-          .slice(0, 15)
-          .map((v: any) => ({
-            videoId: v.videoId,
-            title: v.title || "",
-            channel: v.author || "",
-            channelThumbnail: "",
-            thumbnail: v.videoThumbnails?.[v.videoThumbnails.length > 1 ? 1 : 0]?.url || "",
-            duration: formatSeconds(v.lengthSeconds || 0),
-            views: formatViews(v.viewCount || v.viewCountText || 0),
-            publishedTime: "",
-            lengthSeconds: v.lengthSeconds || 0,
-            description: "",
-          }));
+  const collected: { src: string; bundle: VideoInfoBundle | null }[] = [];
+  const assemble = () => {
+    let relatedVideos: any[] = [];
+    let comments: any[] = [];
+    let description = "";
+    let commentsSrc: string | undefined;
+    let commentsContinuation: string | null = null;
+    for (const { src, bundle } of collected) {
+      if (!bundle) continue;
+      if (!relatedVideos.length && bundle.relatedVideos?.length) relatedVideos = bundle.relatedVideos;
+      if (!comments.length && bundle.comments?.length) {
+        comments = bundle.comments;
+        commentsSrc = bundle.commentsSrc || (src !== "innertube" ? src : undefined);
+        commentsContinuation = bundle.commentsContinuation ?? null;
       }
-
-      if (!description || isLikelyTruncatedDescription(description)) {
-        const full = await fetchPlayerDescription(videoId).catch(() => "");
-        description = chooseBestDescription(description, full);
-      }
-
-      if (commentsRes?.ok) {
-        let commentsData = await commentsRes.json();
-        let rawComments = commentsData.comments || [];
-        // 2ª página (Invidious expõe `continuation` no topo) — objetivo: 40 comentários
-        if (rawComments.length && commentsData.continuation) {
-          try {
-            const page2 = await fetch(
-              `${base}/api/v1/comments/${videoId}?continuation=${encodeURIComponent(commentsData.continuation)}`,
-              { signal: AbortSignal.timeout(5000), headers: { "User-Agent": "Mozilla/5.0 (compatible; Bot/1.0)" } },
-            );
-            if (page2.ok) {
-              const page2Data = await page2.json();
-              if (Array.isArray(page2Data?.comments)) rawComments = rawComments.concat(page2Data.comments);
-            }
-          } catch { /* uma página já basta */ }
-        }
-        const decodeEntities = (s: string) =>
-          (s || "")
-            .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-            .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
-            .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
-            .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
-        comments = rawComments
-          .slice(0, 40)
-          .map((c: any) => ({
-            author: c.author || "Anônimo",
-            authorThumbnail: c.authorThumbnails?.[0]?.url || "",
-            content: decodeEntities(
-              (c.contentHtml?.replace(/<[^>]*>/g, "") || c.content || ""),
-            ),
-            likes: c.likeCount || 0,
-            // `publishedText` vem NO LOCALE DA INSTÂNCIA (obs.: árabe no nadeko).
-            // O epoch `published` é determinístico → data relativa pt-BR aqui.
-            publishedTime: Number.isFinite(Number(c.published)) && Number(c.published) > 0
-              ? formatRelativePtBR(Number(c.published) * 1000)
-              : (c.publishedText || ""),
-            isHearted: c.creatorHeart?.creatorThumbnail ? true : false,
-          }));
-      }
-
-      // If we got both, return immediately — buscando description via innertube se faltar
-      if (relatedVideos.length > 0 && comments.length > 0) {
-        console.log(`[youtube-video-info] Full success from ${base}: ${relatedVideos.length} related, ${comments.length} comments`);
-        if (!description || description.trim().length < 40 || isLikelyTruncatedDescription(description)) {
-          try {
-            const innertube = await fetchFromInnertube(videoId);
-            description = chooseBestDescription(description, innertube.description);
-          } catch {}
-        }
-        return withTranslatedComments({ relatedVideos, comments, description });
-      }
-      // If we got partial data, save it and try to fill the rest
-      if (relatedVideos.length > 0 || comments.length > 0) {
-        console.log(`[youtube-video-info] Partial from ${base}: ${relatedVideos.length} related, ${comments.length} comments — will try innertube for missing`);
-        // Try innertube to fill in missing data
-        const innertube = await fetchFromInnertube(videoId, debug);
-        if (relatedVideos.length === 0 && innertube.relatedVideos.length === 0) {
-          // /next bloqueado (403 "Sorry" de datacenter) → aproxima relacionadas
-          // por busca do artista+título (oembed + /search, ambos respondem do edge)
-          const approx = await approxRelatedFromSearch(videoId, debug ? innertube.__debug : undefined).catch(() => []);
-          if (approx.length) innertube.relatedVideos = approx;
-        }
-        const out: any = {
-          relatedVideos: relatedVideos.length > 0 ? relatedVideos : innertube.relatedVideos,
-          comments: comments.length > 0 ? comments : innertube.comments,
-          description: chooseBestDescription(description, innertube.description),
-        };
-        if (debug) out.__debug = { invidiousPartialFrom: base, innertube: innertube.__debug };
-        return withTranslatedComments(out, debug);
-      }
-      console.warn(`[youtube-video-info] ${base} returned empty data`);
-    } catch (err) {
-      console.warn(`[youtube-video-info] Instance ${base} failed:`, err);
-      continue;
+      description = chooseBestDescription(description, bundle.description);
     }
+    return {
+      ready: relatedVideos.length > 0 && comments.length > 0,
+      relatedVideos, comments, description, commentsSrc, commentsContinuation,
+    };
+  };
+
+  await new Promise<void>((resolve) => {
+    let pending = sources.length;
+    let settled = false;
+    const finishIfReady = () => {
+      if (settled) return;
+      const cur = assemble();
+      if (cur.comments.length > 0 && (cur.relatedVideos.length > 0 || approxEarlyDone)) {
+        settled = true;
+        resolve();
+      }
+    };
+    approxEarly.then(() => finishIfReady());
+    for (const p of sources) {
+      p.then((r) => { collected.push(r); finishIfReady(); })
+        .finally(() => {
+          pending -= 1;
+          if (pending === 0 && !settled) { settled = true; resolve(); }
+        });
+    }
+  });
+
+  const a = assemble();
+  let { relatedVideos, comments, description, commentsSrc, commentsContinuation } = a;
+  const sourcesUsed = collected.filter((r) => r.bundle).map((r) => r.src);
+
+  // Pós-processamento em PARALELO: página2, descrição e relacionadas (approx).
+  const page2Job: Promise<any[]> =
+    commentsSrc && commentsContinuation && comments.length > 0 && comments.length < 40
+      ? withCap(fetchInvidiousPage2(commentsSrc, videoId, commentsContinuation), 5000).then((x) => x || [])
+      : Promise.resolve([]);
+  const descJob = (async () => {
+    if (description && description.trim().length >= 40 && !isLikelyTruncatedDescription(description)) return description;
+    const player = await withCap(fetchPlayerDescription(videoId), 4000).then((x) => x || "");
+    return chooseBestDescription(description, player);
+  })();
+  const [extra, finalDesc] = await Promise.all([page2Job, descJob]);
+  if (extra.length) comments = [...comments, ...extra].slice(0, 40);
+  if (!relatedVideos.length && approxEarlyVal.length) relatedVideos = approxEarlyVal;
+  if (!relatedVideos.length) {
+    // última tentativa: approx ainda em voo quando o gate fechou por all-settled
+    relatedVideos = await approxEarly;
   }
 
-  // Fallback: full innertube
-  const innertube = await fetchFromInnertube(videoId, debug);
-  if (innertube.relatedVideos.length === 0) {
-    const approx = await approxRelatedFromSearch(videoId, debug ? (innertube.__debug ??= {}) : undefined).catch(() => []);
-    if (approx.length) innertube.relatedVideos = approx;
+  console.log(`[youtube-video-info] result: ${relatedVideos.length} related, ${comments.length} comments, desc=${finalDesc.length} from [${sourcesUsed.join(", ")}]`);
+
+  const out: any = await withTranslatedComments({ relatedVideos, comments, description: finalDesc }, debug);
+  if (debug) {
+    out.__debug = {
+      ...(out.__debug || {}),
+      servedBy: sourcesUsed,
+      perSource: collected.filter((r) => r.bundle).map((r) => ({
+        src: r.src,
+        r: r.bundle!.relatedVideos?.length || 0,
+        c: r.bundle!.comments?.length || 0,
+      })),
+    };
   }
-  return withTranslatedComments(innertube, debug);
+  return out;
 }
 
 /**
@@ -209,7 +304,7 @@ async function withTranslatedComments(result: any, debug = false) {
   const t0 = Date.now();
   const translated = await translateTextsPtBR(
     comments.map((c: any) => String(c?.content || "")),
-    { concurrency: 4 },
+    { concurrency: 6, timeoutMs: 2500 },
   );
   const merged = comments.map((c: any, i: number) => {
     const t = translated[i];
@@ -313,6 +408,7 @@ async function fetchFromInnertube(videoId: string, debug = false): Promise<any> 
         method: "POST",
         headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(8000),
       }
     );
 
@@ -406,6 +502,7 @@ async function fetchFromInnertube(videoId: string, debug = false): Promise<any> 
               method: "POST",
               headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
               body: JSON.stringify({ context: body.context, continuation }),
+              signal: AbortSignal.timeout(6000),
             }
           );
           return cRes.ok ? await cRes.json() : null;
@@ -498,6 +595,7 @@ async function fetchPlayerDescription(videoId: string): Promise<string> {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       },
       body: JSON.stringify({ context, videoId }),
+      signal: AbortSignal.timeout(6000),
     }
   );
   if (!res.ok) return "";

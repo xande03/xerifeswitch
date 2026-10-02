@@ -1,8 +1,43 @@
 # Status do Xerife Music
 
-Atualizado em 2026-10-02 (20ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-10-02 (21ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-10-02 (21ª) — auditoria "sem furos": video-info era ineficaz (29s × aborto de15s) e comentários nunca chegavam
+
+Pedido: "revise se está tudo em ordem, bem ajustado e em pleno funcionamento, sem furos".
+
+- **Auditoria geral (tudo limpo)**:11 funções ACTIVE só no `fiohpfx…`; zero referências
+  ao Alse (`wjtt…`/chave `rWBamy9F8`) e ao projeto antigo (`hcdqv`) em repo+bundle;
+  PAT em `~/.supabase-pat` **chmod600** e fora do repo; senha do DB fora do repo;
+  PostgREST/Storage/EuFunctions: chaves cruzadas recebem **401 nos dois sentidos**;
+  DB (via Management API — o5432 é bloqueado no sandbox): PostgreSQL17.11, **0 tabelas
+  em `public`**, 0 heartbeat/keepalive,0 usuários auth (login é local), única função SQL
+  = `rls_auto_enable` do plataforma; `edge-function` (legado Alse) segue fora do projeto.
+  Harness **PROD 16/16** (`repro-port.mjs` na Netlify) + matriz edge **11/11**.
+- **FURO encontrado**: `youtube-video-info` levava **~29s em todos os vídeos** (loop
+  SEQUENCIAL de6 instâncias ×6s com puffyan/fdn mortos + serial desc/página2) enquanto
+  o client aborta em **15s** (`AbortController` do `lib/youtubeVideoInfo.ts`) →
+  comentários, descrição e relacionados da edge **nunca eram entregues** ao app (o rail
+  só funcionava pelo preenchimento por busca do NPV). Chamadores diretos
+  (VideoInfoBar, ExploreScreen, Index) também ficavam sem dados.
+- **Correção (3 iterações medidas)**: paralelização total + caps por fonte; depois
+  merge INCREMENTAL (responde assim que `related+comments` existirem em qualquer
+  combinação — sem esperar instâncias mortas); `approxRelatedFromSearch` disparado no
+  **t0** (hoje nenhuma fonte devolve `related` direto: vídeo403 nas instâncias +
+  `/next` barrado no datacenter); página2 de comentários + descrição + tradução
+  **pt-BR em paralelo no pós** (tradução de40 textos = ~3,8s); innertube/instâncias com
+  `AbortSignal` (8s/6s/6s). Client: aborto **15s →20s** (folga).
+- **Medido antes → depois**: `29,3s / 30,6s / 29,5s` → **`9,9s / 9,0s / 9,0s`** típico
+  (todas <15s; pior caso limitado a ~12s), related=15, comments=40, translated=40.
+  Descrição continua vazia nos testes = **bug conhecido #3** (player/next403 de
+  datacenter) — UI usa fallback `song.description` (inalterado).
+- **Validação UI ao vivo (produção)**: `scripts/check-comments-prod.mjs` (viewport
+  mobile390×844) → clicar "Discussão" → **40 comentários renderizados em5,1s —
+  PASS**. `npm run check` **EXIT=0**.
+- Infra do sandbox: wipes recorrentes derrubaram `node_modules`/`.git/config`/libs do
+  chromium de novo — restaurados (PAT mudou de644→**600**).
 
 ## Sessão 2026-10-02 (20ª) — fullscreen derrubava o app (#426): FullscreenOverlay lazy montado sem Suspense
 
