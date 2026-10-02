@@ -2411,16 +2411,16 @@ const Index = () => {
                   transitório do embed do YouTube é brevemente pintado a cada
                   transição e some sozinho (fade interno do próprio iframe);
                   se o frame congelar de verdade, o watchdog (videoSurfaceIdle)
-                  detecta e o poster + transporte opaco voltam a cobrir. O
-                  transporte central opaco (bg-[#161616]) cobre o chrome por
-                  construção quando os controles estão visíveis. */}
+                  detecta e o poster + CenterGlyphCover voltam a cobrir.
+                  Os controles vivem SOMENTE na barra inferior (sem botões
+                  centralizados — transporte central removido em2026-10-02). */}
 
               {/* POSTER DO ESTADO PAUSADO (v8): cobre o iframe enquanto
                   pausado/travado — o bezel ⏸ do YouTube (cross-origin, congela
                   na camada pintada em alguns devices) não pode aparecer onde o
                   iframe não está visível. Sai instantaneamente ao dar play.
                   Abaixo do tap catcher (z-210): toques continuam revelando os
-                  controles; transporte central/rodapé ficam por cima. */}
+                  controles; a barra inferior fica por cima. */}
               {!playerState.isEnded && !playerState.surfaceBuffering && (!playerState.isPlaying || playerState.videoSurfaceIdle) && (
                 <PausedVideoPoster cover={currentSong?.cover} />
               )}
@@ -2485,43 +2485,17 @@ const Index = () => {
                   showVideoOverlayControls ? 'opacity-100' : 'opacity-0'
                 }`}
               >
-                {/* ── TRANSPORTE CENTRAL (padrão-ouro: camada unificada) ──
-                    prev / play-pause / next compartilham o MESMO estado
-                    showVideoOverlayControls: aparecem com os controles e
-                    somem JUNTOS com eles (fade 300ms + pointer-events-none).
-                    stopPropagation em cada botão: o clique não sobe para a
-                    superfície (não fecha os controles). Quando pausado ficam
-                    de pé ATÉ o auto-hide determinado — o play central cobre o
-                    bezel do YouTube no centro enquanto visíveis; ao minimizar,
-                    o poster pausado (PausedVideoPoster) segue cobrindo o bezel. */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div data-central-transport className={`flex items-center justify-center gap-8 sm:gap-12 transition-opacity duration-300 ${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"}`}>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handlePrev(); }}
-                      aria-label="Anterior"
-                      title="Anterior"
-                      className="p-3 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/65 active:scale-90 transition"
-                    >
-                      <SkipBack size={22} fill="currentColor" />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleTogglePlay(); }}
-                      aria-label={isPlaying ? "Pausar" : "Reproduzir"}
-                      title={isPlaying ? "Pausar" : "Reproduzir"}
-                      className="w-[5.5rem] h-[5.5rem] sm:w-24 sm:h-24 rounded-full bg-[#161616] text-white ring-1 ring-white/10 shadow-[0_10px_36px_rgba(0,0,0,0.5)] hover:bg-black active:scale-90 transition flex items-center justify-center"
-                    >
-                      {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleNext(); }}
-                      aria-label="Próximo"
-                      title="Próximo"
-                      className="p-3 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/65 active:scale-90 transition"
-                    >
-                      <SkipForward size={22} fill="currentColor" />
-                    </button>
-                  </div>
-                </div>
+                {/* TRANSPORTE CENTRAL REMOVIDO (2026-10-02, pedido do usuário):
+                    prev/play/next no MEIO do vídeo + play na barra inferior =
+                    controles de reprodução DUPLICADOS (dois botões de pause
+                    visíveis ao mesmo tempo, um deles fixo no centro). Mesma
+                    regra de ouro já válida no fullscreen (testes
+                    fullscreen-center-sync/center-video-fully-visible): play/
+                    pause existe SOMENTE na barra inferior. O bezel/glifo do
+                    YouTube continua coberto por PausedVideoPoster (pausado) e
+                    CenterGlyphCover (janela do glifo), independentes da
+                    visibilidade dos controles. O transporte (prev/next) foi
+                    movido para a barra inferior — um ÚNICO conjunto. */}
 
                 {/* Dimming gradient behind controls — some JUNTO com eles
                     (camada unificada); oculto = vídeo 100% limpo */}
@@ -2567,6 +2541,16 @@ const Index = () => {
                     onPointerCancel={() => { videoOverlayInteractingRef.current = false; revealVideoOverlay(); }}
                     onPointerLeave={() => { if (videoOverlayInteractingRef.current) { videoOverlayInteractingRef.current = false; revealVideoOverlay(); } }}
                   >
+                    {/* Transporte (prev/play/next) — ÚNICO conjunto do player
+                        inline, sempre na barra inferior (sem botões ao centro). */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handlePrev(); }}
+                      title="Anterior"
+                      aria-label="Anterior"
+                      className="p-1.5 rounded-md bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition-all shrink-0"
+                    >
+                      <SkipBack size={18} fill="currentColor" />
+                    </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleTogglePlay(); }}
                       title={isPlaying ? "Pausar" : "Reproduzir"}
@@ -2574,6 +2558,14 @@ const Index = () => {
                       className="p-1.5 rounded-md bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition-all shrink-0"
                     >
                       {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleNext(); }}
+                      title="Próximo"
+                      aria-label="Próximo"
+                      className="p-1.5 rounded-md bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition-all shrink-0"
+                    >
+                      <SkipForward size={18} fill="currentColor" />
                     </button>
                     <span className="text-[11px] font-mono text-white/90 tabular-nums min-w-[42px] text-right">
                       {formatDuration(ct)}
@@ -2588,7 +2580,7 @@ const Index = () => {
                         className=""
                       />
                     </div>
-                    <span className="text-[11px] font-mono text-white/90 tabular-nums min-w-[42px]">
+                    <span className="hidden sm:block text-[11px] font-mono text-white/90 tabular-nums min-w-[42px]">
                       {formatDuration(dur)}
                     </span>
                     <button

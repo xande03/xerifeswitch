@@ -1,8 +1,30 @@
 # Status do Xerife Music
 
-Atualizado em 2026-10-02 (15ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-10-02 (16ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-10-02 (16ª) — controles duplicados no player de vídeo (Xerife Vídeos / modo vídeo do Music e Podcast)
+
+Pedido: "revise… controles de reprodução duplicados no player de vídeo, deixando botões ao
+centro… entenda, revise e corrija".
+
+- **Reproduzido** (Playwright, screenshots em3 contextos): o overlay do Index renderizava ao
+  mesmo tempo o **transporte central** [⏮ ▶(96px) ⏭] **E** a barra inferior
+  [⏯ | tempo | seek | CC | FS] → **dois botões de pause simultâneos**, um fixo no centro.
+  Em tela estreita a barra inferior ainda cabia, mas a duplicação era generalizada (rail,
+  música e podcast usam o MESMO overlay).
+- **Correção** (`src/pages/Index.tsx`): transporte central **REMOVIDO** — play/pause existe
+  somente na barra inferior (mesma regra de ouro já imposta pelos testes
+  `fullscreen-center-sync` / `center-video-fully-visible` para o fullscreen: "nenhum
+  transporte central"). **prev/next movidos para a barra inferior** (transporte completo
+  preservado); duração total escondida abaixo de `sm` p/ folga no mobile. Comentários
+  obsoletos atualizados. Bezel/glifo do YouTube segue coberto por `PausedVideoPoster`
+  (pausado) e `CenterGlyphCover` (janela do glifo) — independentes dos controles.
+- **Validação**: dumps DOM nos3 contextos (`central-transport =0`, conjunto único na
+  barra; auto-hide e retap OK) + screenshots desktop e360px; toggle real "Vídeo" do music
+  (`data-video-mode=true`, mesmas8888) OK. `npm run check` **EXIT=0** (117/117 + build +
+  e2e + SMOKE).
 
 ## Sessão 2026-10-02 (15ª) — reparo dos3 upstreams externos (`fetch-chords`, `podcast-search`, `youtube-download`)
 
