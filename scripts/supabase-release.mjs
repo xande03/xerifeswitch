@@ -26,14 +26,24 @@ import { resolve } from "node:path";
 const API = "https://api.supabase.com/v1";
 
 function token() {
-  const t = process.env.SUPABASE_ACCESS_TOKEN;
+  const t = process.env.SUPABASE_ACCESS_TOKEN || readLocalPat();
   if (!t || !t.startsWith("sbp_")) {
-    console.error("ERRO: defina SUPABASE_ACCESS_TOKEN com um PAT do Supabase (sbp_…).");
+    console.error("ERRO: defina SUPABASE_ACCESS_TOKEN ou crie ~/.supabase-pat com um PAT (sbp_…).");
     console.error("      (ghp_… é token do GitHub; sb_publishable_… é chave de cliente — nenhuma serve.)");
     console.error("      Criar em: https://supabase.com/dashboard/account/tokens");
     process.exit(2);
   }
   return t;
+}
+
+/** Fallback: PAT salva fora do repo em ~/.supabase-pat (chmod 600). */
+function readLocalPat() {
+  try {
+    const home = process.env.HOME || "/home/user";
+    return readFileSync(resolve(home, ".supabase-pat"), "utf8").trim();
+  } catch {
+    return null;
+  }
 }
 
 function defaultRef() {

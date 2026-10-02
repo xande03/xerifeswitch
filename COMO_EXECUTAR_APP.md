@@ -331,7 +331,7 @@ rm -rf DerivedData
 
 ### Heartbeat System — REMOVIDO (2026-09-25)
 - Removido por completo (hook, componente e UI) para zerar egress ao Supabase
-- `supabase/migrations/001_create_app_heartbeat.sql` - SQL da tabela (histórico)
+- `supabase/migrations/` — sem migrations de tabela (o `001_create_app_heartbeat.sql` foi REMOVIDO: nenhum `app_heartbeat`, nenhum pulso)
 - Liberação do projeto: `scripts/supabase-release.mjs` (pausa/apaga com PAT)
 
 ---

@@ -411,7 +411,7 @@ Depois (Inteligente):
 **1. Testar Podcast Diário:**
 ```bash
 # Requisição 1
-curl -X GET "https://hvslfbcsokurljstmtip.supabase.co/functions/v1/youtube-general-search?q=The%20News%20podcast&sort=date"
+curl -X GET "https://fiohpfxftzcadkwkvzuz.supabase.co/functions/v1/youtube-general-search?q=The%20News%20podcast&sort=date"
 
 # Resposta deve incluir:
 # - X-Cache-TTL: 120000
@@ -422,7 +422,7 @@ curl -X GET "https://hvslfbcsokurljstmtip.supabase.co/functions/v1/youtube-gener
 **2. Testar Cache Hit:**
 ```bash
 # Requisição dentro de 2 minutos
-curl -X GET "https://hvslfbcsokurljstmtip.supabase.co/functions/v1/youtube-general-search?q=The%20News%20podcast&sort=date"
+curl -X GET "https://fiohpfxftzcadkwkvzuz.supabase.co/functions/v1/youtube-general-search?q=The%20News%20podcast&sort=date"
 
 # Resposta rápida (<100ms) com mesmo conteúdo
 ```
@@ -500,7 +500,7 @@ jobs:
 ```bash
 # Set environment variables
 export SUPABASE_ACCESS_TOKEN=your_token
-export SUPABASE_PROJECT_REF=hvslfbcsokurljstmtip
+export SUPABASE_PROJECT_REF=fiohpfxftzcadkwkvzuz
 
 # Deploy specific function
 supabase functions deploy youtube-general-search --no-verify-jwt

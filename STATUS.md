@@ -1,8 +1,47 @@
 # Status do Xerife Music
 
-Atualizado em 2026-09-25 (13ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-10-02 (14ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-10-02 — migração do backend para o projeto próprio "Xerife Switch" (`fiohpfx…`)
+
+Pedido: migrar para o novo banco/projeto (credenciais do usuário), **sem nenhum
+`app_heartbeat`/pulso**, mantendo liberação do projeto (pause) e **retirada de
+pausa manual** pelo usuário via acessos dele.
+
+- **Por quê**: o projeto antigo `hcdqv…` (Lovable) está **RESTRITO**
+  (`exceed_egress_quota` — resposta real da API antiga) e o legado `hvslfb…`
+  é só fallback; nenhum dos dois pertence à conta do usuário. Conta do usuário
+  (PAT `sbp_…` validado) tem: `fiohpfx…` = **Xerife Switch** (novo, destino)
+  e `aohoix…` = **Xerife Player**.
+- **Config trocada**: `.env` (PROJECT_ID/URL/PUBLISHABLE_KEY),
+  `src/integrations/supabase/client.ts`, fallback de `backendConfig.ts`,
+  `supabase/config.toml` + docs ativos. Refs `hcdqv`/`hvslfb`: zero fora de
+  `docs/history`.
+- **`app_heartbeat` BANIDO**: migration `001_create_app_heartbeat.sql`
+  deletada; nenhum código/table de pulso (sessão passada já tinha removido
+  hook/UI). OBS do usuário cumprida — zero pulsos.
+- **Edge Functions (11) implantadas** via CLI (`login`/`link`/`deploy`):
+  fetch-chords, fetch-lyrics, podcast-search, youtube-{album-tracks,
+  artist-info,download,general-search,playlist,search,trending,video-info}.
+  **Nenhum secret necessário** (funções sem `Deno.env`), sem tabelas no DB
+  (estado = localStorage do app). `ad-links` NÃO existe no repo (só no
+  projeto antigo) → `adsEngine` degrada para o pool local (testado: 404 →
+  fallback ok).
+- **Smoke real no projeto novo (todos verificados por invoke)**:
+  ✓ `youtube-trending`, ✓ `youtube-search?q=`, ✓ `fetch-lyrics` (body),
+  ✓ `youtube-video-info`, ✓ `youtube-playlist` (body playlistId) — dados
+  reais retornados.
+- **Falhas EXTERNAS pré-existentes (não da migração — código é stateless)**:
+  `fetch-chords` → `not_found` (vagalume **503**, cifraclub **403**);
+  `podcast-search` → `[]` (invidious **403/401**); `youtube-download` →
+  cobalt oficial exige **JWT** (`error.api.auth.jwt.missing`) e o instance
+  alternativo com DNS morto. Correção desses upstreams = trabalho separado.
+- **Pause/restore manual (OBS)**: `npm run supabase:list|pause|restore` →
+  `scripts/supabase-release.mjs` lê `SUPABASE_ACCESS_TOKEN` ou `~/.supabase-pat`
+  (PAT salva fora do repo, 600). Sem `app_heartbeat`, o Free também libera
+  sozinho após 7 dias sem uso.
 
 ## Sessão 2026-09-25 — heartbeat removido por completo + liberação do projeto (egress a zero)
 
@@ -462,7 +501,7 @@ Medido neste checkout após as mudanças: `npm run check` ✅ (typecheck + **83 
 
 ## Deploy
 
-- **Supabase** (`hvslfbcsokurljstmtip`): projeto **ATIVO**. As 10 Edge Functions do repo
+- **Supabase** (`fiohpfxftzcadkwkvzuz`): projeto **ATIVO**. As 10 Edge Functions do repo
   existem no domínio; `scripts/verify-edge-functions.js` (`npm run verify:edge`) confirma
   `youtube-general-search` (inclusive `sort=date`), `youtube-search` e `youtube-video-info`
   respondendo 200 com dados reais.

@@ -63,7 +63,7 @@ npx supabase login
 
 ### Linkar Projeto
 ```bash
-npx supabase link --project-ref hvslfbcsokurljstmtip
+npx supabase link --project-ref fiohpfxftzcadkwkvzuz
 ```
 
 ### Deploy Todas as Funções
@@ -177,17 +177,17 @@ npm audit fix
 
 ### Dashboard Supabase
 ```
-https://supabase.com/dashboard/project/hvslfbcsokurljstmtip
+https://supabase.com/dashboard/project/fiohpfxftzcadkwkvzuz
 ```
 
 ### Edge Functions URL Base
 ```
-https://hvslfbcsokurljstmtip.supabase.co/functions/v1/
+https://fiohpfxftzcadkwkvzuz.supabase.co/functions/v1/
 ```
 
 ### Testar Edge Function (curl)
 ```bash
-curl https://hvslfbcsokurljstmtip.supabase.co/functions/v1/youtube-trending
+curl https://fiohpfxftzcadkwkvzuz.supabase.co/functions/v1/youtube-trending
 ```
 
 ## 🔄 Workflow Completo
@@ -245,7 +245,7 @@ npx cap doctor
 ### Erro no Supabase
 ```bash
 npx supabase login
-npx supabase link --project-ref hvslfbcsokurljstmtip
+npx supabase link --project-ref fiohpfxftzcadkwkvzuz
 ```
 
 ### Limpar Tudo e Recomeçar
@@ -272,7 +272,7 @@ npm run build && npx cap sync ios
 
 ### Testar Edge Function
 ```bash
-curl -X POST https://hvslfbcsokurljstmtip.supabase.co/functions/v1/youtube-search \
+curl -X POST https://fiohpfxftzcadkwkvzuz.supabase.co/functions/v1/youtube-search \
   -H "Content-Type: application/json" \
   -d '{"q": "test"}'
 ```

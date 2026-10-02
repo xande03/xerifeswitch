@@ -21,7 +21,7 @@ npm run dev        # http://localhost:8080
 npm run check      # typecheck + testes + build + e2e de layout + smoke do bundle
 ```
 
-O backend aponta para o projeto Supabase `hvslfbcsokurljstmtip` por padrão
+O backend aponta para o projeto Supabase `fiohpfxftzcadkwkvzuz` por padrão
 ([`src/lib/backendConfig.ts`](src/lib/backendConfig.ts)); sobrescreva com
 `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` se precisar de outro ambiente.
 

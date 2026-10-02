@@ -54,7 +54,7 @@ Todas as 9 edge functions estão deployadas e ativas (versão 2):
 
 Você pode monitorar os deploys em:
 - GitHub Actions: https://github.com/xande03/xerifemusic-51b4ae49/actions
-- Supabase Dashboard: https://supabase.com/dashboard/project/hvslfbcsokurljstmtip/functions
+- Supabase Dashboard: https://supabase.com/dashboard/project/fiohpfxftzcadkwkvzuz/functions
 
 ## 🛠️ Deploy Manual (se necessário)
 
