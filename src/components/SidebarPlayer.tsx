@@ -76,16 +76,21 @@ const SidebarPlayer = ({
 
   if (collapsed) {
     return (
-      <div className="px-2 pb-4 pt-2 flex flex-col items-center gap-2">
-        <button onClick={onExpand} className="w-12 h-12 rounded-xl overflow-hidden ring-1 ring-border shadow-md">
-          <img src={hdThumbnail(song.cover)} alt={song.album} className="w-full h-full object-cover" />
+      <div className="px-2 pb-4 pt-3 flex flex-col items-center gap-2.5">
+        <button
+          onClick={onExpand}
+          className="w-12 h-12 rounded-2xl overflow-hidden ring-1 ring-border/70 shadow-md hover:scale-105 active:scale-95 transition-transform"
+          title="Expandir reprodutor"
+          aria-label="Expandir reprodutor"
+        >
+          <img src={hdThumbnail(song.cover)} alt={song.album || song.title} className="w-full h-full object-cover" />
         </button>
         <button
           onClick={onTogglePlay}
           aria-label={isPlaying ? "Pausar" : "Reproduzir"}
-          className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+          className="w-11 h-11 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
         >
-          {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="ml-0.5" />}
+          {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
         </button>
       </div>
     );

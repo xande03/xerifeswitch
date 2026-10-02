@@ -1,8 +1,69 @@
 # Status do Xerife Music
 
-Atualizado em 2026-10-02 (18ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-10-02 (19ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-10-02 (19ª) — import EXATO do player do Alse Switch (transporte central volta ao overlay)
+
+Pedido: "entenda como funciona o Player e importe exatamente como funciona no projeto enviado
+(Alse Switch), neste (Xerife Switch)". Decisões ask_user vinculantes: **escopo=full** (motor
+`useYouTubePlayer` + todos os componentes do player + orquestração do Index, preservando
+features Xerife), **glifo=exato** (sem disco/poster — aceita o ⏸ do embed), **edge=importar**.
+
+- **Stage1 (cópias Alse→Xerife, CRLF→LF)**: `useYouTubePlayer.ts` (2038L), `FullscreenOverlay`,
+  `MiniPlayer`, `SeekBar`, `SidebarPlayer`, `PlayerControls`, `FloatingPiPPlayer`,
+  `NowPlayingView` + novos `DesktopFloatingPlayer`/`resumePositions`. Depois: reinjeção das
+  features Xerife no NPV (bloco `PodcastDescriptionPanel`+helpers, `requireDescription` no
+  fetch de podcast, background-then com description) e badge `song.isDownloaded` no
+  `PlayerControls`.
+- **Fusão do Index.tsx (o coração do "exato")**: `revealVideoOverlay` verbatim do Alse
+  (auto-hide **4000ms** fixo, sem leases/fail-safe/glyph); efeito **keepOpen** verbatim
+  (Alse L866): no pausado/buffering/até-start limpa o timer pendente e força
+  `setShow(true)` (controles ficam visíveis ENQUANTO pausado), no resume chama
+  `revealVideoOverlay()` para reiniciar a contagem; bloco overlay + call do
+  `FullscreenOverlay` copiados do Alse (tap-catcher alterna, transporte central
+  ⏮/⏸▶/⏭ exclusivo de play/pause, bottom bar SEM botão play). A primeira versão
+  injetada do keepOpen estava ERRADA (guardas inventadas) — corrigida para o
+  verbatim após reler L866; o harness passou de 9/10 para **10/10**.
+- **Ilha minimizada**: `DesktopPlayerIsland` → `DesktopFloatingPlayer` (Alse) renderizado no
+  header ao lado de configurações, gated por `!expanded` (mesma regra do Alse); removidos
+  `DesktopPlayerIsland.tsx` e `DesktopPlayer.tsx` (órfão até no Alse).
+- **Removidos** (comportamentos v11–v14 superados): `CenterGlyphCover`, `PausedVideoPoster`,
+  `lib/autoHideControls`, `lib/clipSyncGuard` + **7 testes órfãos** (`center-glyph-cover`,
+  `center-video-fully-visible`, `fullscreen-center-sync`, `auto-hide-controls`,
+  `clip-sync-guard`, `clip-sync-player`, `floating-pip-clean`). Invariantes v7/v14
+  (`data-central-transport`, "play só na bottom bar", disco fixo) estão oficialmente
+  superadas pela ordem "exatamente como Alse".
+- **Edge Functions (decisão "importar", executada com rede de segurança)**:
+  - **Importadas do Alse** (contratos idênticos ao client, verificados campo a campo):
+    `_shared/serverCache.ts` (não cachear vazios), `_shared/rateLimiter.ts` (IP real via
+    proxy headers, ignora ranges privados), `youtube-general-search` (1088L, com
+    `variety`/`channelTab`/`playlistId` opcionais que o client Xerife não envia = aditivo),
+    `youtube-search`, `youtube-artist-info`, `youtube-album-tracks`.
+  - **MANTIDAS as do Xerife, com motivo**: `fetch-chords`/`podcast-search`/`youtube-download`
+    (fixes live-tested da task3 — o `podcast-search` do Alse ainda faz **4 buscas paralelas**,
+    exatamente o padrão que a task3 removeu por causar bloqueio de egress do YouTube);
+    `youtube-video-info` (contrato do client: `description` p/ painel de podcast +
+    `originalContent`/tradução pt-BR dos comentários); `youtube-playlist` (só Xerife);
+    `fetch-lyrics`/`youtube-trending` (diff = só branding). `edge-function` (legado Alse)
+    não existe no projeto e não foi trazida.
+  - **Deploy das11 funções no `fiohpfx…` + matriz live:11/11 PASS** — chords
+    `Cássia Eller–Malandragem` = `ug/2931 chars/tab958126` (**idêntico ao baseline da task3**),
+    lyrics lrclib2182, podcast5+continuation, gen-search18+continuation (sort=date),
+    search20, artist-info ok, album-tracks100, trending30, video-info related15+comments40,
+    playlist100 (source=web), download tunnel URL.
+- **Validação**: `npm run typecheck` **0 erros**; vitest **74/74** (13 arquivos);
+  `npm run check` **EXIT=0** (build + e2e + SMOKE); harness `scripts/repro-port.mjs`
+  (viewport1117×619/dpr2/touch, seeds + `xerife:auto-play-video`) = **PORT CONTRACT: PASS
+  (10/10)**: sem disco/poster, transporte central visível, auto-hide ~4s tocando,
+  keepOpen >4.5s pausado, bottom bar sem play; screenshot conferido. Greps do bundle:
+  `center-glyph-cover`=0, `paused-poster`=0, `autoHideControls`=0, `clipSyncGuard`=0,
+  `app_heartbeat`=0, `fiohpfx`≥1, `hcdqv`=0, `Playback resumed`/pílula Alse presentes.
+- **Não regressões observadas**: o `SyntaxError: Unexpected token '<'` do dev server é o
+  `cast_sender.js` do gstatic devolvendo HTML no sandbox (inline do `index.html`, intocado —
+  pré-existente). `PodcastDescriptionPanel` compilado e no bundle (strings "Descrição"/
+  "episódio" presentes).
 
 ## Sessão 2026-10-02 (18ª) — ⏸ ainda aparecia com vídeo tocando: disco fixo (v14)
 

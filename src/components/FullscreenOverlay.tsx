@@ -3,15 +3,20 @@ import { ChevronDown, Play, Pause, SkipBack, SkipForward, ArrowLeft, Settings2, 
 import { track as trackMetric } from "@/lib/playbackMetrics";
 import { Song, formatDuration } from "@/data/mockSongs";
 import SeekBar from "@/components/SeekBar";
-import PausedVideoPoster from "@/components/PausedVideoPoster";
-import CenterGlyphCover from "@/components/CenterGlyphCover";
 
-/** Auto-ocultar dos controles do fullscreen — FONTE ÚNICA em
- *  src/lib/autoHideControls.ts (compartilhada com o overlay inline do Index):
- *  mesmos "segundos determinados" em TODOS os players (Xerife Vídeos, Music
- *  modo Vídeo, Podcasts modo Vídeo), TODOS JUNTOS. ALSE-STYLE: o timer arma
- *  em qualquer estado (pausado inclusive). */
-import { AUTOHIDE_OPTS, readAutoHideMs } from "@/lib/autoHideControls";
+const AUTOHIDE_OPTS = [2000, 3500, 5000, 8000] as const;
+const AUTOHIDE_DEFAULT = 3500;
+function readAutoHideMs(): number {
+  try {
+    const raw = localStorage.getItem("demus-fs-autohide-ms");
+    if (raw == null || raw === "") return AUTOHIDE_DEFAULT;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || !AUTOHIDE_OPTS.includes(n as any)) return AUTOHIDE_DEFAULT;
+    return n;
+  } catch {
+    return AUTOHIDE_DEFAULT;
+  }
+}
 
 
 interface FullscreenOverlayProps {
@@ -25,26 +30,6 @@ interface FullscreenOverlayProps {
   onPrev: () => void;
   onSeek: (fraction: number) => void;
   onExit: () => void;
-  /** TRUE em fullscreen de VÍDEO: ativa keepOpen-pausado e as máscaras de branding
-   *  do embed do YouTube (título/canal/logo/sugestões). No fullscreen de MÚSICA
-   *  permanece false — lá nada do iframe aparece. */
-  videoMode?: boolean;
-  /** TRUE quando o vídeo TERMINOU: cobre o iframe com preto opaco até o
-   *  autoplay do app carregar o próximo — a endscreen do YouTube (grade de
-   *  sugestões + replay) nunca aparece no centro da tela cheia. */
-  isEnded?: boolean;
-  /** ESTADO REAL da superfície do embed (fail-closed): TRUE quando o YouTube
-   *  NÃO está confirmadamente PLAYING/BUFFERING (cue, pausado, finalizado,
-   *  travado, pós-erro). Mantém os controles inferiores visíveis para que
-   *  Play/Pause continue disponível mesmo durante dessincronia ou travamento. */
-  videoSurfaceIdle?: boolean;
-  /** ESTADO REAL de buffering do embed: TRUE enquanto o YouTube carrega a
-   *  stream. Durante o buffering os controles inferiores permanecem visíveis
-   *  até a reprodução confirmar; todos minimizam juntos quando roda de verdade. */
-  surfaceBuffering?: boolean;
-  /** Superfície NÃO-YT (vídeo nativo/offline) em tela cheia: não há glifo do
-   *  embed a cobrir — o disco do CenterGlyphCover nunca renderiza (v14). */
-  nativeVideoActive?: boolean;
 }
 
 const MIN_SCALE = 1;
@@ -53,22 +38,14 @@ const MAX_SCALE = 4;
 const FullscreenOverlay = ({
   song, isPlaying, currentTime, duration, progress,
   onTogglePlay, onNext, onPrev, onSeek, onExit,
-  videoMode = false,
-  isEnded = false,
-  videoSurfaceIdle = false,
-  surfaceBuffering = false,
-  nativeVideoActive = false,
 }: FullscreenOverlayProps) => {
   const [showControls, setShowControls] = useState(true);
   const [zoom, setZoom] = useState<{ scale: number; x: number; y: number }>({ scale: 1, x: 0, y: 0 });
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const lastTapRef = useRef<number>(0);
+  const autoHideMsRef = useRef<number>(readAutoHideMs());
 
-  // ALSE-STYLE: o centro do vídeo é intencionalmente livre (nenhum disco,
-  // flash ou botão do app). Play/Pause existe somente na barra inferior — e os
-  // controles seguem UM único mecanismo: auto-hide configurável + toque na
-  // superfície SEMPRE alterna (inclusive pausado: o usuário decide quando
-  // minimizar).
+  // ── Quality selector (persisted; mirrors VideoInfoBar) ──
   const QUALITY_OPTIONS: { value: string; label: string }[] = [
     { value: "auto", label: "Automática" },
     { value: "hd1080", label: "1080p60 (HD)" },
@@ -166,10 +143,6 @@ const FullscreenOverlay = ({
     };
   }, []);
 
-  const autoHideMsRef = useRef<number>(readAutoHideMs());
-
-  // ALSE-STYLE: o timer SEMPRE arma — pausado inclusive. Minimizar é decisão
-  // do usuário (toque) ou do tempo, nunca do estado da reprodução.
   const resetTimer = useCallback(() => {
     setShowControls(true);
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -179,8 +152,6 @@ const FullscreenOverlay = ({
   const handleSurfaceClick = useCallback(() => {
     // Ignore taps that were part of a pinch/pan gesture.
     if (gestureActiveRef.current) return;
-    // ALSE-STYLE: nenhum estado bloqueia o toque — pausado/buffering/idle
-    // inclusive, o usuário SEMPRE consegue minimizar os controles.
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
       // Double-tap: if zoomed, reset zoom instead of hiding controls.
@@ -204,7 +175,7 @@ const FullscreenOverlay = ({
       resetTimer();
       return true;
     });
-  }, [resetTimer, videoMode, isPlaying, videoSurfaceIdle, surfaceBuffering, showControls]);
+  }, [resetTimer]);
 
   // ── Pointer handlers for pinch + pan ──
   const onPointerDown = useCallback((e: React.PointerEvent) => {
@@ -276,25 +247,17 @@ const FullscreenOverlay = ({
     // PiP while backgrounded), prevent two overlay instances from competing for
     // listeners and orientation locks.
     const w = window as any;
-    if (w.__xerifeFsOverlayMounted) {
+    if (w.__alseFsOverlayMounted) {
       trackMetric('fullscreen', 'overlay-duplicate-mount-blocked');
       return;
     }
-    w.__xerifeFsOverlayMounted = true;
+    w.__alseFsOverlayMounted = true;
     trackMetric('fullscreen', 'overlay-mount');
     resetTimer();
 
     // Sync timer state with environment changes
     const onPipEnter = () => resetTimer();
     const onPipLeave = () => resetTimer();
-    // ALSE-STYLE: auto-hide alterado em outra aba/instância aplica na hora
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "demus-fs-autohide-ms") {
-        const n = Number(e.newValue);
-        if (AUTOHIDE_OPTS.includes(n as any)) autoHideMsRef.current = n;
-        resetTimer();
-      }
-    };
     const clearTransform = () => {
       const el = document.getElementById("yt-player");
       if (!el) return;
@@ -327,6 +290,13 @@ const FullscreenOverlay = ({
       setTimeout(() => { clearTransform(); scheduledRef.current = false; }, 700);
     };
     const onVisibility = () => { if (!document.hidden) { resetTimer(); onOrientation(); } };
+    const onAutoHidePref = (e: Event) => {
+      const next = Number((e as CustomEvent).detail);
+      if (Number.isFinite(next) && AUTOHIDE_OPTS.includes(next as any)) {
+        autoHideMsRef.current = next;
+        resetTimer();
+      }
+    };
     const orientationMql = typeof window !== "undefined" && window.matchMedia
       ? window.matchMedia("(orientation: landscape)")
       : null;
@@ -339,12 +309,22 @@ const FullscreenOverlay = ({
     try { (window as any).visualViewport?.addEventListener?.("resize", onOrientation); } catch {}
     try { orientationMql?.addEventListener?.("change", onOrientation); } catch {}
     document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("storage", onStorage);
+    window.addEventListener("demus:fs-autohide-changed", onAutoHidePref as EventListener);
 
 
     
-    // Sem lock de orientação: o fullscreen respeita a rotação do dispositivo.
-
+    // Lock orientation to landscape on mount
+    const lockOrientation = async () => {
+      try {
+        if (screen.orientation && (screen.orientation as any).lock) {
+          await (screen.orientation as any).lock("landscape");
+        }
+      } catch (err) {
+        console.warn("Could not lock orientation:", err);
+      }
+    };
+    
+    lockOrientation();
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -357,11 +337,13 @@ const FullscreenOverlay = ({
       try { (window as any).visualViewport?.removeEventListener?.("resize", onOrientation); } catch {}
       try { orientationMql?.removeEventListener?.("change", onOrientation); } catch {}
       document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("storage", onStorage);
-
-
-
-      (window as any).__xerifeFsOverlayMounted = false;
+      window.removeEventListener("demus:fs-autohide-changed", onAutoHidePref as EventListener);
+      try {
+        if (screen.orientation && (screen.orientation as any).unlock) {
+          (screen.orientation as any).unlock();
+        }
+      } catch {}
+      (window as any).__alseFsOverlayMounted = false;
       // Fully abort any in-flight pinch/pan gesture so exiting fullscreen mid-gesture
       // leaves the player un-transformed and never distorted.
       pointersRef.current.clear();
@@ -394,53 +376,6 @@ const FullscreenOverlay = ({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
-      {/* (as máscaras de branding do YouTube agora são renderizadas como camada PERMANENTE
-          dentro de #yt-fullscreen-container pelo `Index` — e não por este overlay) */}
-
-      {/* POSTER DO ESTADO PAUSADO (v8): cobre o iframe enquanto pausado/
-          travado — bezel ⏸ do YouTube (cross-origin) jamais visível. some
-          ao dar play. z-[204]: acima do vídeo, abaixo da capa de fim (205)
-          e das barras de controle. pointer-events-none. */}
-      {videoMode && !isEnded && !surfaceBuffering && (!isPlaying || videoSurfaceIdle) && (
-        <PausedVideoPoster cover={song?.cover} zIndexClass="z-[204]" />
-      )}
-
-      {/* DISCO DO GLIFO (v12→v14): no fullscreen não existe transporte central —
-          sem este disco o indicador do YT (pintado em play/seek/load) ficaria
-          SOZINHO no centro. O glifo CONGELA em alguns devices (dois reportes
-          com screenshot: com controles ocultos o ⏸ aparecia junto com o vídeo
-          tocando — pedido "corrija para sempre sumir"), então v14: disco
-          opaco durante TODA a reprodução (isPlaying && !videoSurfaceIdle) +
-          buffering como estado (dura TODO o buffering, ignora idle). Mútuo
-          exclusivo com o poster (pausado = poster; disco exige isPlaying);
-          superfície nativa/offline não tem glifo — nativo nunca rende disco. */}
-      {videoMode &&
-        !isEnded &&
-        !nativeVideoActive &&
-        ((isPlaying && !videoSurfaceIdle) ||
-          surfaceBuffering) && (
-          <CenterGlyphCover zIndexClass="z-[204]" />
-        )}
-
-      {/* VÍDEO SEM LENTE (v10): nenhuma lente/sombra fosca (blur) no centro —
-          a CenterChromeShield (backdrop-blur) foi banida a pedido do usuário.
-          O CenterGlyphCover OPACO permanece durante toda a reprodução desde a
-          v14 (o ⏸ do embed congela em alguns devices; pedido "sempre sumir"),
-          e se o frame congelar o watchdog (videoSurfaceIdle) troca este
-          estado pelo poster acima. */}
-
-      {/* CAPA OPACA de fim de vídeo: com o vídeo TERMINADO o YouTube desenha a
-          endscreen (grade de sugestões + replay) no CENTRO do iframe — região
-          que o overflow masking não cobre. Cobre tudo de preto até o autoplay
-          do app assumir — só o nosso UI permanece visível. */}
-      {videoMode && isEnded && (
-        /* Primeiro filho do overlay: fica por cima do vídeo (e sob todos os
-           controles seguintes — voltar, seek, transporte — que renderizam depois) */
-        <div className="absolute inset-0 z-[205] bg-black pointer-events-none" aria-hidden />
-      )}
-
-
-
       {/* Top bar — respeita safe-area (notch / Dynamic Island) sem afetar o vídeo,
           que continua ocupando 100vw/100vh via letterbox central. */}
       <div

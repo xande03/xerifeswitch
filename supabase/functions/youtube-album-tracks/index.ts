@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getClientIp, checkRateLimit, rateLimitResponse } from "../_shared/rateLimiter.ts";
+import { cachedFetch } from "../_shared/serverCache.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,36 +31,52 @@ serve(async (req) => {
       });
     }
 
-    const body = {
-      context: {
-        client: {
-          clientName: "WEB_REMIX",
-          clientVersion: "1.20231204.01.00",
-          hl: "pt",
-          gl: "BR",
-        },
+    // Cache de servidor 30min: álbuns/playlists quase não mudam no dia-a-dia.
+    const result = await cachedFetch(
+      `album-tracks:v2:${browseId}`,
+      async () => {
+        // WEB_REMIX antigo ainda responde browse (diferente do search, que já
+        // degradou). Se falhar/zerar, tentamos clientVersion mais nova antes
+        // de desistir — evita 0 faixas em mudanças graduais do YouTube.
+        const attempts = ["1.20231204.01.00", "1.20241113.01.00"];
+        for (const clientVersion of attempts) {
+          const body = {
+            context: {
+              client: {
+                clientName: "WEB_REMIX",
+                clientVersion,
+                hl: "pt",
+                gl: "BR",
+              },
+            },
+            browseId,
+          };
+
+          const res = await fetch(
+            `https://music.youtube.com/youtubei/v1/browse?alt=json&key=${YT_MUSIC_KEY}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                Origin: "https://music.youtube.com",
+                Referer: "https://music.youtube.com/",
+              },
+              body: JSON.stringify(body),
+              signal: AbortSignal.timeout(9000),
+            }
+          );
+
+          if (!res.ok) continue;
+          const data = await res.json();
+          const parsed = parseAlbumPage(data);
+          if (parsed.tracks.length > 0) return parsed;
+          // 0 faixas: tenta a próxima versão de client antes de cachear vazio
+        }
+        return { albumTitle: "", albumSubtitle: "", albumCover: "", tracks: [] };
       },
-      browseId,
-    };
-
-    const res = await fetch(
-      `https://music.youtube.com/youtubei/v1/browse?alt=json&key=${YT_MUSIC_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          Origin: "https://music.youtube.com",
-          Referer: "https://music.youtube.com/",
-        },
-        body: JSON.stringify(body),
-      }
+      { ttlMs: 30 * 60 * 1000 }
     );
-
-    if (!res.ok) throw new Error(`Browse failed: ${res.status}`);
-    const data = await res.json();
-
-    const result = parseAlbumPage(data);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -106,6 +123,11 @@ function parseAlbumPage(data: any) {
     }
   }
 
+  // Artista do álbum: extraído das runs do subtítulo (["Álbum", "Artista", "2023"]).
+  // Páginas de álbum NÃO trazem artista por faixa — o fallback abaixo preenche
+  // cada faixa com o artista do álbum.
+  let albumArtist = "";
+
   // Parse sections for tracks and header info
   for (const section of sections) {
     // musicResponsiveHeaderRenderer (album page header)
@@ -113,6 +135,13 @@ function parseAlbumPage(data: any) {
     if (respHeader) {
       if (!albumTitle) albumTitle = respHeader?.title?.runs?.[0]?.text || "";
       if (!albumSubtitle) albumSubtitle = respHeader?.subtitle?.runs?.map((r: any) => r.text).join("") || "";
+      if (!albumArtist) {
+        const subRuns: string[] = (respHeader?.subtitle?.runs || []).map((r: any) => String(r?.text || "").trim());
+        albumArtist = subRuns.find((t) =>
+          t && t !== "Álbum" && t !== "Album" && t !== "Single" && t !== "EP" &&
+          t !== "Compacto" && !/^\d{4}$/.test(t) && !/^•$/.test(t)
+        ) || "";
+      }
       if (!albumCover) {
         const thumbSources = [
           respHeader?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails,
@@ -134,7 +163,7 @@ function parseAlbumPage(data: any) {
     if (shelf) {
       for (const item of (shelf.contents || [])) {
         const track = parseTrackItem(item, albumCover);
-        if (track) tracks.push(track);
+        if (track) { if (!track.artist) track.artist = albumArtist; tracks.push(track); }
       }
     }
 
@@ -143,7 +172,7 @@ function parseAlbumPage(data: any) {
     if (playlistShelf) {
       for (const item of (playlistShelf.contents || [])) {
         const track = parseTrackItem(item, albumCover);
-        if (track) tracks.push(track);
+        if (track) { if (!track.artist) track.artist = albumArtist; tracks.push(track); }
       }
     }
   }
@@ -155,7 +184,7 @@ function parseAlbumPage(data: any) {
     if (shelf) {
       for (const item of (shelf.contents || [])) {
         const track = parseTrackItem(item, albumCover);
-        if (track) tracks.push(track);
+        if (track) { if (!track.artist) track.artist = albumArtist; tracks.push(track); }
       }
     }
   }
@@ -165,7 +194,7 @@ function parseAlbumPage(data: any) {
   if (directShelf) {
     for (const item of (directShelf.contents || [])) {
       const track = parseTrackItem(item, albumCover);
-      if (track) tracks.push(track);
+      if (track) { if (!track.artist) track.artist = albumArtist; tracks.push(track); }
     }
   }
 
@@ -177,7 +206,7 @@ function parseAlbumPage(data: any) {
     return true;
   });
 
-  return { albumTitle, albumSubtitle, albumCover, tracks: uniqueTracks };
+  return { albumTitle, albumSubtitle, albumArtist, albumCover, tracks: uniqueTracks };
 }
 
 function parseTrackItem(item: any, fallbackCover: string): any | null {

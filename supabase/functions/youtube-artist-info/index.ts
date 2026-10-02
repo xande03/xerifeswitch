@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getClientIp, checkRateLimit, rateLimitResponse } from "../_shared/rateLimiter.ts";
+import { cachedFetch } from "../_shared/serverCache.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,16 +39,16 @@ serve(async (req) => {
       });
     }
 
-    const browseId = await findArtistBrowseId(artistName);
-
-    if (!browseId) {
-      const fallback = await searchFallback(artistName);
-      return new Response(JSON.stringify(fallback), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const artistData = await browseArtistPage(browseId, artistName);
+    // Cache de servidor 30min: páginas de artista são estáticas no dia-a-dia
+    const artistData = await cachedFetch(
+      `artist-info:${artistName.toLowerCase().trim()}`,
+      async () => {
+        const browseId = await findArtistBrowseId(artistName);
+        if (!browseId) return await searchFallback(artistName);
+        return await browseArtistPage(browseId, artistName);
+      },
+      { ttlMs: 30 * 60 * 1000 }
+    );
 
     return new Response(JSON.stringify(artistData), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

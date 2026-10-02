@@ -27,13 +27,25 @@ function cleanup() {
  * Extract client IP from request headers (works on Supabase Edge Functions).
  */
 export function getClientIp(req: Request): string {
-  return (
-    req.headers.get("x-client-ip") ||
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    req.headers.get("x-real-ip") ||
-    req.headers.get("cf-connecting-ip") ||
-    "unknown"
-  );
+  // Prioriza headers definidos pelo proxy/ingress (não spoofáveis pelo cliente).
+  // O header "x-client-ip" auto-declarado NÃO é mais confiável: clientes sem
+  // ipify enviavam "unknown" e compartilhavam um único bucket de rate limit.
+  const real = req.headers.get("x-real-ip");
+  if (real && real.trim()) return real.trim();
+  const cf = req.headers.get("cf-connecting-ip");
+  if (cf && cf.trim()) return cf.trim();
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) {
+    const parts = xff.split(",").map((s) => s.trim()).filter(Boolean);
+    // IP mais à direita = adicionado pelo proxy mais próximo; ignora ranges privados
+    for (let i = parts.length - 1; i >= 0; i--) {
+      if (!/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|::1|f[cd][0-9a-f]{2}:)/i.test(parts[i])) {
+        return parts[i];
+      }
+    }
+    return parts[parts.length - 1] || "unknown";
+  }
+  return "unknown";
 }
 
 export interface RateLimitOptions {

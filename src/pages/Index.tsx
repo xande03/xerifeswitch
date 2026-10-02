@@ -43,8 +43,6 @@ import ModuleSwitcher, { MODULE_LABEL, type SwitchableModule } from "@/component
 
 
 import { getSearchSuggestions, searchYouTubeMusic } from "@/lib/youtubeSearch";
-import { readAutoHideMs, autoHideDelayMs, INTERACTING_FAILSAFE_MS } from "@/lib/autoHideControls";
-import CenterGlyphCover from "@/components/CenterGlyphCover";
 import { fetchVideoInfo } from "@/lib/youtubeVideoInfo";
 import { hdThumbnail } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,8 +57,7 @@ import { getFavoriteChannels, removeFavoriteChannel, addFavoriteChannel, FAV_CHA
 import BottomNav from "@/components/BottomNav";
 import DesktopSidebar from "@/components/DesktopSidebar";
 import DesktopTopIsland from "@/components/DesktopTopIsland";
-import DesktopPlayerIsland from "@/components/DesktopPlayerIsland";
-import PausedVideoPoster from "@/components/PausedVideoPoster";
+import DesktopFloatingPlayer from "@/components/DesktopFloatingPlayer";
 import SearchSkeleton from "@/components/SearchSkeleton";
 import SidebarPlayer from "@/components/SidebarPlayer";
 
@@ -268,78 +265,19 @@ const Index = () => {
   const [showVideoOverlayControls, setShowVideoOverlayControls] = useState(true);
   const videoOverlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoOverlayInteractingRef = useRef(false);
-  /** Guarda contra toggle duplicado: dois toques dentro desta janela contam como um. */
-  const videoOverlayTapGuardRef = useRef(0);
-  /** Espelho de actionGlyphPaintAt — pinturas vindas de AÇÕES (play/seek/load).
-   *  Só ESTAS estendem o lease dos controles; oscilações BUFFERING↔PLAYING do
-   *  sistema renovam apenas glyphPaintAt (sem efeito no disco desde a v14). */
-  const actionGlyphPaintAtRef = useRef(0);
-  /** Listeners/timer do fail-safe de interação "sticky" perdida (ver abaixo). */
-  const interactingFailSafeRef = useRef<{ cleanup: () => void } | null>(null);
-
-  /** Armas o fail-safe da interação "sticky": se pointerup/cancel/leave nunca
-   *  chegar (evento comido, janela perdeu o botão, unmount no meio do press),
-   *  videoOverlayInteractingRef ficaria preso em TRUE e TODO reveal futuro
-   *  retornaria sem timer — auto-hide morria até recarregar (reporte Netlify:
-   *  controles nunca mais minimizavam). O fail-safe: listeners de NÍVEL DE
-   *  JANELA (pointerup/pointercancel/blur) + teto por inatividade
-   *  (INTERACTING_FAILSAFE_MS sem pointermove), e ao disparar limpa o flag e
-   *  re-arma o hide normal. */
-  const armInteractingFailSafe = useCallback(() => {
-    interactingFailSafeRef.current?.cleanup();
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const end = () => {
-      if (!videoOverlayInteractingRef.current) { cleanup(); return; }
-      videoOverlayInteractingRef.current = false;
-      cleanup();
-      revealVideoOverlay();
-    };
-    const onMove = () => {
-      // Arraste vivo (movendo) adia o teto.
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(end, INTERACTING_FAILSAFE_MS);
-    };
-    const cleanup = () => {
-      if (timer) { clearTimeout(timer); timer = null; }
-      window.removeEventListener("pointerup", end);
-      window.removeEventListener("pointercancel", end);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("blur", end);
-      if (interactingFailSafeRef.current?.cleanup === cleanup) interactingFailSafeRef.current = null;
-    };
-    window.addEventListener("pointerup", end);
-    window.addEventListener("pointercancel", end);
-    window.addEventListener("pointermove", onMove, { passive: true });
-    window.addEventListener("blur", end);
-    timer = setTimeout(end, INTERACTING_FAILSAFE_MS);
-    interactingFailSafeRef.current = { cleanup };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
+  const videoOverlayKeepOpenRef = useRef(false);
   const revealVideoOverlay = useCallback((opts?: { sticky?: boolean }) => {
     setShowVideoOverlayControls(true);
     if (videoOverlayTimerRef.current) {
       clearTimeout(videoOverlayTimerRef.current);
       videoOverlayTimerRef.current = null;
     }
-    // Não arma o auto-hide enquanto o usuário arrasta a seekbar (sticky /
-    // interacting) — mas GARANTE o fail-safe acima (interação perdida não
-    // pode brickar o auto-hide). Em TODOS os demais estados — tocando,
-    // pausado, buffering, fim — o timer roda: piso nos segundos DETERMINADOS
-    // (demus-fs-autohide-ms) estendido até o FIM da janela de uma AÇÃO de
-    // play/seek/load (actionGlyphPaintAt) — não de oscilações BUFFERING do
-    // sistema, senão rede instável re-armava em cadeia e os controles nunca
-    // mais escondiam (deploy Netlify).
-    if (opts?.sticky || videoOverlayInteractingRef.current) {
-      armInteractingFailSafe();
-      return;
-    }
-    const delay = autoHideDelayMs(readAutoHideMs(), actionGlyphPaintAtRef.current, Date.now());
-    videoOverlayTimerRef.current = setTimeout(() => setShowVideoOverlayControls(false), delay);
-  }, [armInteractingFailSafe]);
-  useEffect(() => () => {
-    if (videoOverlayTimerRef.current) clearTimeout(videoOverlayTimerRef.current);
-    interactingFailSafeRef.current?.cleanup();
+    // Don't schedule auto-hide while user is interacting (e.g. dragging seekbar)
+    // or when caller explicitly wants controls to stay visible (paused/buffering).
+    if (opts?.sticky || videoOverlayInteractingRef.current || videoOverlayKeepOpenRef.current) return;
+    videoOverlayTimerRef.current = setTimeout(() => setShowVideoOverlayControls(false), 4000);
   }, []);
+  useEffect(() => () => { if (videoOverlayTimerRef.current) clearTimeout(videoOverlayTimerRef.current); }, []);
 
   // (module accent, localStorage, URL query, back/forward — todos centralizados
   // em useModuleMode; não replicar aqui.)
@@ -457,7 +395,6 @@ const Index = () => {
   const { state: playerState, loadVideo, loadVideoAt, preloadClip, play, pause, seekTo, setVolume: setPlayerVolume, togglePiP, requestAirPlay, requestFullscreen, exitFullscreen, setPlaybackRate, toggleCaptions, proxyAudioElement, getCurrentTime: getPlayerCurrentTime } = useYouTubePlayer("yt-player-slot");
   // Espelho do timestamp de pintura do glifo central — só actionGlyphPaintAt
   // é lido aqui (lease dos controles); declarado antes do hook por ordem de fechos.
-  actionGlyphPaintAtRef.current = (playerState as { actionGlyphPaintAt?: number }).actionGlyphPaintAt || 0;
   const nativeVideoActive = playerMode === "video" && Boolean(nativeVideoSource?.videoId === currentSong.youtubeId);
 
   // Espelho live do estado do player: a guarda anti-reinício abaixo precisa
@@ -984,46 +921,29 @@ const Index = () => {
     isPlaying,
   );
 
-  // Overlay do player de vídeo: auto-hide SEMPRE arma (ALSE-STYLE) — em
-  // QUALQUER estado (tocando, pausado, buffering, fim) TODOS os controles
-  // minimizam JUNTOS após os segundos determinados (fonte única
-  // demus-fs-autohide-ms, mesma do fullscreen) e a tela fica 100% limpa.
-  // O toque na área do vídeo faz toggle (tap catcher) e rearma o timer.
-  //
-  // JANELA DO GLIFO (v11→v14): play/seek/load pintam o indicador central do
-  // YT (~5s medidos em lab). seeks mid-playing (troca de clipe, resume-seek)
-  // que NÃO mudam isPlaying rearman os controles; o DISCO do centro deixou de
-  // observar a janela em v14 — ele cobre o glifo durante TODA a reprodução
-  // (reporte: o ⏸ congelado reaparecia com controles ocultos).
-  //
-  // O antigo keepOpen-pausado — que mantinha barra/transporte fixos para
-  // sempre com o vídeo parado (tela suja) — foi REMOVIDO a pedido: pausado
-  // agora TAMBÉM esconde, como já acontecia no fullscreen. O poster do estado
-  // pausado (PausedVideoPoster) continua cobrindo o bezel do YouTube quando os
-  // controles estão ocultos — tela limpa com a capa, sem chrome.
-  //
-  // Segurança anti-"botão de pause sempre ativo" (Netlify): o efeito só
-  // re-executa em transições REAIS de isPlaying — e no hook isPlaying =
-  // playing || buffering, então oscilações de rede (BUFFERING↔PLAYING) NÃO
-  // re-reve nem re-armam o timer (o refresh do glyphPaintAt nessas transições
-  // é intencional: cada oscilação pode repintar o glifo).
   useEffect(() => {
-    if (expanded && playerMode === "video") {
+    if (expanded && playerMode === "video") revealVideoOverlay();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, playerMode]);
+
+  // Keep video overlay controls visible while paused (or before playback starts):
+  // users need to see play/seek/time when the video isn't actively playing.
+  // (verbatim do Index Alse L866: no pause LIMPA o timer pendente; no resume
+  //  reinicia a contagem do auto-hide via revealVideoOverlay.)
+  useEffect(() => {
+    const shouldKeepOpen = expanded && playerMode === "video" && !isPlaying;
+    videoOverlayKeepOpenRef.current = shouldKeepOpen;
+    if (shouldKeepOpen) {
+      setShowVideoOverlayControls(true);
+      if (videoOverlayTimerRef.current) {
+        clearTimeout(videoOverlayTimerRef.current);
+        videoOverlayTimerRef.current = null;
+      }
+    } else if (expanded && playerMode === "video") {
+      // Playback resumed — restart auto-hide countdown
       revealVideoOverlay();
     }
   }, [isPlaying, expanded, playerMode, revealVideoOverlay]);
-
-  // Rearma controles SOMENTE em pinturas vindas de AÇÕES (play, seek, load,
-  // correção do guard, troca de qualidade) — actionGlyphPaintAt. Pinturas de
-  // OSCILAÇÃO de rede (BUFFERING↔PLAYING) renovam só glyphPaintAt e NÃO
-  // mexem nos controles: senão uma rede instável re-armava o lease em cadeia e
-  // os controles nunca mais minimizavam (reporte no deploy do Netlify).
-  // (v14: o disco do centro deixou de observar a janela glyphPaintAt — ele
-  // cobre o glifo durante TODA a reprodução, ver gate abaixo.)
-  useEffect(() => {
-    if (!playerState.actionGlyphPaintAt) return;
-    if (expanded && playerMode === "video") revealVideoOverlay();
-  }, [playerState.actionGlyphPaintAt, expanded, playerMode, revealVideoOverlay]);
 
   const { trendingSongs, isLoading: trendingLoading } = useTrendingMusic();
   useNativeCapabilities(isPlaying);
@@ -2128,50 +2048,9 @@ const Index = () => {
           collapsedPlayerSlot={sidebarPlayerCollapsedNode}
         />
 
-        {/* Player do DESKTOP LARGO (lg+, ≥1024px) como ILHA DINÂMICA em pílula
-            no rodapé (capa à esquerda + transporte/seek à direita). Em md a
-            cápsula deriva do painel dentro do menu lateral.
-            OCULTADA sempre que um PAINEL DE REPRODUÇÃO está aberto (expanded):
-            ao clicar em uma música ou vídeo o painel cheio assume a tela — a
-            pílula flutuaria POR CIMA do NowPlayingView (z-80 > z-50),
-            duplicando o transporte do próprio painel. Ela volta automaticamente
-            quando o usuário vai para outro painel ou módulo (voltar ao painel,
-            abrir artista/canal, biblioteca, trocar de módulo, PiP), pois todos
-            esses caminhos fecham o painel de reprodução (expanded=false). */}
-        {!expanded && (
-          <DesktopPlayerIsland
-            song={currentSong}
-            isPlaying={isPlaying}
-            currentTime={ct}
-            duration={dur}
-            progress={dur > 0 ? ct / dur : 0}
-            onTogglePlay={handleTogglePlay}
-            onNext={handleNext}
-            onPrev={handlePrev}
-            onSeek={handleSeek}
-            onExpand={() => setExpanded(true)}
-            isLiked={votedSongs.has(currentSong.id)}
-            onLike={() => handleVote(currentSong)}
-            podcastMode={podcastMode}
-            volume={volume}
-            onVolumeChange={setVolumeState}
-            isShuffled={isShuffled}
-            onShuffle={handleShuffle}
-            playerMode={playerMode}
-            onLyrics={() => {
-              if (playerMode === "lyrics") { setPlayerMode("audio"); return; }
-              setPlayerMode("lyrics");
-              setExpanded(true);
-            }}
-            onVideo={() => {
-              if (playerMode === "video") { setPlayerMode("audio"); return; }
-              setPlayerMode("video");
-              setExpanded(true);
-            }}
-            onDownload={() => handleDownload(currentSong)}
-            onShare={() => handleShare(currentSong)}
-          />
-        )}
+        {/* Player minimizado desktop: pílula + popup do Alse (DesktopFloatingPlayer),
+            renderizada no slot do header (ao lado de configurações), oculta enquanto
+            o painel expandido estiver aberto. */}
 
 
         {/* Main column */}
@@ -2377,65 +2256,16 @@ const Index = () => {
           )}
 
           {/* Overlay controls on top of the actual YouTube player */}
-          {expanded && playerMode === "video" && !isPlayingOffline && !playerState.isFullscreen && (
+          {expanded && playerMode === "video" && !playerState.isFullscreen && (
             <>
-              {/* VÍDEO SEM LENTE (v10): NENHUMA lente/sombra fosca (blur) no
-                  centro — a CenterChromeShield foi banida e não volta. O que
-                  cobre o centro é o CenterGlyphCover OPACO, que desde a v14
-                  fica durante TODA a reprodução (pedido "corrija para sempre
-                  sumir" — o ⏸ do embed congela em alguns devices dentro do
-                  iframe cross-origin e não há como detectá-lo); pausado/idle =
-                  poster. Os controles vivem SOMENTE na barra inferior (sem
-                  botões centralizados — transporte central removido em
-                  2026-10-02). */}
-
-              {/* POSTER DO ESTADO PAUSADO (v8): cobre o iframe enquanto
-                  pausado/travado — o bezel ⏸ do YouTube (cross-origin, congela
-                  na camada pintada em alguns devices) não pode aparecer onde o
-                  iframe não está visível. Sai instantaneamente ao dar play.
-                  Abaixo do tap catcher (z-210): toques continuam revelando os
-                  controles; a barra inferior fica por cima. */}
-              {!playerState.isEnded && !playerState.surfaceBuffering && (!playerState.isPlaying || playerState.videoSurfaceIdle) && (
-                <PausedVideoPoster cover={currentSong?.cover} />
-              )}
-
-              {/* DISCO DO GLIFO (v11→v12→v13→v14): o embed controls=0 pinta um
-                  indicador central (⏸/▶, ~16% da largura) a cada play/seek/load
-                  e, em alguns devices, o ⏸ CONGELA e não sai mais (dois
-                  reportes com screenshot: "símbolos ainda presentes" e
-                  "ainda está com o símbolo de pause… corrija para sempre
-                  sumir"). O glifo vive dentro do iframe cross-origin — não há
-                  como detectá-lo nem desativá-lo — então a ÚNICA cobertura
-                  possível é o disco opaco #161616 (sem ícone, sem blur).
-                  v14: o disco rende durante TODA a reprodução (isPlaying &&
-                  !videoSurfaceIdle), não só na janela/controles visíveis —
-                  com controles ocultos o ⏸ congelado também não pode aparecer.
-                  Mútuo exclusivo com o poster: pausado/idle = poster
-                  (poster exige !isPlaying || idle; disco exige isPlaying &&
-                  !idle), buffering = disco (ramo de estado, ignora idle —
-                  watchdog marca idle exatamente durante buffering e o poster
-                  segue bloqueado por !surfaceBuffering). Fora da superfície
-                  YT (nativa/offline/fim) não renderiza. */}
-              {!nativeVideoActive &&
-                !playerState.isEnded &&
-                ((playerState.isPlaying &&
-                  !playerState.videoSurfaceIdle) ||
-                  playerState.surfaceBuffering) && (
-                  <CenterGlyphCover />
-                )}
-
               {/* Full-inset tap catcher: ALWAYS active so clicks never reach the YouTube iframe.
                   Tapping the background only toggles the visibility of our custom controls —
-                  it never plays/pauses the video. Play/pause happens exclusively via the bottom bar. */}
+                  it never plays/pauses the video. Play/pause happens exclusively via the center button. */}
               <button
                 type="button"
                 aria-label={showVideoOverlayControls ? "Ocultar controles" : "Mostrar controles"}
                 onClick={(e) => {
                   e.stopPropagation();
-                  // ALSE-STYLE (referência): o toque SEMPRE alterna — inclusive
-                  // pausado/buffering/idle. Minimizar é decisão do usuário
-                  // (toque) ou do timer determinado; nenhum estado trava os
-                  // controles visíveis sobre o vídeo.
                   if (showVideoOverlayControls) {
                     if (videoOverlayTimerRef.current) { clearTimeout(videoOverlayTimerRef.current); videoOverlayTimerRef.current = null; }
                     setShowVideoOverlayControls(false);
@@ -2446,33 +2276,18 @@ const Index = () => {
                 className="absolute inset-0 z-[210] bg-transparent cursor-default"
                 style={{ WebkitTapHighlightColor: 'transparent' }}
               />
-              {/* (as MÁSCARAS de branding foram promovidas a camada permanente, logo acima
-                  do QualityBadge — ela NÃO depende deste overlay existir) */}
               <div
                 className={`absolute inset-0 pointer-events-none transition-opacity duration-300 z-[215] ${
                   showVideoOverlayControls ? 'opacity-100' : 'opacity-0'
                 }`}
               >
-                {/* TRANSPORTE CENTRAL REMOVIDO (2026-10-02, pedido do usuário):
-                    prev/play/next no MEIO do vídeo + play na barra inferior =
-                    controles de reprodução DUPLICADOS (dois botões de pause
-                    visíveis ao mesmo tempo, um deles fixo no centro). Mesma
-                    regra de ouro já válida no fullscreen (testes
-                    fullscreen-center-sync/center-video-fully-visible): play/
-                    pause existe SOMENTE na barra inferior. O bezel/glifo do
-                    YouTube continua coberto por PausedVideoPoster (pausado) e
-                    CenterGlyphCover (janela do glifo), independentes da
-                    visibilidade dos controles. O transporte (prev/next) foi
-                    movido para a barra inferior — um ÚNICO conjunto. */}
-
-                {/* Dimming gradient behind controls — some JUNTO com eles
-                    (camada unificada); oculto = vídeo 100% limpo */}
+                {/* Dimming gradient behind controls */}
                 <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60 pointer-events-none" />
 
                 {/* Back / minimize (top-left) */}
                 <button
                   onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); playerState.isFullscreen ? exitFullscreen() : setExpanded(false); }}
-                  className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} absolute top-2 left-2 z-[220] p-2 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition`}
+                  className="pointer-events-auto absolute top-2 left-2 z-[220] p-2 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition"
                   title={playerState.isFullscreen ? "Sair da Tela Cheia" : "Voltar"}
                 >
                   <ArrowLeft size={20} />
@@ -2488,7 +2303,7 @@ const Index = () => {
                       revealVideoOverlay();
                       window.dispatchEvent(new CustomEvent("xerife:reload-video-clip"));
                     }}
-                    className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} absolute top-2 right-2 z-[220] p-2 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition`}
+                    className="pointer-events-auto absolute top-2 right-2 z-[220] p-2 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition"
                     title="Não é este clipe? Toque para trocar (2x = buscar novo)"
                     aria-label="Recarregar videoclipe"
                   >
@@ -2496,6 +2311,32 @@ const Index = () => {
                   </button>
                 )}
 
+                {/* Center transport: prev / play-pause / next */}
+                <div className="absolute inset-0 flex items-center justify-center gap-8 sm:gap-12 pointer-events-none">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handlePrev(); }}
+                    className="pointer-events-auto p-3 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition"
+                    title="Anterior"
+                  >
+                    <SkipBack size={22} fill="currentColor" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleTogglePlay(); }}
+                    className="pointer-events-auto w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition flex items-center justify-center"
+                    title={isPlaying ? "Pausar" : "Reproduzir"}
+                  >
+                    {isPlaying
+                      ? <Pause size={32} fill="currentColor" />
+                      : <Play size={32} fill="currentColor" className="ml-1" />}
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleNext(); }}
+                    className="pointer-events-auto p-3 rounded-full bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition"
+                    title="Próximo"
+                  >
+                    <SkipForward size={22} fill="currentColor" />
+                  </button>
+                </div>
 
                 {/* Bottom bar: time + seekbar + PiP/AirPlay/fullscreen */}
                 <div
@@ -2503,38 +2344,12 @@ const Index = () => {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div
-                    className={`${showVideoOverlayControls ? "pointer-events-auto" : "pointer-events-none"} flex items-center gap-2`}
+                    className="pointer-events-auto flex items-center gap-2"
                     onPointerDown={() => { videoOverlayInteractingRef.current = true; revealVideoOverlay({ sticky: true }); }}
                     onPointerUp={() => { videoOverlayInteractingRef.current = false; revealVideoOverlay(); }}
                     onPointerCancel={() => { videoOverlayInteractingRef.current = false; revealVideoOverlay(); }}
                     onPointerLeave={() => { if (videoOverlayInteractingRef.current) { videoOverlayInteractingRef.current = false; revealVideoOverlay(); } }}
                   >
-                    {/* Transporte (prev/play/next) — ÚNICO conjunto do player
-                        inline, sempre na barra inferior (sem botões ao centro). */}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handlePrev(); }}
-                      title="Anterior"
-                      aria-label="Anterior"
-                      className="p-1.5 rounded-md bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition-all shrink-0"
-                    >
-                      <SkipBack size={18} fill="currentColor" />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleTogglePlay(); }}
-                      title={isPlaying ? "Pausar" : "Reproduzir"}
-                      aria-label={isPlaying ? "Pausar" : "Reproduzir"}
-                      className="p-1.5 rounded-md bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition-all shrink-0"
-                    >
-                      {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); revealVideoOverlay(); handleNext(); }}
-                      title="Próximo"
-                      aria-label="Próximo"
-                      className="p-1.5 rounded-md bg-black/55 backdrop-blur-sm text-white hover:bg-black/75 active:scale-90 transition-all shrink-0"
-                    >
-                      <SkipForward size={18} fill="currentColor" />
-                    </button>
                     <span className="text-[11px] font-mono text-white/90 tabular-nums min-w-[42px] text-right">
                       {formatDuration(ct)}
                     </span>
@@ -2548,7 +2363,7 @@ const Index = () => {
                         className=""
                       />
                     </div>
-                    <span className="hidden sm:block text-[11px] font-mono text-white/90 tabular-nums min-w-[42px]">
+                    <span className="text-[11px] font-mono text-white/90 tabular-nums min-w-[42px]">
                       {formatDuration(dur)}
                     </span>
                     <button
@@ -2577,10 +2392,9 @@ const Index = () => {
           )}
           {/* Fullscreen overlay controls rendered here */}
           {playerState.isFullscreen && (
-          <Suspense fallback={null}>
             <FullscreenOverlay
               song={currentSong}
-              isPlaying={isPlaying}
+              isPlaying={playerState.isPlaying}
               currentTime={ct}
               duration={dur}
               progress={dur > 0 ? ct / dur : 0}
@@ -2589,13 +2403,7 @@ const Index = () => {
               onPrev={handlePrev}
               onSeek={handleSeek}
               onExit={() => exitFullscreen()}
-              videoMode={playerMode === "video"}
-              isEnded={nativeVideoActive ? nativeVideoEnded : playerState.isEnded}
-              videoSurfaceIdle={nativeVideoActive ? !nativeVideoIsPlaying : playerState.videoSurfaceIdle}
-              surfaceBuffering={nativeVideoActive ? false : playerState.surfaceBuffering}
-              nativeVideoActive={nativeVideoActive}
             />
-          </Suspense>
           )}
         </div>
           );
@@ -2719,6 +2527,37 @@ const Index = () => {
               isLoadingUser={false}
               currentZoom={appZoom}
             />
+
+            {!expanded && (
+              <DesktopFloatingPlayer
+                song={currentSong}
+                isPlaying={isPlaying}
+                currentTime={ct}
+                duration={dur}
+                onTogglePlay={handleTogglePlay}
+                onNext={handleNext}
+                onPrev={handlePrev}
+                onSeek={handleSeek}
+                onExpand={() => setExpanded(true)}
+                isShuffled={isShuffled}
+                onShuffle={handleShuffle}
+                isLiked={votedSongs.has(currentSong.id)}
+                onLike={() => handleVote(currentSong)}
+                onLyrics={() => {
+                  if (playerMode === "lyrics") { setPlayerMode("audio"); return; }
+                  setPlayerMode("lyrics");
+                  setExpanded(true);
+                }}
+                onVideo={() => {
+                  if (playerMode === "video") { setPlayerMode("audio"); return; }
+                  setPlayerMode("video");
+                  setExpanded(true);
+                }}
+                onShare={() => handleShare(currentSong)}
+                volume={volume}
+                onVolumeChange={setVolumeState}
+              />
+            )}
 
             {/* Trio de módulos (Music/Vídeos/Podcasts) — ao lado do botão de
                 configurações; desktop only (a nav já é hidden lg:flex) */}

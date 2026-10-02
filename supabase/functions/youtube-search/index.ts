@@ -17,6 +17,8 @@ interface SearchResult {
   album: string;
   cover: string;
   duration: number;
+  type?: "music" | "video";
+  source?: "ytmusic" | "web";
 }
 
 serve(async (req) => {
@@ -29,7 +31,7 @@ serve(async (req) => {
 
     // Rate limit: 20 requests per minute per IP
     const ip = getClientIp(req);
-    const rl = checkRateLimit(ip, { maxRequests: 20, windowMs: 60_000 });
+    const rl = checkRateLimit(ip, { maxRequests: 40, windowMs: 60_000 });
     if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs, corsHeaders);
 
     const query = url.searchParams.get("q");
@@ -57,219 +59,275 @@ serve(async (req) => {
   }
 });
 
-async function searchYouTube(query: string, filter: string): Promise<SearchResult[]> {
-  const params = getSearchParams(filter);
+// ── YouTube Music (WEB_REMIX): o catálogo de MÚSICA de verdade ──────────────
+// Verificado da própria borda em 2026-09-23: com clientVersion recente e o
+// param de "songs", o WEB_REMIX devolve musicResponsiveListItemRenderer COM
+// videoId, capa quadrada, artista e álbum — faixa de estúdio primeiro, sem
+// DVD/drum-cam/ensaio/vlog. (O comentário antigo dizendo que o WEB_REMIX
+// "parou de devolver videoId" estava desatualizado.)
+const WEB_REMIX_KEY = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30";
+const WEB_REMIX_SONGS_PARAMS = "EgWKAQIIAWgKEAkQBRAJEAoQBg%3D%3D";
 
+function remixRawRuns(col: any): string[] {
+  return ((col?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || []) as any[])
+    .map((r) => String(r?.text || ""));
+}
+
+/** Divide os runs em campos pelo separador " • " (com espaços); dentro de um
+ * campo os fragmentos são concatenados crus — preserva " e " / ", " entre
+ * artistas (ex.: ['Isaias Saad',' e ','Débora Buzas'] → "Isaias Saad e Débora Buzas"). */
+function remixFields(col: any): string[] {
+  const fields: string[] = [];
+  let cur = "";
+  for (const t of remixRawRuns(col)) {
+    if (t.trim() === "•") {
+      if (cur.trim()) fields.push(cur.trim());
+      cur = "";
+    } else if (t.trim() !== "") {
+      cur += t;
+    }
+  }
+  if (cur.trim()) fields.push(cur.trim());
+  return fields;
+}
+
+function parseClock(t: string): number {
+  if (!/^\d{1,2}(:\d{2}){1,2}$/.test(t || "")) return 0;
+  const p = t.split(":").map((x) => parseInt(x, 10));
+  return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1];
+}
+
+function parseRemixSongs(data: any): SearchResult[] {
+  const items = collectByKey(data, "musicResponsiveListItemRenderer");
+  const out: SearchResult[] = [];
+  const seen = new Set<string>();
+  for (const it of items) {
+    const videoId =
+      it?.playlistItemData?.videoId ||
+      collectByKey(it, "watchEndpoint")[0]?.videoId;
+    if (!videoId || seen.has(videoId)) continue;
+    const cols = it?.flexColumns || [];
+    const title = remixFields(cols[0]).join(" • ");
+    if (!title) continue;
+    const byline = remixFields(cols[1]);
+    let durTxt = "";
+    if (byline.length && /^\d{1,2}(:\d{2}){1,2}$/.test(byline[byline.length - 1])) {
+      durTxt = byline.pop() as string;
+    }
+    const artist =
+      (byline.shift() || "Desconhecido").replace(/\s*-\s*Topic$/i, "").trim() ||
+      "Desconhecido";
+    const album = byline.join(" • ").trim() || title;
+    const thumbs =
+      it?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
+    const cover = (thumbs[thumbs.length - 1]?.url || "").replace(/^\/\//, "https://");
+    seen.add(videoId);
+    out.push({
+      id: `yt-${videoId}`,
+      youtubeId: videoId,
+      title,
+      artist,
+      album,
+      cover: cover || "/placeholder.svg",
+      duration: parseClock(durTxt),
+      type: "music",
+      source: "ytmusic",
+    });
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
+async function searchYouTubeMusicRemix(query: string): Promise<SearchResult[]> {
   const body = {
     context: {
       client: {
         clientName: "WEB_REMIX",
-        clientVersion: "1.20231204.01.00",
+        clientVersion: "1.20250901.01.00",
         hl: "pt",
         gl: "BR",
       },
     },
     query,
-    ...(params ? { params } : {}),
+    params: WEB_REMIX_SONGS_PARAMS,
   };
-
-  const response = await fetch(
-    "https://music.youtube.com/youtubei/v1/search?alt=json&key=AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0",
-        Origin: "https://music.youtube.com",
-        Referer: "https://music.youtube.com/",
-      },
-      body: JSON.stringify(body),
-    }
-  );
-
-  if (!response.ok) {
-    console.error("YouTube API error:", response.status);
-    return [];
-  }
-
-  const data = await response.json();
-  return parseSearchResults(data);
-}
-
-function getSearchParams(filter: string): string | null {
-  switch (filter) {
-    case "songs":
-      return "EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D";
-    case "artists":
-      return "EgWKAQIgAWoKEAkQBRAKEAMQBA%3D%3D";
-    case "albums":
-      return "EgWKAQIYAWoKEAkQBRAKEAMQBA%3D%3D";
-    default:
-      return null;
-  }
-}
-
-function parseSearchResults(data: any): SearchResult[] {
-  const results: SearchResult[] = [];
-
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const contents =
-      data?.contents?.tabbedSearchResultsRenderer?.tabs?.[0]?.tabRenderer
-        ?.content?.sectionListRenderer?.contents || [];
-
-    for (const section of contents) {
-      const shelfItems = section?.musicShelfRenderer?.contents || [];
-
-      for (const item of shelfItems) {
-        const parsed = parseMusicItem(item);
-        if (parsed) results.push(parsed);
+    const response = await fetch(
+      `https://music.youtube.com/youtubei/v1/search?key=${WEB_REMIX_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0",
+          Origin: "https://music.youtube.com",
+          Referer: "https://music.youtube.com/",
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
       }
-
-      // Top result card
-      if (section?.musicCardShelfRenderer) {
-        const card = parseCardShelf(section.musicCardShelfRenderer);
-        if (card) results.push(card);
-        
-        // Also parse items inside the card shelf
-        const cardContents = section.musicCardShelfRenderer?.contents || [];
-        for (const item of cardContents) {
-          const parsed = parseMusicItem(item);
-          if (parsed) results.push(parsed);
-        }
-      }
+    );
+    if (!response.ok) {
+      console.error("WEB_REMIX search HTTP", response.status);
+      return [];
     }
+    const data = await response.json();
+    return parseRemixSongs(data);
   } catch (e) {
-    console.error("Parse error:", e);
+    console.error("WEB_REMIX search error:", e);
+    return [];
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function searchYouTube(query: string, filter: string): Promise<SearchResult[]> {
+  // Alse Music (songs/all): tenta PRIMEIRO o catálogo do YouTube Music
+  // (faixas reais, com álbum). Se o WEB_REMIX falhar/esvaziar, cai no
+  // Innertube WEB + heurística "parece música" abaixo.
+  const wantsSongs = filter === "songs" || filter === "all";
+  if (wantsSongs) {
+    const remix = await searchYouTubeMusicRemix(query);
+    if (remix.length > 0) return remix;
   }
 
-  // Deduplicate by youtubeId
+  const body: any = {
+    context: {
+      client: {
+        clientName: "WEB",
+        clientVersion: "2.20240101.00.00",
+        hl: "pt",
+        gl: "BR",
+      },
+    },
+    query,
+  };
+  // Filtro de vídeos (protobuf {field 1: 1}) — melhora precisão p/ "songs"
+  if (wantsSongs) body.params = "EgIQAQ%3D%3D";
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(
+      "https://www.youtube.com/youtubei/v1/search?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0",
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      }
+    );
+
+    if (!response.ok) {
+      console.error("YouTube (WEB innertube) API error:", response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    return parseWebSearchResults(data, wantsSongs);
+  } catch (e) {
+    console.error("YouTube search fetch error:", e);
+    return [];
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/** Extrai recursivamente todos os objetos com uma chave específica. */
+function collectByKey(obj: any, key: string, out: any[] = []): any[] {
+  if (!obj || typeof obj !== "object") return out;
+  if (Array.isArray(obj)) {
+    for (const item of obj) collectByKey(item, key, out);
+    return out;
+  }
+  for (const [k, v] of Object.entries(obj)) {
+    if (k === key) out.push(v);
+    else collectByKey(v, key, out);
+  }
+  return out;
+}
+
+function parseDurationToSeconds(text: string): number {
+  if (!text) return 0;
+  const parts = String(text).split(":").map((x) => parseInt(x, 10) || 0);
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return 0;
+}
+
+/**
+ * Converte videoRenderer do Innertube WEB em SearchResult (formato Song do
+ * frontend). `album` recebe o título (mesmo comportamento do fallback
+ * Invidious antigo — o app trata album como "detalhe" exibido ao usuário).
+ */
+// ── Filtro "parece música" (mesma heurística do client, aplicada na borda) ──
+// O Innertube WEB pesquisa o YouTube GERAL; para filter=songs (Alse Music)
+// removemos/priorizamos por padrões de título, canal "- Topic" e duração.
+const MUSIC_NEG_RE = /(gameplay|\bvlogs?\b|filme completo|document[áa]rio|epis[óo]dio|cap[íi]tulo|rea[çc][ãa]o|reaction|\breact\b|tutorial|\baula[s]?\b|curso completo|trailer|unboxing|podcast|entrevista|transmiss[ãa]o|campeonato|futebol|not[íi]cias|coletiva|live stream|\basmr\b|speedrun|walkthrough|parte \d+|compilado de|melhores momentos|\bao vivo\b|\bdvd\b|drum cam|playthrough|ensaio|ministra[çc][ãa]o|show completo|making of|backstage)/i;
+const MUSIC_POS_RE = /(official|oficial|\baudio\b|\báudio\b|lyric|letra|clipe|\bclip\b|\bmv\b|music video|v[íi]deo oficial|remix|\bcover\b|acoustic|ac[úu]stico|visualizer|live session|\bsingle\b|\bep\b|faixa|bastidores do clipe)/i;
+
+function musicScore(title: string, owner: string, durSec: number): number {
+  const hay = `${title} ${owner}`;
+  let s = 0;
+  if (MUSIC_NEG_RE.test(hay)) s -= 3;
+  if (MUSIC_POS_RE.test(hay)) s += 2;
+  if (/-\s*Topic$/i.test(owner)) s += 3;
+  if (durSec > 1500) s -= 2;
+  else if (durSec > 0 && durSec <= 600) s += 1;
+  return s;
+}
+
+function parseWebSearchResults(data: any, wantsSongs = false): SearchResult[] {
+  const renderers = collectByKey(data, "videoRenderer");
+  const results: SearchResult[] = [];
+  const scores: number[] = [];
   const seen = new Set<string>();
-  return results.filter((r) => {
-    if (seen.has(r.youtubeId)) return false;
-    seen.add(r.youtubeId);
-    return true;
-  }).slice(0, 20);
-}
 
-function parseMusicItem(item: any): SearchResult | null {
-  try {
-    const renderer = item?.musicResponsiveListItemRenderer;
-    if (!renderer) return null;
+  for (const r of renderers) {
+    const videoId = r?.videoId;
+    if (!videoId || seen.has(videoId)) continue;
+    seen.add(videoId);
 
-    const flexColumns = renderer?.flexColumns || [];
     const title =
-      flexColumns[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text || "";
+      r.title?.runs?.map((x: any) => x.text).join("") ||
+      r.title?.simpleText || "";
+    if (!title) continue;
 
-    const secondColumnRuns =
-      flexColumns[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+    const ownerRun =
+      r.ownerText?.runs?.[0] || r.shortBylineText?.runs?.[0] || r.longBylineText?.runs?.[0];
+    const ownerRaw = ownerRun?.text || "";
+    const artist = ownerRaw || "Desconhecido";
 
-    // Collect all meaningful text parts
-    const textParts = secondColumnRuns
-      .filter((r: any) => r.text && r.text.trim() !== "•" && r.text.trim() !== "&" && r.text.trim() !== " • " && r.text.trim() !== " & " && r.text.trim() !== "")
-      .map((r: any) => ({ text: r.text.trim(), hasNav: !!r.navigationEndpoint }));
+    const thumbs = r.thumbnail?.thumbnails || [];
+    const cover = (thumbs[thumbs.length - 1]?.url || "").replace(/^\/\//, "https://");
 
-    // Identify type indicators
-    const typeIndicators = ["Música", "Vídeo", "Song", "Video", "Episódio", "Episode", "Podcast", "Artista", "Artist", "Álbum", "Album", "Playlist", "Single"];
-    
-    let artist = "";
-    let album = "";
-    let duration = 0;
-    let itemType = "";
+    const durationText = r.lengthText?.simpleText || "";
 
-    // Parse the runs more intelligently
-    const meaningfulParts: string[] = [];
-    for (const part of textParts) {
-      if (typeIndicators.includes(part.text)) {
-        itemType = part.text;
-        continue;
-      }
-      // Check if this looks like a duration (e.g., "3:45")
-      if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(part.text)) {
-        const segments = part.text.split(":").map(Number);
-        if (segments.length === 3) {
-          duration = segments[0] * 3600 + segments[1] * 60 + segments[2];
-        } else {
-          duration = segments[0] * 60 + segments[1];
-        }
-        continue;
-      }
-      // Skip view counts and dates
-      if (/visualizações|views|reproduções|plays/i.test(part.text)) continue;
-      if (/^\d+\s*(de\s+\w+|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)/i.test(part.text)) continue;
-      
-      meaningfulParts.push(part.text);
-    }
-
-    // First meaningful part = artist, second = album
-    artist = meaningfulParts[0] || "";
-    album = meaningfulParts[1] || "";
-
-    // Get video ID
-    let videoId = "";
-    const overlay = renderer?.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer;
-    videoId = overlay?.playNavigationEndpoint?.watchEndpoint?.videoId || "";
-
-    if (!videoId) {
-      const navEp = flexColumns[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.navigationEndpoint;
-      videoId = navEp?.watchEndpoint?.videoId || "";
-    }
-
-    if (!title || !videoId) return null;
-
-    // Get thumbnail - prefer higher quality
-    const thumbnails = renderer?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
-    let cover = "";
-    if (thumbnails.length > 0) {
-      // Pick a medium-sized thumbnail
-      const sorted = [...thumbnails].sort((a: any, b: any) => (b.width || 0) - (a.width || 0));
-      cover = sorted[0]?.url || "";
-    }
-
-    return {
+    const durSec = parseDurationToSeconds(durationText);
+    results.push({
       id: `yt-${videoId}`,
       youtubeId: videoId,
       title: cleanTitle(title),
-      artist: artist || "Desconhecido",
-      album: album || title,
+      artist: artist.replace(/\s*-\s*Topic$/i, "").trim() || "Desconhecido",
+      album: cleanTitle(title),
       cover: cover.startsWith("//") ? `https:${cover}` : cover,
-      duration,
-    };
-  } catch {
-    return null;
+      duration: durSec,
+    });
+    scores.push(musicScore(title, ownerRaw, durSec));
+    if (results.length >= 20) break;
   }
-}
-
-function parseCardShelf(renderer: any): SearchResult | null {
-  try {
-    const title = renderer?.title?.runs?.[0]?.text || "";
-    const subtitleRuns = renderer?.subtitle?.runs || [];
-    const subtitleParts = subtitleRuns
-      .filter((r: any) => r.text && r.text.trim() !== "•" && r.text.trim() !== " • ")
-      .map((r: any) => r.text.trim());
-
-    const videoId = renderer?.title?.runs?.[0]?.navigationEndpoint?.watchEndpoint?.videoId;
-    if (!title || !videoId) return null;
-
-    const thumbnails = renderer?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
-    const sorted = [...thumbnails].sort((a: any, b: any) => (b.width || 0) - (a.width || 0));
-    const cover = sorted[0]?.url || "";
-
-    // Type indicators
-    const typeIndicators = ["Música", "Vídeo", "Song", "Video", "Artista", "Artist", "Álbum", "Album"];
-    const meaningful = subtitleParts.filter((p: string) => !typeIndicators.includes(p));
-
-    return {
-      id: `yt-${videoId}`,
-      youtubeId: videoId,
-      title: cleanTitle(title),
-      artist: meaningful[0] || "Desconhecido",
-      album: meaningful[1] || title,
-      cover: cover.startsWith("//") ? `https:${cover}` : cover,
-      duration: 0,
-    };
-  } catch {
-    return null;
-  }
+  if (!wantsSongs) return results;
+  // Alse Music: corta claramente não-musicais (com folga p/ nunca esvaziar)
+  // e prioriza faixas prováveis (Topic/oficial/curtas).
+  const idx = results.map((_, i) => i);
+  const kept = idx.filter((i) => scores[i] > -3);
+  const base = kept.length >= 4 ? kept : idx;
+  return [...base].sort((a, b) => scores[b] - scores[a]).map((i) => results[i]);
 }
 
 function cleanTitle(title: string): string {

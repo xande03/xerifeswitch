@@ -52,6 +52,17 @@ export async function cachedFetch<T>(
   console.log(`[ServerCache] MISS: ${key}`);
   const data = await fetcher();
 
+  // NÃO cachear resultados vazios — evita "cravar" falhas transitentes por horas
+  const isEmpty =
+    data == null ||
+    (Array.isArray(data) && data.length === 0) ||
+    (typeof data === "object" && !Array.isArray(data) &&
+      ["results", "tracks", "shorts", "playlists", "items"].some((k) => {
+        const arr = (data as Record<string, unknown>)[k];
+        return Array.isArray(arr) && arr.length === 0;
+      }));
+  if (isEmpty) return data;
+
   // Prune if at capacity
   if (store.size >= maxEntries) {
     let oldestKey = "";

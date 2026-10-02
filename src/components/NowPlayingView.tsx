@@ -1,4 +1,4 @@
-import { ChevronDown, Heart, Volume2, VolumeX, Video, Music2, Mic2, SkipBack, Play, Pause, SkipForward, Shuffle, Repeat, Loader2, ListVideo, MessageSquare, SkipForward as AutoPlayIcon, Maximize2, Minimize2, ListMusic, Download, Plus, Share2, PictureInPicture2, Headphones, RefreshCw, X, Palette, MoreHorizontal, FileText, ChevronUp } from "lucide-react";
+import { ChevronDown, Heart, Volume2, VolumeX, Video, Music2, Mic2, SkipBack, Play, Pause, SkipForward, Shuffle, Repeat, Loader2, ListVideo, MessageSquare, SkipForward as AutoPlayIcon, Maximize2, Minimize2, ListMusic, Download, HardDriveDownload, Check, Plus, Share2, PictureInPicture2, Headphones, RefreshCw, X, Palette, MoreHorizontal, FileText } from "lucide-react";
 
 import { Song, formatDuration } from "@/data/mockSongs";
 import { hdThumbnail } from "@/lib/utils";
@@ -8,8 +8,7 @@ import RelatedVideos from "./RelatedVideos";
 import VideoComments from "./VideoComments";
 import VideoInfoBar from "./VideoInfoBar";
 import { isInWatchLater, addToWatchLater, removeFromWatchLater } from "./VideoHomeScreen";
-import React, { useState, useEffect, useRef, useMemo, useCallback, Fragment } from "react";
-import { useIsMobile } from "@/hooks/use-mobile";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { fetchLyrics, invalidateLyricsCache, type LyricsResult } from "@/lib/lyrics";
 import { getLyricsOffset, setLyricsOffset } from "@/lib/lyricsStorage";
 
@@ -168,10 +167,6 @@ function getPodcastPanelDescription(fullDescription?: string, fallbackDescriptio
   return pool.sort((a, b) => b.text.length - a.text.length)[0]?.text || "";
 }
 
-
-
-
-
 interface NowPlayingViewProps {
   song: Song;
   isPlaying: boolean;
@@ -213,6 +208,9 @@ interface NowPlayingViewProps {
   /** videoId atualmente carregado no player (para saber se já estamos no clipe). */
   activeVideoId?: string | null;
   onNavigateToLibrary?: () => void;
+  /** Playlist ativa (aberta via canal em Alse Vídeos): o painel mostra os
+   *  vídeos DA PLAYLIST na ordem do criador para o usuário escolher outro. */
+  playlistPanel?: { title: string; videos: VideoResult[] } | null;
 }
 
 type ToolItem = { icon: any; label: string; onClick: () => void; active?: boolean };
@@ -279,37 +277,11 @@ const NowPlayingView = ({
   onPreloadClip,
   activeVideoId,
   onNavigateToLibrary,
+  playlistPanel,
 }: NowPlayingViewProps) => {
-  const isMobile = useIsMobile();
-  const [isLandscape, setIsLandscape] = useState(
-    typeof window !== "undefined" && window.matchMedia("(orientation: landscape)").matches
-  );
-
-  useEffect(() => {
-    const mql = window.matchMedia("(orientation: landscape)");
-    const handler = (e: MediaQueryListEvent) => setIsLandscape(e.matches);
-    mql.addEventListener("change", handler);
-    return () => mql.removeEventListener("change", handler);
-  }, []);
-
-  const isMobileLandscape = isMobile && isLandscape;
-
   const [mode, setMode] = useState<PlayerMode>(
     initialMode ?? (context === "video" ? "video" : "audio")
   );
-  // ── Sincronização mode <- initialMode (2026-09-18) ─────────────────────────
-  // O `mode` é estado interno inicializado com initialMode — mas o Index pode
-  // mudar playerMode SEM remontar o painel (ex.: handlePlayVideo com o painel
-  // já aberto, trocando de vídeo). Sem este efeito, o interno ficava "audio"
-  // enquanto o Index estava em "video": header "XERIFE SWITCH" + chevron-down
-  // continuavam na tela e o transporte voltava a duplicar. Sincroniza sem eco
-  // (não dispara onModeChange — o Index JÁ está no modo alvo).
-  const prevInitialModeRef = useRef<PlayerMode | undefined>(initialMode);
-  useEffect(() => {
-    if (initialMode === undefined || initialMode === prevInitialModeRef.current) return;
-    prevInitialModeRef.current = initialMode;
-    setMode((cur) => (cur === initialMode ? cur : initialMode));
-  }, [initialMode]);
   const [visualizerMode, setVisualizerMode] = useState<any>("bars");
 
   // Xerife Music: sempre iniciar no modo "áudio" ao trocar de faixa,
@@ -329,6 +301,15 @@ const NowPlayingView = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [song.id, context]);
+
+  // O Index troca o playerMode com o player JÁ aberto (vídeo relacionado,
+  // histórico, hub, playlist, receita Alse Vídeos). Sem este sync o modo
+  // interno ficava preso em "audio" e a tela limpa (isVideoMode) nunca
+  // armava para esses vídeos — os "alguns vídeos" que não minimizavam.
+  useEffect(() => {
+    if (initialMode && initialMode !== mode) setMode(initialMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMode]);
 
   // Xerife Music: só liberar o toggle "Vídeo" depois que o usuário
   // apertar play (no modo áudio) pelo menos uma vez para esta faixa.
@@ -362,11 +343,11 @@ const NowPlayingView = ({
 
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
   const [videoInfoLoading, setVideoInfoLoading] = useState(false);
-  const [bottomTab, setBottomTab] = useState<"related" | "comments">("related");
   const podcastPanelDescription = useMemo(
     () => getPodcastPanelDescription(videoInfo?.description, song.description),
     [videoInfo?.description, song.description]
   );
+  const [bottomTab, setBottomTab] = useState<"related" | "comments">("related");
 
   const [showFsControls, setShowFsControls] = useState(true);
   const fsControlsTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -390,33 +371,15 @@ const NowPlayingView = ({
 
 
 
-  // ── Auto-hide do chrome do painel no modo vídeo (mesma lógica do Alse) ──
-  // Tocando em modo vídeo + sem interação por 3000ms → a BARRA SUPERIOR do
-  // painel some (fade 300ms + pointer-events-none). Nunca gateados: info
-  // (título/artista), action-bar (favoritar/ícones), VideoInfoBar, abas
-  // Recomendados/Discussão, descrição de podcast (regra 4 do Alse).
-  // Escopo checado ANTES de armar (regra 6): fora de "modo vídeo + tocando"
-  // o chrome fica visível fixo e o timer é cancelado. Pausado → visível
-  // permanente até reproduzir de novo (regra 5). N fixo de 3000ms (pedido);
-  // o overlay do player continua com os segundos configuráveis do usuário.
+  // Auto-hide fullscreen controls after 3s
   const resetFsControlsTimer = useCallback(() => {
     setShowFsControls(true);
     if (fsControlsTimerRef.current) clearTimeout(fsControlsTimerRef.current);
     fsControlsTimerRef.current = setTimeout(() => setShowFsControls(false), 3000);
   }, []);
 
-  useEffect(() => {
-    if (mode === "video" && isPlaying) {
-      resetFsControlsTimer();
-    } else {
-      setShowFsControls(true);
-      if (fsControlsTimerRef.current) clearTimeout(fsControlsTimerRef.current);
-    }
-    return () => { if (fsControlsTimerRef.current) clearTimeout(fsControlsTimerRef.current); };
-  }, [mode, isPlaying, resetFsControlsTimer]);
-
-  // Decisão (Alse: chromeHidden): só o modo vídeo + tocando + timer expirado.
-  const chromeHidden = mode === "video" && isPlaying && !showFsControls;
+  // O efeito de auto-hide vive perto de isVideoMode (abaixo) — a tela limpa
+  // vale para o player de vídeo inteiro, não só para o fullscreen.
 
   const loadLyrics = useCallback((skipCache = false) => {
     const songId = song.id;
@@ -486,31 +449,69 @@ const NowPlayingView = ({
     if (song.youtubeId) {
       setVideoInfoLoading(true);
       (async () => {
-        const info = await fetchVideoInfo(song.youtubeId, { requireDescription: context === "podcast" });
-        if (cancelled) return;
-        // Fallback: if no related videos, search by artist + title to populate Recomendados
-        if (!info.relatedVideos || info.relatedVideos.length === 0) {
-          try {
-            const { searchYouTubeGeneral } = await import("@/lib/youtubeGeneralSearch");
-            const query = `${song.artist || ""} ${song.title || ""}`.trim();
-            const fallback = await searchYouTubeGeneral(query);
-            if (cancelled) return;
-            const filtered = (fallback || []).filter((v) => v.videoId !== song.youtubeId).slice(0, 20);
-            setVideoInfo({ ...info, relatedVideos: filtered });
-          } catch {
-            setVideoInfo(info);
+        try {
+          const cleanTitle = (song.title || "").replace(/\([^)]*\)|\[[^\]]*\]/g, "").trim();
+          const cleanArtist = (song.artist || "").trim();
+          const searchQuery = `${cleanArtist} ${cleanTitle}`.trim() || cleanTitle || cleanArtist;
+
+          // Timeout de segurança para a edge function não travar a experiência de recomendações
+          const fetchPromise = fetchVideoInfo(song.youtubeId, { requireDescription: context === "podcast" });
+          const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3500));
+          
+          let info = await Promise.race([fetchPromise, timeoutPromise]);
+          if (!info) {
+            // Se a edge function atrasar, resolve em segundo plano sem travar as recomendações
+            fetchPromise.then((res) => {
+              if (!cancelled && (res?.comments?.length || res?.description)) {
+                setVideoInfo((prev) => prev ? { ...prev, comments: res.comments } : res);
+              }
+            }).catch(() => {});
+            info = { relatedVideos: [], comments: [] };
           }
-        } else {
-          setVideoInfo(info);
+
+          let related = (info.relatedVideos || []).filter((v) => v.videoId !== song.youtubeId);
+
+          // Se a API retornar menos de 10 vídeos relacionados, complementa com busca inteligente estilo YouTube
+          if (related.length < 10) {
+            try {
+              const { searchYouTubeGeneral } = await import("@/lib/youtubeGeneralSearch");
+              const [byArtist, byQuery] = await Promise.all([
+                cleanArtist ? searchYouTubeGeneral(`${cleanArtist} videos`).catch(() => []) : [],
+                searchQuery ? searchYouTubeGeneral(searchQuery).catch(() => []) : [],
+              ]);
+              const combined = [...related, ...byArtist, ...byQuery];
+              const seen = new Set<string>([song.youtubeId]);
+              const deduplicated = [];
+              for (const v of combined) {
+                if (!v?.videoId || seen.has(v.videoId)) continue;
+                seen.add(v.videoId);
+                deduplicated.push(v);
+              }
+              related = deduplicated;
+            } catch {
+              // fallback silencioso
+            }
+          }
+
+          if (!cancelled) {
+            setVideoInfo({
+              relatedVideos: related,
+              comments: info.comments || [],
+            });
+            setVideoInfoLoading(false);
+          }
+        } catch {
+          if (!cancelled) {
+            setVideoInfoLoading(false);
+          }
         }
-        setVideoInfoLoading(false);
       })();
     }
     return () => {
       cancelled = true;
       if (prefetchTimer) clearTimeout(prefetchTimer);
     };
-  }, [song.id, context]);
+  }, [song.id, song.youtubeId]);
 
   // Paginação infinita dos "Próximos vídeos" — busca mais recomendados sob
   // demanda (mesmo artista + queries variadas) para o usuário continuar
@@ -863,10 +864,9 @@ const NowPlayingView = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const isVideoMode = mode === "video";
-  // Podcast agora usa exatamente o mesmo esqueleto/proporções do player de vídeo
-  // (rail à direita no desktop, full-bleed 16:9 no mobile). Mantemos apenas a
-  // exibição dos controles/info específicos de podcast (feita via `context === "podcast"`).
-  const isPodcastVideo = false;
+  // Podcast em modo vídeo: MESMO layout/posicionamentos do modo vídeo do
+  // Alse Music (pílula de ferramentas, funções, colunas) — pedido 2026-09-24.
+  // (Sem ramo especial: o contexto "podcast" cai nos ramos music/anchor.)
   // Rail (YouTube-like split) só no contexto "Xerife Vídeos". No Xerife Music
   // o modo vídeo é exclusivo da faixa atual: player centralizado na posição
   // da capa, em 16:9, sem sair do painel de "Tocando agora".
@@ -875,6 +875,32 @@ const NowPlayingView = ({
   // cover art in the exact same position/proportion (16:9), without the rail
   // split used by Xerife Vídeos.
   const isMusicVideoMode = isVideoMode && (context === "music" || context === "podcast");
+
+  // Tela limpa (comportamento clássico do player de vídeo): enquanto o vídeo
+  // toca, todo o chrome (barra de informações, pílulas de ação, abas
+  // Recomendados/Discussão, botão de recarregar clipe) se minimiza após 3s sem
+  // interação; qualquer toque/movimento do ponteiro traz tudo de volta, e
+  // pausar mantém os botões sempre visíveis. Em áudio/letras nada muda.
+  useEffect(() => {
+    if (isVideoMode && isPlaying && isFullscreen) {
+      resetFsControlsTimer();
+    } else {
+      setShowFsControls(true);
+      if (fsControlsTimerRef.current) {
+        clearTimeout(fsControlsTimerRef.current);
+        fsControlsTimerRef.current = null;
+      }
+    }
+    return () => { if (fsControlsTimerRef.current) clearTimeout(fsControlsTimerRef.current); };
+  }, [isVideoMode, isPlaying, song.id, resetFsControlsTimer, isFullscreen]);
+
+  // Tela limpa SOMENTE em tela cheia: no painel (modo vídeo do Music/Podcast)
+  // pílula de transporte, seek e demais controles ficam SEMPRE visíveis —
+  // nada de ocultar após alguns segundos (pedido 2026-09-24).
+  const chromeHidden = isVideoMode && isPlaying && !showFsControls && !!isFullscreen;
+  const chromeFade = chromeHidden
+    ? "opacity-0 pointer-events-none"
+    : "opacity-100";
   // Letra só aparece quando existe (assume "existe" enquanto não terminamos a verificação).
   const hasLyrics = !lyricsChecked || (!!lyricsResult && lyricsResult.lines.length > 0);
   // Vídeo clipe disponível quando temos um youtubeId associado à faixa.
@@ -891,10 +917,11 @@ const NowPlayingView = ({
 
   const toolItems = [
     onAddToPlaylist ? { icon: Plus, label: "Adicionar à playlist", onClick: () => onAddToPlaylist(song) } : null,
-    { icon: Music2, label: "Cifra e letra", onClick: () => setChordsOpen(true), active: chordsOpen },
-
+    { icon: Music2, label: "Ver cifra", onClick: () => setChordsOpen(true), active: chordsOpen },
     
-    context === "music"
+    // Fundo dinamico vale para Music e Podcast (ver `ambientActive`, que nao
+    // filtra por context). So o rail de Alse Videos fica de fora.
+    context !== "video"
       ? {
           icon: Palette,
           label: dynamicBgEnabled ? "Desativar fundo dinâmico" : "Fundo dinâmico (paleta)",
@@ -922,14 +949,10 @@ const NowPlayingView = ({
       id="now-playing-shell"
       data-context={context}
       data-video-mode={isVideoMode ? "true" : "false"}
-      // frame-inset: no desktop (lg+) o painel respeita a moldura do app
-      // (14px de respiro vertical) — ver .frame-inset no index.css.
-      // Em fullscreen de vídeo mantém inset-0 (cobre a janela toda).
-      className={`fixed inset-0 z-50 flex flex-col animate-slide-up bg-background ${isFullscreen ? 'z-[9999]' : 'frame-inset'} ${context === "video" ? 'xerife-video-context' : ''}`}
-      // Restauração do chrome do painel (Alse regra 5): qualquer interação
-      // (pointerdown/pointermove — cobre toque e mouse) rearma o timer.
       onPointerDown={resetFsControlsTimer}
       onPointerMove={resetFsControlsTimer}
+      onTouchStart={resetFsControlsTimer}
+      className={`fixed inset-0 z-50 flex flex-col animate-slide-up bg-background ${isFullscreen ? 'z-[9999]' : ''} ${context === "video" ? 'xerife-video-context' : ''}`}
       style={{
         paddingTop: isFullscreen ? '0' : 'env(safe-area-inset-top)',
         paddingBottom: isFullscreen ? '0' : 'env(safe-area-inset-bottom)',
@@ -997,40 +1020,30 @@ const NowPlayingView = ({
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto now-playing-scroll">
-        {/* Desktop Header — SÓ em modo áudio (pedido 2026-09-18: nos painéis de vídeo,
-            desktop, remover título "XERIFE SWITCH" + ícone + botão chevron-down de
-            minimizar; minimizar fica SOMENTE na seta-esquerda dentro do player).
-            A remoção libera ~78px no topo: o player de vídeo e a coluna de "Próximos
-            vídeos" sobem junto (rail top 90px -> 12px, ver Index.tsx/index.css). */}
-        {!isVideoMode && (
-        <div className="hidden md:flex items-center justify-between px-6 lg:px-12 py-4 lg:py-6 z-30">
-          <button onClick={onCollapse} title="Voltar para Xerife Vídeos" className="p-2 rounded-full bg-secondary/80 hover:bg-primary transition-all text-foreground hover:text-primary-foreground shadow-lg">
-            <ChevronDown size={28} />
-          </button>
-          <button onClick={onCollapse} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <Logo size={36} />
-            <span className="font-display font-black text-lg lg:text-xl italic tracking-tighter">XERIFE <span className="text-primary">SWITCH</span></span>
-          </button>
-          <div className="w-12 h-12 flex items-center justify-end">
-            {!isRailVideoMode && toolsMenuNode()}
+        {/* Desktop Header (apenas para modo Música/Áudio normal, ocultado no painel de vídeos do Alse Vídeos) */}
+        {!isRailVideoMode && context !== "video" && (
+          <div className={`hidden md:flex items-center justify-between px-6 lg:px-12 py-4 lg:py-6 z-30 transition-opacity duration-300 ${isVideoMode ? chromeFade : ""}`}>
+            <button onClick={onCollapse} title="Voltar" className="p-2 rounded-full bg-secondary/80 hover:bg-primary transition-all text-foreground hover:text-primary-foreground shadow-lg">
+              <ChevronDown size={28} />
+            </button>
+            <button onClick={onCollapse} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+              <Logo size={36} />
+              <span className="font-display font-black text-lg lg:text-xl tracking-tight">ALSE <span className="text-primary">SWITCH</span></span>
+            </button>
+            <div className="w-12 h-12 flex items-center justify-end">
+              {toolsMenuNode()}
+            </div>
           </div>
-
-        </div>
         )}
 
         {/* Main Layout */}
         <div>
-          <div className={`${isPodcastVideo ? "flex flex-col h-full w-full max-w-[900px] mx-auto lg:px-8 lg:pb-8" : isRailVideoMode ? "md:flex md:flex-row md:gap-4 md:items-start md:px-4 w-full" : `flex flex-col ${isMobileLandscape ? "landscape-mobile-player" : "lg:flex-row"} h-full lg:gap-16 w-full max-w-[1600px] mx-auto lg:px-12 lg:pb-12`}`}>
+          <div className={`${isRailVideoMode ? "md:flex md:flex-row md:gap-4 md:items-start md:px-4 lg:px-6 w-full pt-2 lg:pt-3" : "flex flex-col lg:flex-row h-full lg:gap-16 w-full max-w-[1600px] mx-auto lg:px-12 lg:pb-12"}`}>
 
 
-            {/* Mobile top bar — collapse on the left, room for notch.
-                GATEADA pelo auto-hide em modo vídeo (Alse regra 3): fade 300ms
-                + pointer-events-none junto com o vídeo tocando; áudio/lírica
-                nunca escondem (chromeHidden exige mode==="video"). */}
+            {/* Mobile top bar — collapse on the left, room for notch */}
             {!isRailVideoMode && (
-              <div
-                data-panel-top-bar
-                className={`lg:hidden flex items-center justify-between px-4 pt-3 pb-1 relative z-[70] transition-opacity duration-300 ${chromeHidden ? "opacity-0 pointer-events-none" : ""}`}>
+              <div className={`lg:hidden flex items-center justify-between px-4 pt-3 pb-1 relative z-[70] transition-opacity duration-300 ${isVideoMode ? chromeFade : ""}`}>
                 <button onClick={onCollapse} className="p-2 -ml-1 rounded-full bg-background/70 backdrop-blur text-foreground/90 hover:text-foreground active:scale-95 transition">
                   <ChevronDown size={28} />
                 </button>
@@ -1042,44 +1055,26 @@ const NowPlayingView = ({
             )}
 
             {/* Left Column: Video / Artwork / Lyrics */}
-            <div className={`w-full ${isPodcastVideo ? "" : isRailVideoMode ? "md:flex-1 md:min-w-0" : isMobileLandscape ? "landscape-mobile-left" : "lg:w-1/2 flex flex-col justify-center items-center gap-4"} relative`}>
+            <div className={`w-full ${isRailVideoMode ? "md:flex-1 md:min-w-0" : "lg:w-1/2 flex flex-col justify-center items-center gap-4"} relative`}>
               
               {/* Video/Artwork Container */}
-              <div
-                className={`w-full group ${
+              <div className={`w-full group ${
                 isRailVideoMode
                   ? "pt-3 lg:pt-0"
                   : isMusicVideoMode
                     ? (context === "podcast"
-                        ? "relative aspect-video w-full max-w-[420px] sm:max-w-[500px] md:max-w-[560px] lg:max-w-[600px] xl:max-w-[640px] mx-auto px-3 sm:px-4 md:px-2 mt-3 sm:mt-6 lg:mt-10 isolate"
+                        ? "relative aspect-video w-full max-w-[min(calc(100vw-24px),860px)] mx-auto px-3 sm:px-4 md:px-2 mt-4 sm:mt-6 lg:mt-8 isolate"
                         : "relative aspect-video w-full max-w-[460px] sm:max-w-[620px] md:max-w-[720px] lg:max-w-[820px] mx-auto px-3 sm:px-4 md:px-2 mt-6 sm:mt-8 lg:mt-10 isolate")
-                    : context === "podcast"
-                      ? "relative aspect-video w-full max-w-[420px] sm:max-w-[520px] lg:max-w-[640px] mx-auto px-3 sm:px-4 mt-2 sm:mt-4"
-                      : "relative aspect-square max-w-[380px] sm:max-w-[440px] lg:max-w-[520px] mx-auto px-3 sm:px-4 mt-2 sm:mt-4"
-                }`}
-                style={
-                  isMusicVideoMode && context === "podcast"
-                    ? {
-                        // iOS/mobile: limita a altura do 16:9 ao viewport dinâmico real
-                        // (barra de URL, notch e safe-areas), sem estourar a tela em
-                        // portrait nem em landscape.
-                        maxWidth:
-                          "min(100%, calc((min(42dvh, 42vh) - env(safe-area-inset-top)) * 16 / 9 + 24px), 640px)",
-                      }
-                    : undefined
-                }
-              >
-
+                    : "relative aspect-square max-w-[380px] sm:max-w-[440px] lg:max-w-[520px] mx-auto px-3 sm:px-4 mt-2 sm:mt-4"
+              }`}>
                 {isRailVideoMode ? (
                   <>
-                    {/* Spacer that matches the fixed yt-player height — full-bleed on mobile, matches left column on desktop.
-                        md+: +12px porque o rail agora encosta quase no topo do painel (12px) —
-                        sem o header desktop o VideoInfoBar precisa continuar ABAIXO do vídeo. */}
-                    <div className="w-full lg:px-0 h-[var(--xerife-video-h)] md:h-[calc(var(--xerife-video-h)+12px)]" />
+                    {/* Spacer that matches the fixed yt-player height — full-bleed on mobile, matches left column on desktop */}
+                    <div className="w-full lg:px-0" style={{ height: 'var(--alse-video-h, var(--xerife-video-h))' }} />
                     {context === "video" && (
                       <div
                         className="px-3 pt-3 pb-1 md:px-0 md:pt-3 relative z-10"
-                        style={{ scrollMarginTop: 'calc(12px + var(--xerife-video-h) + 16px)' }}
+                        style={{ scrollMarginTop: 'calc(16px + var(--alse-video-h, var(--xerife-video-h)) + 16px)' }}
                       >
                         <VideoInfoBar
                           song={song}
@@ -1113,12 +1108,12 @@ const NowPlayingView = ({
                             disabled={reloadingClip}
                             aria-label="Recarregar videoclipe (1x próximo, 2x buscar novo)"
                             title="Não é este clipe? Toque para trocar. Toque 2x para buscar de novo."
-                            className="absolute top-2 right-2 z-30 w-9 h-9 rounded-full bg-black/55 hover:bg-black/80 text-white backdrop-blur-md flex items-center justify-center opacity-70 hover:opacity-100 focus-visible:opacity-100 transition-opacity active:scale-90 disabled:opacity-60 shadow-md"
+                            className={`absolute top-2 right-2 z-30 w-9 h-9 rounded-full bg-black/55 hover:bg-black/80 text-white backdrop-blur-md flex items-center justify-center transition-opacity active:scale-90 shadow-md ${chromeHidden ? "opacity-0 pointer-events-none" : "opacity-70 hover:opacity-100 focus-visible:opacity-100 disabled:opacity-60"}`}
                           >
                             <RefreshCw size={16} className={reloadingClip ? "animate-spin" : ""} />
                           </button>
                           {showReloadHint && (
-                            <div className="absolute left-1/2 -translate-x-1/2 bottom-2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md text-white text-[11px] font-medium shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className={`absolute left-1/2 -translate-x-1/2 bottom-2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md text-white text-[11px] font-medium shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300 ${chromeHidden ? "opacity-0 pointer-events-none" : ""}`}>
                               <RefreshCw size={12} />
                               <span>Não é este clipe? Toque em ↻</span>
                               <button
@@ -1134,7 +1129,7 @@ const NowPlayingView = ({
                       )}
                     </div>
                     {context === "music" && activeVideoId && activeVideoId !== song.youtubeId && (
-                      <div className="mt-2 flex items-center justify-center gap-1.5">
+                      <div className={`mt-2 flex items-center justify-center gap-1.5 transition-opacity duration-300 ${chromeFade}`}>
                         <button
                           onClick={() => adjustClipOffset(-500)}
                           className="w-7 h-7 rounded-full bg-secondary/70 text-foreground text-xs font-bold hover:bg-accent active:scale-90 transition"
@@ -1224,7 +1219,7 @@ const NowPlayingView = ({
                                     ref={isActive ? activeLineRef : undefined}
                                     onClick={() => { if (isEffectivelySynced && seekTime >= 0) onSeek(seekTime / (duration || 1)); }}
                                     className={`text-center transition-all duration-700 cursor-pointer ${
-                                      isActive ? "text-2xl sm:text-3xl font-black text-primary scale-110 drop-shadow-glow" : "text-base sm:text-xl text-foreground font-medium opacity-30 hover:opacity-100"
+                                      isActive ? "text-2xl sm:text-3xl font-black text-primary scale-110 drop-shadow-glow" : "text-base sm:text-xl text-foreground font-medium opacity-60 dark:opacity-30 hover:opacity-100 dark:hover:opacity-100"
                                     }`}
                                   >
                                     {line.text}
@@ -1271,7 +1266,7 @@ const NowPlayingView = ({
                                       href={l.url}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-white/10 transition-all"
+                                      className="px-3 py-1.5 rounded-full bg-secondary/80 border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
                                     >
                                       Buscar no {l.label}
                                     </a>
@@ -1306,19 +1301,16 @@ const NowPlayingView = ({
             {/* Right Column: Controls + Related — on desktop rail video mode this becomes a sticky right rail (YouTube-style) */}
             <div
               className={`w-full ${
-                isPodcastVideo
-                  ? "mt-4"
-                  : isRailVideoMode
-                  ? "md:w-[var(--xerife-video-rail)] md:flex-shrink-0 md:sticky md:self-start md:overflow-y-auto scrollbar-hide"
-                  : isMobileLandscape ? "landscape-mobile-right" : "lg:w-1/2"
-              } flex flex-col ${isPodcastVideo ? "items-center px-4 sm:px-8" : isRailVideoMode ? "px-2 md:px-0 mt-0" : isMobileLandscape ? "justify-center items-center px-4" : "justify-center lg:items-center px-4 sm:px-8 mt-4 lg:mt-0"} min-w-0 relative`}
+                isRailVideoMode
+                  ? "md:w-[var(--alse-video-rail,var(--xerife-video-rail))] md:flex-shrink-0 md:sticky md:self-start md:overflow-y-auto scrollbar-hide"
+                  : "lg:w-1/2"
+              } flex flex-col ${isRailVideoMode ? "px-2 md:px-0 mt-0" : "justify-center lg:items-center px-4 sm:px-8 mt-4 lg:mt-0"} min-w-0 relative`}
               style={
-                isRailVideoMode && !isPodcastVideo
+                isRailVideoMode
                   ? {
-                      // Stick right below the header, and cap height so the rail scrolls internally
-                      // without ever overlapping the fixed player or being covered by it.
-                      top: "12px",
-                      maxHeight: "calc(100vh - 12px - env(safe-area-inset-bottom) - 16px)",
+                      // Stick near top with matching padding and allow full internal scrolling
+                      top: "16px",
+                      maxHeight: "calc(100vh - 32px - env(safe-area-inset-bottom))",
                     }
                   : undefined
               }
@@ -1326,16 +1318,17 @@ const NowPlayingView = ({
 
 
               <div
-                className={`w-full min-w-0 ${isPodcastVideo ? "max-w-xl lg:max-w-2xl mx-auto flex flex-col gap-5 lg:gap-6 items-center" : isRailVideoMode ? "" : "max-w-xl lg:max-w-2xl mx-auto flex flex-col gap-5 lg:gap-8 lg:items-center"} touch-pan-y`}
+                className={`w-full min-w-0 ${isRailVideoMode ? "" : "max-w-xl lg:max-w-2xl mx-auto flex flex-col gap-5 lg:gap-8 lg:items-center"} touch-pan-y`}
+
               >
 
                 {/* Info Header - hidden only in rail video mode (Xerife Vídeos) */}
                 {!isRailVideoMode && (
-                  <div className={`flex flex-col gap-1 w-full ${isMobileLandscape ? "items-start text-left" : "items-center text-center"} mt-2 lg:mt-0`}>
-                    <div className={`w-full max-w-full ${isMobileLandscape ? "px-0" : "px-2"}`}>
+                  <div className="flex flex-col gap-1 w-full items-center text-center mt-2 lg:mt-0">
+                    <div className="w-full max-w-full px-2">
                       <MarqueeText
                         text={song.title}
-                        className={`${isMobileLandscape ? "text-xl sm:text-2xl" : "text-2xl sm:text-4xl lg:text-5xl"} font-black text-foreground tracking-tight leading-tight`}
+                        className="text-2xl sm:text-4xl lg:text-5xl font-black text-foreground tracking-tight leading-tight"
                       />
                     </div>
                     <button onClick={() => onArtistClick?.({ name: song.artist, image: song.cover })} className="group inline-flex items-center gap-1.5">
@@ -1347,7 +1340,7 @@ const NowPlayingView = ({
 
                 {/* Action Bar - hidden only in rail video mode (Xerife Vídeos) */}
                 {!isRailVideoMode && (
-                  <div className={`flex items-center ${isMobileLandscape ? "justify-start" : "justify-center"} gap-1 bg-card/40 backdrop-blur-xl border border-white/10 rounded-2xl p-1 shadow-2xl ${isMobileLandscape ? "" : "mx-auto w-fit"}`}>
+                  <div className={`flex items-center justify-center gap-1 bg-card/40 backdrop-blur-xl border border-white/10 rounded-2xl p-1 shadow-2xl mx-auto w-fit transition-opacity duration-300 ${chromeFade}`}>
                     <button 
                       onClick={onLike}
                       title={isLiked ? "Remover dos favoritos" : "Adicionar aos favoritos"}
@@ -1359,7 +1352,13 @@ const NowPlayingView = ({
                     </button>
                     {[
                       // Letra (atalho): alterna entre Letra e Áudio.
-                      context === "music" && hasLyrics
+                      // Vale para Alse Music E Alse Podcast. Antes era só
+                      // context === "music", então no Podcast a 1a posicao da
+                      // pilula caia SEMPRE no botao de tela cheia — e com
+                      // `active: false` fixo o estado nunca acendia, nem em
+                      // fullscreen. Agora Music e Podcast partilham a mesma
+                      // regra e o mesmo retorno visual de botao ativo.
+                      context !== "video" && hasLyrics
                         ? {
                             icon: Mic2,
                             label: mode === 'lyrics' ? 'Fechar letra' : 'Letra',
@@ -1367,7 +1366,14 @@ const NowPlayingView = ({
                             active: mode === 'lyrics',
                             pressed: mode === 'lyrics',
                           }
-                        : { icon: isFullscreen ? Minimize2 : Maximize2, label: isFullscreen ? 'Sair Tela Cheia' : 'Tela Cheia', onClick: isFullscreen ? onExitFullscreen : onFullscreen, active: false },
+                        : {
+                            icon: isFullscreen ? Minimize2 : Maximize2,
+                            label: isFullscreen ? 'Sair Tela Cheia' : 'Tela Cheia',
+                            onClick: isFullscreen ? onExitFullscreen : onFullscreen,
+                            // Espelha o estado real: tela cheia ligada = botao aceso.
+                            active: !!isFullscreen,
+                            pressed: !!isFullscreen,
+                          },
                       // Vídeo (toggle): ativa/desativa o modo vídeo; quando off, volta para a capa (áudio).
                       context !== "video" && hasVideoClip
                         ? {
@@ -1398,12 +1404,16 @@ const NowPlayingView = ({
                             : 'bg-secondary/30 hover:bg-primary/20 hover:text-primary text-muted-foreground'
                         }`}
                       >
-                        <btn.icon size={18} aria-hidden />
+                        <btn.icon size={18} className={btn.iconClass || ""} aria-hidden />
                       </button>
                     ))}
 
-                    {/* Ajuste da intensidade do overlay (legibilidade do fundo dinâmico) */}
-                    {context === "music" && dynamicBgEnabled && (
+                    {/* Ajuste da intensidade do overlay (legibilidade do fundo dinamico) */}
+                    {/* `ambientActive` nao e gated por context (useAmbientTheme so
+                        recebe song.cover), entao o Podcast TAMBEM ganha fundo
+                        dinamico — mas nao tinha como controlar a intensidade.
+                        Alinhado com o Alse Music. */}
+                    {context !== "video" && dynamicBgEnabled && (
                       <Popover>
                         <PopoverTrigger asChild>
                           <button
@@ -1437,12 +1447,9 @@ const NowPlayingView = ({
 
                 )}
 
-                {/* SeekBar & Transport — hidden in ANY video mode (rail + music/podcast video)
-                    to avoid duplication with the unified overlay in Index.tsx.
-                    The overlay in Index is the single source of truth for video controls,
-                    with all buttons hiding together after 4s. */}
-                {!isVideoMode && (
-                <div className="w-full space-y-3">
+                {/* SeekBar & Transport — hidden only in rail (Xerife Vídeos) mode */}
+                {!isRailVideoMode && context !== "video" && (
+                <div className={`w-full space-y-3 transition-opacity duration-300 ${isVideoMode ? chromeFade : ""}`}>
                   <div className="w-full space-y-1.5">
                     <SeekBar progress={progress} onSeek={onSeek} trackHeight="normal" className="w-full" duration={duration} />
                     <div className="flex justify-between text-[11px] sm:text-sm font-bold text-muted-foreground/60">
@@ -1492,13 +1499,23 @@ const NowPlayingView = ({
                       </div>
                       <div className="pr-1">
                         {bottomTab === 'related' ? (
-                          <RelatedVideos
-                            videos={videoInfo?.relatedVideos || []}
-                            loading={videoInfoLoading}
-                            onPlay={(v) => onPlayRelated?.(v)}
-                            currentVideoId={song.youtubeId}
-                            onLoadMore={loadMoreRelated}
-                          />
+                          playlistPanel && playlistPanel.videos.length > 0 ? (
+                            <RelatedVideos
+                              videos={playlistPanel.videos}
+                              onPlay={(v) => onPlayRelated?.(v)}
+                              pageSize={10}
+                              variant="rail"
+                              currentVideoId={song.youtubeId}
+                            />
+                          ) : (
+                            <RelatedVideos
+                              videos={videoInfo?.relatedVideos || []}
+                              loading={videoInfoLoading}
+                              onPlay={(v) => onPlayRelated?.(v)}
+                              currentVideoId={song.youtubeId}
+                              onLoadMore={loadMoreRelated}
+                            />
+                          )
                         ) : (
                           <VideoComments comments={videoInfo?.comments || []} loading={videoInfoLoading} />
                         )}
@@ -1507,19 +1524,39 @@ const NowPlayingView = ({
 
                     {/* Tablet+Desktop right rail: single vertical stack of recommended/related videos */}
                     <div className="hidden md:block">
-                      <div className="flex items-center gap-2 mb-3">
-                        <ListVideo size={16} className="text-muted-foreground" />
-                        <h3 className="text-[15px] font-semibold text-foreground">Próximos vídeos</h3>
-                      </div>
-                      <RelatedVideos
-                        videos={videoInfo?.relatedVideos || []}
-                        loading={videoInfoLoading}
-                        onPlay={(v) => onPlayRelated?.(v)}
-                        pageSize={14}
-                        variant="rail"
-                        currentVideoId={song.youtubeId}
-                        onLoadMore={loadMoreRelated}
-                      />
+                      {playlistPanel && playlistPanel.videos.length > 0 ? (
+                        <>
+                          <div className="flex items-center gap-2 mb-3">
+                            <ListVideo size={16} className="text-primary" />
+                            <h3 className="text-[15px] font-semibold text-foreground truncate">
+                              Da playlist: <span className="text-primary">{playlistPanel.title}</span>
+                            </h3>
+                          </div>
+                          <RelatedVideos
+                            videos={playlistPanel.videos}
+                            onPlay={(v) => onPlayRelated?.(v)}
+                            pageSize={14}
+                            variant="rail"
+                            currentVideoId={song.youtubeId}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2 mb-3">
+                            <ListVideo size={16} className="text-muted-foreground" />
+                            <h3 className="text-[15px] font-semibold text-foreground">Próximos vídeos</h3>
+                          </div>
+                          <RelatedVideos
+                            videos={videoInfo?.relatedVideos || []}
+                            loading={videoInfoLoading}
+                            onPlay={(v) => onPlayRelated?.(v)}
+                            pageSize={14}
+                            variant="rail"
+                            currentVideoId={song.youtubeId}
+                            onLoadMore={loadMoreRelated}
+                          />
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1533,7 +1570,6 @@ const NowPlayingView = ({
                   />
                 )}
               </div>
-
             </div>
           </div>
         </div>
@@ -1544,10 +1580,6 @@ const NowPlayingView = ({
         onOpenChange={setChordsOpen}
         artist={song.artist}
         title={song.title}
-        album={song.album}
-        duration={song.duration}
-        currentTime={currentTime}
-        defaultTab={context === "music" ? "chords" : "lyrics"}
       />
     </div>
   );

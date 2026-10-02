@@ -179,7 +179,7 @@ export function SeekBar({
       if (!ts.activated) {
         const dx = Math.abs(t.clientX - ts.x);
         const dy = Math.abs(t.clientY - ts.y);
-        if (dx < 8 && dy < 8) return;
+        if (dx < 12 && dy < 12) return;
         if (dy >= dx) {
           // Gesto vertical — desarma e libera para scroll nativo
           touchStartRef.current = { x: 0, y: 0, activated: false, startedOnBar: false };
@@ -208,6 +208,10 @@ export function SeekBar({
 
     const handleTouchEnd = (e: TouchEvent) => {
       if (!isDraggingRef.current) {
+        // Toque sem drag (tap rápido) NÃO deve seekar: bloqueia o click
+        // sintético pós-touchend — evita pulos por toques acidentais
+        // na barra (pedido 2026-09-23).
+        if (touchStartRef.current.startedOnBar) suppressSyntheticClick();
         touchStartRef.current = { x: 0, y: 0, activated: false, startedOnBar: false };
         return;
       }
@@ -260,6 +264,11 @@ export function SeekBar({
   return (
     <div
       ref={trackRef}
+      // Parte 55: atributos estáveis para inspeção/E2E (o layout não usa data-*)
+      data-testid="seek-bar"
+      data-progress={displayValue.toFixed(4)}
+      data-duration={duration > 0 ? Math.round(duration).toString() : "0"}
+      data-dragging={isDragging ? "1" : "0"}
       className={cn(
         "relative w-full rounded-full bg-muted/60 cursor-pointer group select-none touch-none",
         heightClass,

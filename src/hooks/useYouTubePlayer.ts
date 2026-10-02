@@ -2,7 +2,6 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { toast } from "sonner";
 import { track as trackMetric } from "@/lib/playbackMetrics";
 import { castYouTubeVideo, isCastSupported, loadCastSdk } from "@/lib/castService";
-import { evaluateClipSync, CLIP_SYNC_DEFAULTS } from "@/lib/clipSyncGuard";
 
 declare global {
   interface Window {
@@ -15,32 +14,6 @@ export interface YouTubePlayerState {
   isReady: boolean;
   isPlaying: boolean;
   isEnded: boolean;
-  /** ESTADO REAL da superfície do embed do YouTube (fail-closed).
-   *  TRUE quando o player NÃO está confirmadamente PLAYING/BUFFERING —
-   *  i.e. cue/unstarted, pausado, finalizado, travado ou pós-erro: é exatamente
-   *  quando o YouTube desenha seu próprio chrome central (botão play/bezel).
-   *  Derivado de getPlayerState() (eventos + polling), NUNCA do estado
-   *  otimista do app — evita o vazamento permanente do botão central quando
-   *  a reprodução falha silenciosamente após playVideo() (stream bloqueada,
-   *  live stream travando, erro sem evento, fundo iOS). */
-  videoSurfaceIdle: boolean;
-  /** TRUE quando o embed reporta BUFFERING (carregando/stream lenta). Faz parte do
-   *  ESTADO REAL da superfície: durante o buffering o último frame pintado pode
-   *  incluir o botão central do YouTube — os controles do app (e as máscaras do
-   *  centro) precisam continuar de pé até a reprodução confirmar. É o que garante
-   *  que TODOS os controles — inclusive o botão central — minimizem JUNTOS, só
-   *  quando o vídeo está de fato rodando, e que nada fique exposto no meio. */
-  surfaceBuffering: boolean;
-  /** Timestamp da ÚLTIMA transição/play/seek/load que faz (ou fez) o embed
-   *  PINTAR o indicador central (⏸/▶). Medido em lab: o glifo some sozinho
-   *  em ~5 s; o Index usa este valor para manter o CenterGlyphCover + o lease
-   *  do auto-hide até a janela fechar (nunca "dois botões" nem resíduo). */
-  glyphPaintAt: number;
-  /** Subconjunto de glyphPaintAt vindo de AÇÕES (play/seek/load/correction).
-   *  Oscilações BUFFERING↔PLAYING do sistema renovam só glyphPaintAt (disco
-   *  cobre o glifo) mas NÃO este campo — senão a rede instável re-armava o
-   *  lease dos controles em cadeia e eles nunca mais minimizavam (Netlify). */
-  actionGlyphPaintAt: number;
   currentTime: number;
   duration: number;
   videoId: string | null;
@@ -79,6 +52,43 @@ let sharedSilentAudioUrl: string | null = null;
 let audioContext: AudioContext | null = null;
 let wakeLock: WakeLockSentinel | null = null;
 const DEFAULT_PLAYER_VOLUME = 80;
+
+// ── Reprodução local (Parte 46): uploads de .mp3 moram no IndexedDB ──────
+// Um playbackId "local:<mediaId>" desvia o fluxo do iframe do YouTube para um
+// <audio> dedicado, reaproveitando o MESMO estado público do hook (mini
+// player, lock screen, MediaSession, retomada) sem mudar nada no Index.
+export const LOCAL_PLAYBACK_PREFIX = "local:";
+
+export function isLocalPlaybackId(id?: string | null): boolean {
+  return typeof id === "string" && id.startsWith(LOCAL_PLAYBACK_PREFIX);
+}
+
+export function localMediaIdFromPlaybackId(id: string): string {
+  return id.slice(LOCAL_PLAYBACK_PREFIX.length);
+}
+
+export function makeLocalPlaybackId(mediaId: string): string {
+  return `${LOCAL_PLAYBACK_PREFIX}${mediaId}`;
+}
+
+let localAudio: HTMLAudioElement | null = null;
+let localObjectUrl: string | null = null;
+let localUrlResolver: ((mediaId: string) => Promise<string | null>) | null = null;
+
+/** Registra o resolvedor mediaId → object URL (o Index faz isso no mount). */
+export function registerLocalUrlResolver(
+  fn: (mediaId: string) => Promise<string | null>
+): void {
+  localUrlResolver = fn;
+}
+
+function ensureLocalAudio(): HTMLAudioElement {
+  if (!localAudio) {
+    localAudio = new Audio();
+    localAudio.preload = "auto";
+  }
+  return localAudio;
+}
 const DEFAULT_AUTO_RESUME_GUARD_MS = 2500;
 const IOS_AUTO_RESUME_GUARD_MS = 5000;
 const IOS_BACKGROUND_CONTROL_PAUSE_MS = 600;
@@ -148,15 +158,6 @@ function getSharedSilentAudioUrl() {
   sharedSilentAudioUrl = URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
   return sharedSilentAudioUrl;
 }
-
-// Global set to track if a playlist is currently active to handle queuing
-let currentPlaylistVideos: any[] = [];
-let currentPlaylistIndex = -1;
-
-export const setGlobalPlaylist = (videos: any[], startIndex = 0) => {
-  currentPlaylistVideos = videos;
-  currentPlaylistIndex = startIndex;
-};
 
 /**
  * iOS Safari/PWA keeps the audio session alive far more reliably when the
@@ -232,7 +233,7 @@ function ensureSilentAudio() {
       const AC = window.AudioContext || (window as any).webkitAudioContext;
       if (AC) {
         audioContext = new AC({ sampleRate: 44100, latencyHint: 'playback' as any });
-        (window as any).__xerife_audio_ctx = audioContext;
+        (window as any).__alse_audio_ctx = audioContext;
         const osc = audioContext.createOscillator();
         const gain = audioContext.createGain();
         gain.gain.value = 0.00001;
@@ -283,7 +284,7 @@ function ensureProxyAudio() {
   proxyAudio.setAttribute("x-webkit-airplay", "allow");
   proxyAudio.setAttribute("controlsList", "nodownload noremoteplayback");
   proxyAudio.preload = "auto";
-  proxyAudio.title = "Xerife Switch";
+  proxyAudio.title = "Alse Switch";
   attachAudioToDom(proxyAudio);
 
   proxyAudio.addEventListener('error', () => {
@@ -312,16 +313,11 @@ function resumeAudioContext() {
 
 const CAPTIONS_PREF_KEY = "demus_captions_enabled";
 function loadCaptionsPref(): boolean {
-  // Default LIGADA→DESLIGADA (2026-09-18): sem preferência salva, legendas ficam
-  // OCULTAS — o player mostra somente os controles do próprio app. Quem quiser
-  // legendas liga pelo botão CC (overlay do player / tela cheia), e a escolha
-  // persiste. Antes o default era true, o que fazia todo vídeo novo nascer
-  // legendado mesmo sem o usuário ter pedido.
   try {
     const v = localStorage.getItem(CAPTIONS_PREF_KEY);
-    if (v === null) return false;
+    if (v === null) return true;
     return v === "1" || v === "true";
-  } catch { return false; }
+  } catch { return true; }
 }
 
 const QUALITY_PREF_KEY = "demus_video_quality";
@@ -446,180 +442,30 @@ function enforceQualityCap(p: any, quality: string) {
 
 export function useYouTubePlayer(containerId: string) {
   const playerRef = useRef<any>(null);
-  /** Load solicitado antes do onReady — aplicado no flush do onReady. */
-  const pendingLoadRef = useRef<{ id: string; startSeconds?: number } | null>(null);
-  const [state, setState] = useState<YouTubePlayerState>(() => {
-    try {
-      const savedTime = localStorage.getItem('demus-current-time');
-      const savedDur = localStorage.getItem('demus-current-duration');
-      const savedVideoId = localStorage.getItem('demus-current-song-id'); // Reusing this from Index.tsx or generic
-      
-      return {
-        isReady: false,
-        isPlaying: false,
-        isEnded: false,
-        videoSurfaceIdle: true,
-        surfaceBuffering: false,
-        glyphPaintAt: 0,
-        actionGlyphPaintAt: 0,
-        currentTime: savedTime ? parseFloat(savedTime) : 0,
-        duration: savedDur ? parseFloat(savedDur) : 0,
-        videoId: savedVideoId || null,
-        isFullscreen: false,
-        captionsEnabled: loadCaptionsPref(),
-      };
-    } catch {
-      return {
-        isReady: false,
-        isPlaying: false,
-        isEnded: false,
-        videoSurfaceIdle: true,
-        surfaceBuffering: false,
-        glyphPaintAt: 0,
-        actionGlyphPaintAt: 0,
-        currentTime: 0,
-        duration: 0,
-        videoId: null,
-        isFullscreen: false,
-        captionsEnabled: loadCaptionsPref(),
-      };
-    }
+  const [state, setState] = useState<YouTubePlayerState>({
+    isReady: false,
+    isPlaying: false,
+    isEnded: false,
+    currentTime: 0,
+    duration: 0,
+    videoId: null,
+    isFullscreen: false,
+    captionsEnabled: loadCaptionsPref(),
   });
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
-  // ── Watchdog de congelamento (o YT mente) ──
-  // O embed pode reportar PLAYING/BUFFERING enquanto o ÚLTIMO frame pintado fica
-  // congelado na tela — live/show que trava, stream que estagna. O último frame
-  // pintado pode incluir o "bezel" central de feedback (círculo escuro + ícone
-  // de play/pause) do próprio YouTube: parece um botão fantasma que não minimiza
-  // junto com os controles do app. Enquanto getPlayerState() mentir, nada cobre
-  // o centro. Refs do watchdog: último tempo visto avançando + polls parados.
-  const lastAdvancedCtRef = useRef<number | null>(null);
-  const frozenPollsRef = useRef(0);
-  // Watchdog de RASTEJAMENTO (2026-09-18): stream que avança devagar demais
-  // (live estagnada avançando 0,1-0,5s por poll) NUNCA disparava o watchdog
-  // de congelamento (o tempo "mudou") — o bezel central do YouTube ficava
-  // congelado na tela com os controles ocultos (a "figura de pause sem ação").
-  // Janela deslizante: media time avançado vs wall-clock decorrido.
-  const crawlWindowStartAtRef = useRef<number | null>(null);
-  const crawlWindowStartCtRef = useRef<number | null>(null);
   const userGestureRef = useRef(false);
   const userPausedRef = useRef(false);
   const shouldBePlayingRef = useRef(false);
+  const pendingVideoIdRef = useRef<string | null>(null);
   const pauseTimestampRef = useRef(0); // Track when user last paused to prevent race conditions
   const targetVolumeRef = useRef(DEFAULT_PLAYER_VOLUME);
   const browserRef = useRef(detectBrowser());
   // Track consecutive errors to avoid infinite retry loops
   const errorCountRef = useRef(0);
-  // ── Orçamento de re-cap de qualidade (anti-loop de ABR) ─────────────────
-  // Com resolução TRAVADA (não-auto), YT pode reportar um nível diferente do
-  // travado (rede não sustenta). Re-capitar em TODO evento de qualidade
-  // provoca rebuffering infinito (play 2s → buffer 3s → play 2s…) — o
-  // "áudio cortando". Orçamento de 3 brigas por faixa; esgotado, aceitamos
-  // o nível que o YT conseguir servir até a próxima troca de faixa.
-  const qualityRecapsRef = useRef(0);
   const pseudoFullscreenRef = useRef<HTMLElement | null>(null);
-  // ── Guard de alinhamento do clipe (pos-swap) ──────────────────────────────
-  // Depois de loadVideoAt() o YouTube ancora em keyframe, nao no segundo pedido.
-  // Guardamos o alvo e corrigimos com no maximo N seeks discretos dentro de uma
-  // janela curta. Ver src/lib/clipSyncGuard.ts para a politica completa.
-  const clipSyncRef = useRef<{
-    targetSec: number | null;
-    startedAt: number;
-    corrections: number;
-    userSeekedSince: boolean;
-    timer?: ReturnType<typeof setInterval>;
-  }>({ targetSec: null, startedAt: 0, corrections: 0, userSeekedSince: false });
   const bgIntervalRef = useRef<ReturnType<typeof setInterval>>();
   const hiddenSinceRef = useRef<number | null>(null);
   const [proxyAudioElement, setProxyAudioElement] = useState<HTMLAudioElement | null>(null);
-
-  // ── Guard de alinhamento do clipe (pos-loadVideoAt) ───────────────────────
-  const stopClipSyncWatch = useCallback(() => {
-    const c = clipSyncRef.current;
-    if (c?.timer) {
-      clearInterval(c.timer);
-      c.timer = undefined;
-    }
-  }, []);
-
-  /**
-   * Consulta o player, roda a decisao do guard e aplica um seek corretivo
-   * discreto quando necessario. Politicas (tolerancia, janela, orçamento)
-   * vivem em src/lib/clipSyncGuard.ts, puras e testadas unitariamente.
-   */
-  const runClipSyncCheck = useCallback(() => {
-    const c = clipSyncRef.current;
-    if (!c || c.targetSec == null) return false;
-    const p = playerRef.current as {
-      getCurrentTime?: () => number;
-      getPlayerState?: () => number;
-      seekTo?: (seconds: number, allowSeekAhead: boolean) => void;
-    } | null;
-    if (!p?.getCurrentTime) return false;
-
-    let ytState: number | undefined;
-    try { ytState = p.getPlayerState?.(); } catch { /* IFrame ainda nao pronto: seguimos sem estado */ }
-    const buffering = ytState === window.YT?.PlayerState?.BUFFERING;
-    const observed = Number(p.getCurrentTime?.() || 0);
-
-    const verdict = evaluateClipSync({
-      pendingTargetSec: c.targetSec,
-      observedSec: observed,
-      isBuffering: buffering,
-      elapsedMs: Date.now() - c.startedAt,
-      correctionsUsed: c.corrections,
-      userSeekedSince: c.userSeekedSince,
-    });
-
-    if (verdict.action === "seek") {
-      c.corrections += 1;
-      const driftMs = Math.round(Math.abs(observed - c.targetSec) * 1000);
-      try { p.seekTo?.(verdict.targetSec, true); } catch { /* seek indisponivel: o proximo tick reavalia */ }
-      // Seek do guard PINTA o feedback central do embed (medido em lab) — e esta
-      // correção pode cair DEPOIS da janela do load (windowMs 6s + folga vs
-      // GLYPH_COVER_MS 6,5s): sem este stamp o disco não cobria e o "botão de
-      // pause" fantasma reaparecia com os controles já ocultos. É um seek de
-      // verdade → renova disco E lease (ação).
-      setState((s) => ({ ...s, glyphPaintAt: Date.now(), actionGlyphPaintAt: Date.now() }));
-      console.info('[YT clipSync] correcao aplicada', { reason: verdict.reason, driftMs, target: verdict.targetSec, attempt: c.corrections });
-      trackMetric('clip-sync', 'seek', { reason: verdict.reason, driftMs, attempt: c.corrections });
-      return true;
-    }
-    if (verdict.done) {
-      if (verdict.reason === 'converged' && c.corrections > 0) {
-        trackMetric('clip-sync', 'converged-after-correction', { corrections: c.corrections });
-      }
-      stopClipSyncWatch();
-      c.targetSec = null;
-    }
-    return false;
-  }, [stopClipSyncWatch]);
-
-  /** Abre a janela de observacao (500ms) apos um load com alvo explicito. */
-  const startClipSyncWatch = useCallback((targetSec: number) => {
-    stopClipSyncWatch();
-    const state = {
-      targetSec: Number.isFinite(targetSec) ? Math.max(0, targetSec) : null,
-      startedAt: Date.now(),
-      corrections: 0,
-      userSeekedSince: false,
-      timer: undefined as ReturnType<typeof setInterval> | undefined,
-    };
-    clipSyncRef.current = state;
-    if (state.targetSec == null) return;
-    const timer = setInterval(() => {
-      const cur = clipSyncRef.current;
-      if (!cur || cur.targetSec == null) { clearInterval(timer); return; }
-      runClipSyncCheck();
-      // Rede de seguranca: nunca deixar o polling vivo alem da janela.
-      if (Date.now() - cur.startedAt > CLIP_SYNC_DEFAULTS.windowMs + 2000) {
-        stopClipSyncWatch();
-        cur.targetSec = null;
-      }
-    }, 500);
-    clipSyncRef.current.timer = timer;
-  }, [runClipSyncCheck, stopClipSyncWatch]);
-
 
   // Helper functions for persistent pause flag
   const setUserPausedFlag = useCallback(() => {
@@ -719,14 +565,12 @@ export function useYouTubePlayer(containerId: string) {
       shouldBePlaying: shouldBePlayingRef.current,
     });
 
-    if (persistedPaused || userPausedRef.current) {
-      userPausedRef.current = true;
-      shouldBePlayingRef.current = false; setShouldBePlayingGlobal(false);
+    if (userPausedRef.current && !shouldBePlayingRef.current) {
       silentAudio?.pause();
       ensureProxyAudio().pause();
       player?.pauseVideo?.();
       releaseWakeLock();
-      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: false, isEnded: false, videoSurfaceIdle: true, surfaceBuffering: false }));
+      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: false, isEnded: false }));
       return;
     }
 
@@ -736,7 +580,7 @@ export function useYouTubePlayer(containerId: string) {
       ensureProxyAudio().play().catch(() => {});
       resumeAudioContext();
       requestWakeLock();
-      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: true, isEnded: isEnded, videoSurfaceIdle: false, surfaceBuffering: isBuffering }));
+      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: true, isEnded: isEnded }));
       return;
     }
 
@@ -747,7 +591,7 @@ export function useYouTubePlayer(containerId: string) {
       ensureProxyAudio().play().catch(() => {});
       resumeAudioContext();
       try { player?.playVideo?.(); } catch {}
-      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: true, isEnded: false, videoSurfaceIdle: !(isPlaying || isBuffering), surfaceBuffering: false }));
+      setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: true, isEnded: false }));
       return;
     }
 
@@ -755,7 +599,7 @@ export function useYouTubePlayer(containerId: string) {
     silentAudio?.pause();
     ensureProxyAudio().pause();
     releaseWakeLock();
-    setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: false, isEnded: isEnded, videoSurfaceIdle: true, surfaceBuffering: false }));
+    setState((s) => ({ ...s, currentTime, duration: duration || s.duration, isPlaying: false, isEnded: isEnded }));
   }, [checkUserPausedFlag]);
 
 
@@ -806,346 +650,222 @@ export function useYouTubePlayer(containerId: string) {
 
 
   useEffect(() => {
-    loadYouTubeAPI().then(() => {
-      // Guarda contra reexecução do efeito (StrictMode/HMR): a API atual anexa
-      // loadVideoById/playVideo na INSTÂNCIA apenas no onReady — uma segunda
-      // construção em cima do iframe deixava playerRef apontando para um
-      // player morto (onReady nunca dispara) e o load era descartado em
-      // silêncio para sempre.
-      if (playerRef.current) return;
-      let host = document.getElementById(containerId);
-      // Após destroy/HMR o slot pode ter virado iframe ou sumir: recria um div
-      // limpo com o mesmo id para a próxima construção.
-      if (host && host.tagName === "IFRAME") {
-        const fresh = document.createElement("div");
-        fresh.id = containerId;
-        host.replaceWith(fresh);
-        host = fresh;
-      }
-      if (!host) return;
-      const pendingAtStart = pendingLoadRef.current;
+    let unmounted = false;
+    let retryTimer: any = null;
 
-      playerRef.current = new window.YT.Player(containerId, {
-        height: "100%",
-        width: "100%",
-        playerVars: {
-          autoplay: 0, // Changed to 0 to prevent accidental autoplay on reload if not requested
-          controls: 0,
-          modestbranding: 1,
-          rel: 0,
-          playsinline: 1,
-          iv_load_policy: 3,
-          cc_load_policy: 0,
-          // Legendas: desligadas por padrão e, quando o usuário liga, preferem
-          // português. `hl` também pinta a UI interna do embed em pt-BR.
-          cc_lang_pref: "pt",
-          hl: "pt-BR",
-          // fs:0 — fullscreen EXCLUSIVO do #yt-fullscreen-container do Xerife.
-          // O botão de tela cheia do embed nem existe (controls:0), mas fs:0
-          // impede qualquer fullscreen nativo disparado de dentro do iframe.
-          // O allowfullscreen que a própria API do YT força no iframe é
-          // removido no onReady logo abaixo.
-          fs: 0,
-          disablekb: 1,
-          origin: window.location.origin,
-          enablejsapi: 1,
-        },
-        events: {
-          onReady: () => {
-            console.debug("[xerife] yt onReady");
-            // Load pendente: loadVideo()/loadVideoAt() foi chamado antes do
-            // player estar pronto (clique no vídeo logo na abertura) — aplica agora.
-            if (pendingLoadRef.current) {
-              const pending = pendingLoadRef.current;
-              pendingLoadRef.current = null;
+    loadYouTubeAPI().then(() => {
+      if (unmounted) return;
+
+      const initPlayer = () => {
+        if (unmounted) return;
+        const el = document.getElementById(containerId);
+        if (!el) {
+          retryTimer = setTimeout(initPlayer, 100);
+          return;
+        }
+        if (playerRef.current) return;
+
+        playerRef.current = new window.YT.Player(containerId, {
+          height: "100%",
+          width: "100%",
+          playerVars: {
+            autoplay: 1,
+            controls: 0,
+            modestbranding: 1,
+            rel: 0,
+            playsinline: 1,
+            iv_load_policy: 3,
+            cc_load_policy: 0,
+            fs: 1,
+            disablekb: 1,
+            origin: window.location.origin,
+            enablejsapi: 1,
+          },
+          events: {
+            onReady: () => {
+              const iframe = playerRef.current?.getIframe?.() as HTMLIFrameElement | null;
+              if (iframe) {
+                iframe.setAttribute('allowfullscreen', 'true');
+                const allowTokens = new Set(
+                  (iframe.getAttribute('allow') || '')
+                    .split(';')
+                    .map((t) => t.trim())
+                    .filter(Boolean)
+                );
+                ['autoplay', 'encrypted-media', 'picture-in-picture', 'fullscreen'].forEach((t) => allowTokens.add(t));
+                iframe.setAttribute('allow', Array.from(allowTokens).join('; '));
+                // Controles 100% próprios: o iframe do YouTube não recebe
+                // toques (gestos internos — double tap seek, swipes —
+                // causavam acionamentos acidentais). Pedido 2026-09-23.
+                iframe.style.pointerEvents = 'none';
+              }
+              applyVolumeToPlayer(targetVolumeRef.current);
+              // Apply persisted captions preference
               try {
                 const p: any = playerRef.current;
-                if (pending.startSeconds != null) {
-                  p?.loadVideoById?.({ videoId: pending.id, startSeconds: pending.startSeconds });
+                const enabled = loadCaptionsPref();
+                if (enabled) {
+                  p?.loadModule?.('captions');
+                  p?.loadModule?.('cc');
                 } else {
-                  p?.loadVideoById?.(pending.id);
+                  p?.unloadModule?.('captions');
+                  p?.unloadModule?.('cc');
                 }
-                setState((s) => ({ ...s, videoId: pending.id, isEnded: false, glyphPaintAt: Date.now(), actionGlyphPaintAt: Date.now() }));
-                console.log("[YT] flush pending load:", pending.id, pending.startSeconds ?? "");
-              } catch (e) {
-                console.warn("[YT] pending load failed:", e);
-              }
-            }
-            const iframe = playerRef.current?.getIframe?.() as HTMLIFrameElement | null;
-            if (iframe) {
-              // Fullscreen EXCLUSIVO do #yt-fullscreen-container do Xerife:
-              // a API oficial do YouTube força allowfullscreen="" na criação
-              // do iframe (www-widgetapi.js) — removemos aqui e NÃO repomos.
-              // Nenhum fullscreen nativo do embed; o do app é CSS/pseudo no
-              // nosso próprio container (requestFullscreen → yt-fullscreen-container).
-              iframe.removeAttribute('allowfullscreen');
-              const allowTokens = new Set(
-                (iframe.getAttribute('allow') || '')
-                  .split(';')
-                  .map((t) => t.trim())
-                  .filter(Boolean)
-              );
-              allowTokens.delete('fullscreen');
-              ['autoplay', 'encrypted-media', 'picture-in-picture'].forEach((t) => allowTokens.add(t));
-              iframe.setAttribute('allow', Array.from(allowTokens).join('; '));
-            }
-            applyVolumeToPlayer(targetVolumeRef.current);
-            // Apply persisted captions preference
-            try {
-              const p: any = playerRef.current;
-              const enabled = loadCaptionsPref();
-              if (enabled) {
-                p?.loadModule?.('captions');
-                p?.loadModule?.('cc');
-              } else {
-                p?.unloadModule?.('captions');
-                p?.unloadModule?.('cc');
-              }
-            } catch {}
-
-            // Apply persisted quality preference & watch YT quality changes
-            try {
-              const p: any = playerRef.current;
-              const savedQ = loadQualityPref();
-              // Lock the range from the very start — this is what YT actually respects.
-              enforceQualityCap(p, savedQ);
-              dispatchQualityChanged(savedQ);
-              // Report initial actual quality (if available) and keep it in sync as YT switches.
-              try {
-                const active = p?.getPlaybackQuality?.();
-                if (active) dispatchQualityActive(active);
               } catch {}
-              p?.addEventListener?.('onPlaybackQualityChange', (ev: any) => {
-                const q = typeof ev === 'string' ? ev : ev?.data;
-                if (!q) return;
-                const pref = loadQualityPref();
-                // If user has a locked preference and YT drifted to a different
-                // level (ABR downgrade, video switch, etc.), re-cap immediately
-                // without a destructive reload — this eliminates the
-                // min↔max oscillation the user reported.
-                if (pref !== "auto" && q !== pref) {
-                  // ORÇAMENTO: no máx. 3 re-caps por faixa. Sem isso, rede que
-                  // não sustenta a resolução travada entra em loop de briga
-                  // (re-cap → rebuffer → downgrade → re-cap…) e o áudio corta
-                  // o tempo todo. Esgotado o orçamento, aceitamos o nível real.
-                  if (qualityRecapsRef.current < 3) {
-                    qualityRecapsRef.current += 1;
+
+              // Apply persisted quality preference & watch YT quality changes
+              try {
+                const p: any = playerRef.current;
+                const savedQ = loadQualityPref();
+                // Lock the range from the very start — this is what YT actually respects.
+                enforceQualityCap(p, savedQ);
+                dispatchQualityChanged(savedQ);
+                // Report initial actual quality (if available) and keep it in sync as YT switches.
+                try {
+                  const active = p?.getPlaybackQuality?.();
+                  if (active) dispatchQualityActive(active);
+                } catch {}
+                p?.addEventListener?.('onPlaybackQualityChange', (ev: any) => {
+                  const q = typeof ev === 'string' ? ev : ev?.data;
+                  if (!q) return;
+                  const pref = loadQualityPref();
+                  if (pref !== "auto" && q !== pref) {
                     enforceQualityCap(playerRef.current, pref);
-                    // Don't dispatch the transient mismatch to the UI — keeps the
-                    // badge stable while we re-lock.
                     return;
                   }
                   dispatchQualityActive(q);
-                  return;
-                }
-                dispatchQualityActive(q);
-              });
-            } catch {}
-
-            // Re-apply adaptive cap when the network changes (Network Info API).
-            // Only relevant while the user preference is "auto" — locked resolutions stay locked.
-            try {
-              const conn: any = (navigator as any).connection;
-              if (conn && typeof conn.addEventListener === "function") {
-                const onNet = () => {
-                  if (loadQualityPref() === "auto" && playerRef.current) {
-                    enforceQualityCap(playerRef.current, "auto");
-                  }
-                };
-                conn.addEventListener("change", onNet);
-              }
-            } catch {}
-            
-            // Restore playback position on initial ready
-            if (state.videoId) {
-              try {
-                const savedTime = localStorage.getItem('demus-current-time');
-                const startSeconds = savedTime ? parseFloat(savedTime) : 0;
-                
-                // Cue or Load without autoplaying immediately unless it was already playing
-                // (though usually we want to return to the frame, not necessarily play)
-                playerRef.current.cueVideoById({
-                  videoId: state.videoId,
-                  startSeconds: startSeconds
                 });
-                console.log('[YT] Restored video pos:', state.videoId, '@', startSeconds);
-              } catch (e) {
-                console.warn('[YT] Failed to restore pos:', e);
-              }
-            }
+              } catch {}
 
-            setState((s) => ({ ...s, isReady: true }));
-          },
-          onStateChange: (event: any) => {
-            const playing = event.data === window.YT.PlayerState.PLAYING;
-            const paused = event.data === window.YT.PlayerState.PAUSED;
-            const ended = event.data === window.YT.PlayerState.ENDED;
-            const buffering = event.data === window.YT.PlayerState.BUFFERING;
-            const isHidden = document.visibilityState === 'hidden';
-
-            // JANELA DO GLIFO CENTRAL: entrar em PLAYING/BUFFERING é a transição
-            // em que o embed pinta seu indicador central (⏸/▶ ~16% da largura).
-            // Renova SÓ glyphPaintAt (disco CenterGlyphCover cobre a pintura) —
-            // NÃO actionGlyphPaintAt: oscilações BUFFERING↔PLAYING da rede não
-            // podem re-armar o lease dos controles em cadeia (senão os controles
-            // nunca mais minimizavam sob rede instável — reporte Netlify).
-            if (playing || buffering) {
-              setState((s) => ({ ...s, glyphPaintAt: Date.now() }));
-            }
-
-            // Handle playlist progression for Xerife Videos
-            if (ended) {
-              if (currentPlaylistVideos.length > 0 && currentPlaylistIndex < currentPlaylistVideos.length - 1) {
-                const nextIndex = currentPlaylistIndex + 1;
-                const nextVideo = currentPlaylistVideos[nextIndex];
-                currentPlaylistIndex = nextIndex;
-                
-                console.info('[YT] Playlist auto-advance:', nextVideo.title);
-                window.dispatchEvent(new CustomEvent('demus:playlist-next', { 
-                  detail: { video: nextVideo, index: nextIndex } 
-                }));
-              }
-            }
-
-            // CRITICAL: Check persisted pause flag before allowing playback
-            if (playing && checkUserPausedFlag()) {
-              console.log('[YT] Play BLOCKED - persisted user pause flag found');
-              playerRef.current?.pauseVideo?.();
-              setState((s) => ({ ...s, isPlaying: false, isEnded: false, videoSurfaceIdle: true, surfaceBuffering: false }));
-              return;
-            }
-
-            console.info('[YT onStateChange]', {
-              state: playing ? 'PLAYING' : paused ? 'PAUSED' : ended ? 'ENDED' : buffering ? 'BUFFERING' : 'OTHER',
-              isHidden,
-              userPaused: userPausedRef.current,
-              shouldBePlaying: shouldBePlayingRef.current,
-            });
-
-            // ── Handle PAUSED state ──
-            if (paused) {
-              const timeSincePause = Date.now() - pauseTimestampRef.current;
-
-              // Página oculta (tela bloqueada / app em segundo plano):
-              // se NÃO foi o usuário que pausou, o iOS/Android suspendeu a mídia.
-              // Precisamos reanimar a sessão de áudio e retomar o player,
-              // garantindo continuidade da reprodução.
-              if (isHidden) {
-                if (!userPausedRef.current && !checkUserPausedFlag() && shouldBePlayingRef.current) {
-                  console.info('[YT] Pausa do sistema em background — retomando');
-                  try { ensureSilentAudio().play().catch(() => {}); } catch {}
-                  try { ensureProxyAudio().play().catch(() => {}); } catch {}
-                  resumeAudioContext();
-                  window.setTimeout(() => {
-                    if (
-                      shouldBePlayingRef.current &&
-                      !userPausedRef.current &&
-                      !checkUserPausedFlag()
-                    ) {
-                      try { playerRef.current?.playVideo?.(); } catch {}
+              // Re-apply adaptive cap when the network changes (Network Info API).
+              try {
+                const conn: any = (navigator as any).connection;
+                if (conn && typeof conn.addEventListener === "function") {
+                  const onNet = () => {
+                    if (loadQualityPref() === "auto" && playerRef.current) {
+                      enforceQualityCap(playerRef.current, "auto");
                     }
-                  }, 120);
-                } else {
-                  console.info('[YT] Pausa em background solicitada pelo usuário — mantendo pausado');
+                  };
+                  conn.addEventListener("change", onNet);
                 }
-                return;
+              } catch {}
+
+              setState((s) => ({ ...s, isReady: true }));
+
+              // Load any queued pending video
+              if (pendingVideoIdRef.current) {
+                const vid = pendingVideoIdRef.current;
+                pendingVideoIdRef.current = null;
+                console.log('[YT] Executing queued loadVideo:', vid);
+                loadVideo(vid);
               }
+            },
+            onStateChange: (event: any) => {
+              const playing = event.data === window.YT.PlayerState.PLAYING;
+              const paused = event.data === window.YT.PlayerState.PAUSED;
+              const ended = event.data === window.YT.PlayerState.ENDED;
+              const buffering = event.data === window.YT.PlayerState.BUFFERING;
+              const isHidden = document.visibilityState === 'hidden';
 
-              // (REMOVIDO 2026-09-21) Nudges/hard-resets de pausa: os
-              // micro-seeks PINTAVAM o bezel central do YouTube (cada seekTo
-              // dispara o feedback de UI do embed) e o display:none 120ms
-              // forçava o embed a re-bootar a UI com o botão no centro —
-              // exatamente o "⏸ estático" que o usuário reporta durante a
-              // reprodução. O app de referência (Alse Switch) pausa com um
-              // simples pauseVideo() e NUNCA teve o sintoma. O estado pausado
-              // fica coberto pelo PausedVideoPoster — o bezel (▶) não vaza.
+              console.info('[YT onStateChange]', {
+                state: playing ? 'PLAYING' : paused ? 'PAUSED' : ended ? 'ENDED' : buffering ? 'BUFFERING' : 'OTHER',
+                isHidden,
+                userPaused: userPausedRef.current,
+                shouldBePlaying: shouldBePlayingRef.current,
+              });
 
-              // Página visível e acabamos de chamar pause() (dentro de 500ms): legítimo
-              if (timeSincePause < 500 && userPausedRef.current) {
-                console.info('[YT] Paused while visible - legitimate user pause');
-                setState((s) => ({ ...s, isPlaying: false, isEnded: false, videoSurfaceIdle: true, surfaceBuffering: false }));
-                return;
-              }
-            }
-
-            // ── Handle PLAYING state ──
-            if (playing) {
-              // Só suprime se o usuário pausou há muito pouco tempo (proteção
-              // contra o autoplay do iframe imediatamente após um pause).
-              if (userPausedRef.current) {
+              // ── Handle PAUSED state ──
+              if (paused) {
                 const timeSincePause = Date.now() - pauseTimestampRef.current;
-                if (timeSincePause < 1200) {
-                  console.info('[YT] Suppressing play - pause acabou de acontecer');
-                  playerRef.current?.pauseVideo?.();
-                  setState((s) => ({ ...s, isPlaying: false, isEnded: false, videoSurfaceIdle: true, surfaceBuffering: false, duration: playerRef.current?.getDuration?.() || s.duration }));
+
+                // Página oculta (tela bloqueada / app em segundo plano):
+                // se NÃO foi o usuário que pausou, o iOS/Android suspendeu a mídia.
+                if (isHidden) {
+                  if (!userPausedRef.current && shouldBePlayingRef.current) {
+                    console.info('[YT] Pausa do sistema em background — retomando');
+                    try { ensureSilentAudio().play().catch(() => {}); } catch {}
+                    try { ensureProxyAudio().play().catch(() => {}); } catch {}
+                    resumeAudioContext();
+                    window.setTimeout(() => {
+                      if (shouldBePlayingRef.current && !userPausedRef.current) {
+                        try { playerRef.current?.playVideo?.(); } catch {}
+                      }
+                    }, 120);
+                  } else {
+                    console.info('[YT] Pausa em background solicitada pelo usuário — mantendo pausado');
+                  }
                   return;
                 }
-                console.info('[YT] Limpando flag de pausa antiga — play permitido');
+
+                // Página visível e acabamos de chamar pause() (dentro de 500ms): legítimo
+                if (timeSincePause < 500 && userPausedRef.current) {
+                  console.info('[YT] Paused while visible - legitimate user pause');
+                  setState((s) => ({ ...s, isPlaying: false, isEnded: false }));
+                  return;
+                }
+              }
+
+              // ── Handle PLAYING state ──
+              if (playing) {
+                // Só suprime se o usuário pausou há muito pouco tempo
+                if (userPausedRef.current && !shouldBePlayingRef.current) {
+                  const timeSincePause = Date.now() - pauseTimestampRef.current;
+                  if (timeSincePause < 1200) {
+                    console.info('[YT] Suppressing play - pause acabou de acontecer');
+                    playerRef.current?.pauseVideo?.();
+                    setState((s) => ({ ...s, isPlaying: false, isEnded: false, duration: playerRef.current?.getDuration?.() || s.duration }));
+                    return;
+                  }
+                }
+
                 userPausedRef.current = false;
                 clearUserPausedFlag();
+                shouldBePlayingRef.current = true; setShouldBePlayingGlobal(true);
+                errorCountRef.current = 0;
+                ensureSilentAudio().play().catch(() => {});
+                ensureProxyAudio().play().catch(() => {});
+                resumeAudioContext();
+                applyVolumeToPlayer(targetVolumeRef.current);
+                try { window.dispatchEvent(new CustomEvent('demus:playing')); } catch {}
               }
 
-              shouldBePlayingRef.current = true; setShouldBePlayingGlobal(true);
-              errorCountRef.current = 0;
-              ensureSilentAudio().play().catch(() => {});
-              ensureProxyAudio().play().catch(() => {});
-              resumeAudioContext();
-              applyVolumeToPlayer(targetVolumeRef.current);
-              // Clipe trocado: verifica o pouso assim que ha reproducao real,
-              // antes mesmo do proximo tick do polling de 500ms.
-              runClipSyncCheck();
-              // Notify listeners (quality-loading cleanup, etc.) that playback resumed.
-              try { window.dispatchEvent(new CustomEvent('demus:playing')); } catch {}
-            }
+              if (ended) {
+                shouldBePlayingRef.current = false; setShouldBePlayingGlobal(false);
+              }
 
-
-            // REMOVED: Auto-resume logic for system pauses
-            // User must explicitly play if they want to resume
-
-            if (ended) {
+              setState((s) => ({
+                ...s,
+                isPlaying: playing || buffering,
+                isEnded: ended,
+                duration: playerRef.current?.getDuration?.() || 0,
+              }));
+            },
+            onError: (event: any) => {
+              console.warn("YouTube player error:", event.data);
+              errorCountRef.current++;
               shouldBePlayingRef.current = false; setShouldBePlayingGlobal(false);
-            }
+              try { window.dispatchEvent(new CustomEvent('demus:player-error', { detail: { code: event.data } })); } catch {}
+              // Only auto-advance if we haven't hit too many consecutive errors
+              if (errorCountRef.current <= 3) {
+                setState((s) => ({ ...s, isEnded: true, isPlaying: false }));
+              } else {
+                setState((s) => ({ ...s, isPlaying: false, isEnded: false }));
+              }
+            },
+          },
+        });
+      };
 
-            setState((s) => ({
-              ...s,
-              isPlaying: playing || buffering,
-              isEnded: ended,
-              // Superfície real do embed: enquanto o YouTube NÃO confirma
-              // PLAYING/BUFFERING, ele pode (e vai) desenhar seu chrome central
-              // (botão play/bezel) — as máscaras do app precisam estar de pé.
-              videoSurfaceIdle: !playing && !buffering,
-              surfaceBuffering: buffering,
-              duration: playerRef.current?.getDuration?.() || 0,
-            }));
-          },
-          onError: (event: any) => {
-            console.warn("YouTube player error:", event.data);
-            errorCountRef.current++;
-            shouldBePlayingRef.current = false; setShouldBePlayingGlobal(false);
-            // Only auto-advance if we haven't hit too many consecutive errors
-            if (errorCountRef.current <= 3) {
-              setState((s) => ({ ...s, isEnded: true, isPlaying: false, videoSurfaceIdle: true, surfaceBuffering: false }));
-            } else {
-              // Stop trying after 3 consecutive errors to avoid infinite loops
-              setState((s) => ({ ...s, isPlaying: false, isEnded: false, videoSurfaceIdle: true, surfaceBuffering: false }));
-            }
-          },
-        },
-      });
-      console.debug("[xerife] yt player constructed");
+      initPlayer();
     });
 
     return () => {
+      unmounted = true;
+      if (retryTimer) clearTimeout(retryTimer);
       if (intervalRef.current) clearInterval(intervalRef.current);
-      stopClipSyncWatch();
-      // NÃO destroy() aqui: no StrictMode/HMR o effect roda 2x e o slot já
-      // virou iframe — destruir/renullar sem conseguir recriar matava o player
-      // da sessão inteira (onReady nunca dispara → sem loadVideoById/playVideo
-      // → vídeo nunca toca no preview). O Index mantém este hook vivo por toda
-      // a vida da página; um eventual player órfão de HMR perde o iframe ao
-      // ser substituído no próximo mount.
+      playerRef.current?.destroy?.();
     };
-  }, [containerId, applyVolumeToPlayer, runClipSyncCheck, stopClipSyncWatch]);
+  }, [containerId, applyVolumeToPlayer]);
 
 
   // ── Audio Focus / Interruption handling (phone calls, other media apps) ──
@@ -1331,143 +1051,128 @@ export function useYouTubePlayer(containerId: string) {
     };
   }, [applyVolumeToPlayer, syncPlaybackStateFromPlayer]);
 
-  // Track progress and persist state
-  useEffect(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => {
-      const ct = playerRef.current?.getCurrentTime?.() || 0;
-      const dur = playerRef.current?.getDuration?.() || 0;
+  const stateRef = useRef(state);
+  useEffect(() => { stateRef.current = state; }, [state]);
 
-      // Re-sync da verdade da superfície (contra eventos perdidos): se o YT
-      // reverteu silenciosamente para cue/pausado (stream bloqueada, live que
-      // travou, erro sem onError), o estado otimista do app diria "tocando" e
-      // as máscaras centrais ficariam desligadas para sempre — o botão play do
-      // YouTube vazava de forma permanente. Aqui corrigimos em ≤1s.
-      let surfaceIdle: boolean | null = null;
-      try {
-        const st = playerRef.current?.getPlayerState?.();
-        const PSt = window.YT?.PlayerState;
-        if (PSt && st != null) surfaceIdle = !(st === PSt.PLAYING || st === PSt.BUFFERING);
-      } catch {}
-
-      // Watchdog de CONGELAMENTO + RASTEJAMENTO: se o YT ALEGA reprodução
-      // (surfaceIdle === false) mas currentTime não muda por ~3 polls (~3s),
-      // o frame está congelado — o último frame pintado pode conter o bezel
-      // central do YT (o "botão de pause fantasma" que não minimiza com os
-      // controles). E se muda MAS a taxa é ridícula (< 20% do tempo real numa
-      // janela de 3s — ex.: live estagnada avançando 0,2s/s), o frame também
-      // está efetivamente parado com o bezel congelado. Em ambos os casos
-      // tratamos a superfície como idle: disco central volta + controles
-      // reaparecem, até o tempo avançar de novo. Fail-closed contra a mentira
-      // do getPlayerState; BUFFERING legítimo também cai aqui — comportamento
-      // desejado (superfície sem avanço = cobrir).
-      // Limiar de 20% fica ABAIXO do playbackRate mínimo do YouTube (0,25x):
-      // reprodução legítima em 0,25x NUNCA é marcada como rastejamento.
-      if (surfaceIdle === false) {
-        const now = Date.now();
-        const delta = lastAdvancedCtRef.current === null ? Infinity : ct - lastAdvancedCtRef.current;
-        let stalled = false;
-        if (Math.abs(delta) > 0.01) {
-          // Seek grande (|delta| > 1,5s): reinicia a janela de rastreio —
-          // um pulo para trás não é "avanço" nem "rastejamento".
-          if (Math.abs(delta) > 1.5) {
-            crawlWindowStartAtRef.current = now;
-            crawlWindowStartCtRef.current = ct;
-          } else if (crawlWindowStartAtRef.current === null || crawlWindowStartCtRef.current === null) {
-            crawlWindowStartAtRef.current = now;
-            crawlWindowStartCtRef.current = ct;
-          }
-          lastAdvancedCtRef.current = ct;
-          frozenPollsRef.current = 0;
-        } else {
-          frozenPollsRef.current += 1;
-          if (frozenPollsRef.current >= 3) stalled = true;
-        }
-        // RASTEJAMENTO: janela de ≥2s de wall-clock com avanço < 20% => stall.
-        if (crawlWindowStartAtRef.current !== null && crawlWindowStartCtRef.current !== null) {
-          const wallElapsedSec = (now - crawlWindowStartAtRef.current) / 1000;
-          if (wallElapsedSec >= 2) {
-            const mediaAdvancedSec = ct - crawlWindowStartCtRef.current;
-            if (mediaAdvancedSec < wallElapsedSec * 0.2) stalled = true;
-            // Reinicia a janela para a próxima medição.
-            crawlWindowStartAtRef.current = now;
-            crawlWindowStartCtRef.current = ct;
-          }
-        }
-        if (stalled) {
-          surfaceIdle = true;
-          // (REMOVIDO 2026-09-21) Nudge de repaint (seekTo +0,05s) no stall:
-          // seekTo DURANTE a reprodução faz o embed desenhar seu chrome
-          // central de feedback (⏸) — o próprio mecanismo que mantinha o
-          // "botão estático no meio". O fail-closed (poster + controles
-          // reaparecem enquanto a superfície não avança) já cobre o caso.
-        }
-      } else {
-        lastAdvancedCtRef.current = null;
-        frozenPollsRef.current = 0;
-        crawlWindowStartAtRef.current = null;
-        crawlWindowStartCtRef.current = null;
-      }
-
-      // Update local state
+  // Track progress
+  // ── Caminho de reprodução local (Parte 46) ─────────────────────────────
+  const localActiveRef = useRef(false);
+  const loadLocalMedia = useCallback(
+    async (playbackId: string, startSeconds: number) => {
+      const mediaId = localMediaIdFromPlaybackId(playbackId);
+      localActiveRef.current = true;
+      try { playerRef.current?.pauseVideo?.(); } catch {}
       setState((s) => ({
         ...s,
-        currentTime: ct,
-        duration: dur,
-        ...(surfaceIdle != null && s.videoSurfaceIdle !== surfaceIdle ? { videoSurfaceIdle: surfaceIdle } : {}),
+        videoId: playbackId,
+        isPlaying: false,
+        isEnded: false,
+        isReady: true,
+        currentTime: startSeconds > 0 ? startSeconds : 0,
+        duration: 0,
       }));
-
-      // Persist to localStorage for app recovery
-      if (ct > 0) {
-        localStorage.setItem('demus-current-time', ct.toString());
-        localStorage.setItem('demus-current-duration', dur.toString());
+      if (!localUrlResolver) {
+        console.error("[Player local] resolver de mídia não registrado");
+        localActiveRef.current = false;
+        return;
       }
-    }, 1000); // 1s interval is sufficient for persistence
+      const url = await localUrlResolver(mediaId);
+      if (!url) {
+        try { toast.error("Arquivo de áudio local não encontrado no dispositivo"); } catch {}
+        localActiveRef.current = false;
+        return;
+      }
+      const audio = ensureLocalAudio();
+      if (localObjectUrl && localObjectUrl !== url) {
+        try { URL.revokeObjectURL(localObjectUrl); } catch {}
+      }
+      localObjectUrl = url;
+      audio.onloadedmetadata = () => {
+        if (startSeconds > 0) { try { audio.currentTime = startSeconds; } catch {} }
+        setState((s) => ({
+          ...s,
+          duration: Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : s.duration,
+          isReady: true,
+        }));
+      };
+      audio.ontimeupdate = () =>
+        setState((s) => ({
+          ...s,
+          currentTime: audio.currentTime,
+          duration: Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : s.duration,
+        }));
+      audio.onplay = () => setState((s) => ({ ...s, isPlaying: true, isEnded: false, isReady: true }));
+      audio.onpause = () => setState((s) => (s.isPlaying ? { ...s, isPlaying: false } : s));
+      audio.onended = () =>
+        setState((s) => ({
+          ...s,
+          isPlaying: false,
+          isEnded: true,
+          currentTime: Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : s.currentTime,
+        }));
+      audio.volume = normalizeVolume(targetVolumeRef.current) / 100;
+      try { audio.src = url; } catch {}
+      try { await audio.play(); } catch { /* autoplay bloqueado: usuário aperta play */ }
+    },
+    [targetVolumeRef]
+  );
+  const loadLocalMediaRef = useRef(loadLocalMedia);
+  useEffect(() => { loadLocalMediaRef.current = loadLocalMedia; }, [loadLocalMedia]);
+  const stopLocalMedia = useCallback(() => {
+    localActiveRef.current = false;
+    try { localAudio?.pause(); } catch {}
+    setState((s) => (s.isPlaying || s.isEnded ? { ...s, isPlaying: false, isEnded: false } : s));
+  }, []);
+  const stopLocalMediaRef = useRef(stopLocalMedia);
+  useEffect(() => { stopLocalMediaRef.current = stopLocalMedia; }, [stopLocalMedia]);
 
+  // ── Relógio de reprodução (250 ms) ───────────────────────────────────────
+  // Parte 55: o intervalo lia SEMPRE `playerRef` (o iframe do YouTube).
+  // Numa faixa LOCAL (upload) o iframe não tem vídeo carregado, então
+  // `getCurrentTime()` devolvia 0 e o estado era reescrito com currentTime = 0 a
+  // cada 250 ms — disputando com o `ontimeupdate` do <audio>, que traz o tempo
+  // real. No aparelho isso aparecia como o slider do player "piscando" (pulava
+  // para o começo e voltava ~4x/s). Agora a fonte do relógio segue quem toca.
+  useEffect(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (state.isPlaying) {
+      intervalRef.current = setInterval(() => {
+        const isLocal = localActiveRef.current && !!localAudio;
+        const ct = isLocal
+          ? Number(localAudio?.currentTime || 0)
+          : playerRef.current?.getCurrentTime?.() || 0;
+        const dur = isLocal
+          ? Number(localAudio?.duration)
+          : playerRef.current?.getDuration?.() || 0;
+        setState((s) => ({
+          ...s,
+          currentTime: ct,
+          // nunca regride para 0: uma leitura vazia (metadado ainda carregando)
+          // não pode zerar a duração já conhecida, senão a barra reinicia.
+          duration: Number.isFinite(dur) && dur > 0 ? dur : s.duration,
+        }));
+      }, 250);
+    }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, []); // Run always to track position even if paused (but player API only returns ct if ready)
-
-  /**
-   * Aplica a preferência de legendas ao embed (loadModule/unloadModule + setOption).
-   * Precisa existir ANTES de loadVideo/loadVideoAt: ambos re-forçam o estado após
-   * cada troca de faixa, porque o YouTube reseta os módulos internos do player
-   * ao carregar um vídeo novo — sem isso, legendas "mortas" renasciam sozinhas.
-   */
-  const applyCaptionsState = useCallback((enabled: boolean) => {
-    try {
-      const p: any = playerRef.current;
-      if (!p) return;
-      if (enabled) {
-        p.loadModule?.('captions');
-        p.loadModule?.('cc');
-        try { p.setOption?.('captions', 'reload', true); } catch {}
-      } else {
-        p.unloadModule?.('captions');
-        p.unloadModule?.('cc');
-        try { p.setOption?.('captions', 'track', {}); } catch {}
-        try { p.setOption?.('cc', 'track', {}); } catch {}
-      }
-    } catch (e) {
-      console.warn('applyCaptionsState error:', e);
-    }
-  }, []);
+  }, [state.isPlaying]);
 
   const loadVideo = useCallback((videoId: string) => {
-    // Troca de faixa invalida qualquer alvo de alinhamento da faixa anterior.
-    stopClipSyncWatch();
-    clipSyncRef.current = { ...clipSyncRef.current, targetSec: null, corrections: 0, userSeekedSince: false };
-    // Nova faixa: orçamento de briga de qualidade recomeça.
-    qualityRecapsRef.current = 0;
-    if (playerRef.current?.loadVideoById) {
-      clearUserPausedFlag(); // Clear persistent flag when loading new video
-      userPausedRef.current = false;
-      shouldBePlayingRef.current = true; setShouldBePlayingGlobal(true);
-      errorCountRef.current = 0;
-      ensureSilentAudio().play().catch(() => {});
-      resumeAudioContext();
+    if (!videoId) return;
+    if (isLocalPlaybackId(videoId)) {
+      void loadLocalMediaRef.current?.(videoId, 0);
+      return;
+    }
+    if (localActiveRef.current) stopLocalMediaRef.current?.();
+    clearUserPausedFlag(); // Clear persistent flag when loading new video
+    userPausedRef.current = false;
+    shouldBePlayingRef.current = true; setShouldBePlayingGlobal(true);
+    errorCountRef.current = 0;
+    ensureSilentAudio().play().catch(() => {});
+    resumeAudioContext();
 
+    if (playerRef.current?.loadVideoById) {
       // ── Padroniza a qualidade para TODOS os vídeos ─────────────────────
       // Sem esta etapa, YT escolhe uma resolução com base no tamanho atual
       // do iframe e só depois o hint é aplicado — provocando a alternância
@@ -1502,17 +1207,10 @@ export function useYouTubePlayer(containerId: string) {
       applyVolumeToPlayer(targetVolumeRef.current);
       setTimeout(() => applyVolumeToPlayer(targetVolumeRef.current), 200);
 
-      // Re-força a preferência de legendas: o YouTube reseta os módulos internos
-      // (captions/cc) ao carregar um vídeo novo — logo após o load ele pode
-      // reexibir legendas mesmo com a preferência desligada. Reforço imediato
-      // + outro dentro da janela de 1,2s (mesmo prazo do re-cap de qualidade).
-      applyCaptionsState(loadCaptionsPref());
-
       // Reforça a trava após o load (YT reseta parâmetros internos ao trocar
       // de vídeo) e devolve o iframe ao tamanho visual normal.
       setTimeout(() => {
         enforceQualityCap(playerRef.current, loadQualityPref());
-        applyCaptionsState(loadCaptionsPref());
         if (iframe && restoreIframe) {
           iframe.style.width = restoreIframe.w || "100%";
           iframe.style.height = restoreIframe.h || "100%";
@@ -1521,40 +1219,32 @@ export function useYouTubePlayer(containerId: string) {
         }
       }, 1200);
 
-      setState((s) => ({ ...s, videoId, currentTime: 0, isEnded: false, glyphPaintAt: Date.now(), actionGlyphPaintAt: Date.now() }));
+      setState((s) => ({ ...s, videoId, currentTime: 0, isEnded: false }));
       console.log('[YT] Loading new video:', videoId, 'quality-lock:', savedQ);
     } else {
-      // Player ainda sem onReady — a API atual só anexa loadVideoById/playVideo
-      // na instância QUANDO o ready dispara. Antes esta chamada era descartada
-      // em silêncio (vídeo nunca carregava no preview). Enfileira para o flush
-      // do onReady; o state já registra o vídeo para os guards de anti-restart.
-      pendingLoadRef.current = { id: videoId };
-      setState((s) => ({ ...s, videoId, isEnded: false }));
-      console.log('[YT] loadVideo queued (player not ready):', videoId);
+      console.log('[YT] Player not ready yet, queuing pending videoId:', videoId);
+      pendingVideoIdRef.current = videoId;
+      setState((s) => ({ ...s, videoId, currentTime: 0, isEnded: false }));
     }
-  }, [applyVolumeToPlayer, applyCaptionsState, clearUserPausedFlag]);
+  }, [applyVolumeToPlayer, clearUserPausedFlag]);
 
   /**
-   * Xerife Music — troca o clipe do modo Vídeo preservando o instante de
+   * Alse Music — troca o clipe do modo Vídeo preservando o instante de
    * reprodução do áudio, com crossfade curto (~180ms) para evitar estalos.
    * `startSeconds` deve ser `audioTime + clipOffsetSeconds`.
    */
   const loadVideoAt = useCallback((videoId: string, startSeconds: number, opts?: { crossfade?: boolean }) => {
-    const p: any = playerRef.current;
-    if (!p?.loadVideoById) {
-      // Player sem ready: enfileira com a posição para o flush do onReady
-      // (mesma fila do loadVideo — nunca descartar a troca em silêncio).
-      pendingLoadRef.current = { id: videoId, startSeconds: Math.max(0, startSeconds || 0) };
-      setState((s) => ({ ...s, videoId, currentTime: Math.max(0, startSeconds || 0), isEnded: false }));
-      console.log('[YT] loadVideoAt queued (player not ready):', videoId, startSeconds);
+    if (isLocalPlaybackId(videoId)) {
+      void loadLocalMediaRef.current?.(videoId, Math.max(0, startSeconds || 0));
       return;
     }
+    if (localActiveRef.current) stopLocalMediaRef.current?.();
+    const p: any = playerRef.current;
+    if (!p?.loadVideoById) return;
     clearUserPausedFlag();
     userPausedRef.current = false;
     shouldBePlayingRef.current = true; setShouldBePlayingGlobal(true);
     errorCountRef.current = 0;
-    // Nova faixa: orçamento de briga de qualidade recomeça.
-    qualityRecapsRef.current = 0;
     ensureSilentAudio().play().catch(() => {});
     resumeAudioContext();
 
@@ -1573,17 +1263,9 @@ export function useYouTubePlayer(containerId: string) {
       } catch {
         try { p.loadVideoById(videoId); } catch {}
       }
-      setState((s) => ({ ...s, videoId, currentTime: Math.max(0, startSeconds || 0), isEnded: false, glyphPaintAt: Date.now(), actionGlyphPaintAt: Date.now() }));
-      // Re-força a preferência de legendas (YT reseta módulos no load — ver loadVideo).
-      applyCaptionsState(loadCaptionsPref());
+      setState((s) => ({ ...s, videoId, currentTime: Math.max(0, startSeconds || 0), isEnded: false }));
       // Re-enforce cap + volume shortly after
-      setTimeout(() => {
-        enforceQualityCap(playerRef.current, loadQualityPref());
-        applyCaptionsState(loadCaptionsPref());
-      }, 1200);
-      // O YouTube ancora em keyframe, nao no segundo pedido: abre a janela de
-      // observacao para corrigir o pouso com no maximo 2 seeks discretos.
-      startClipSyncWatch(Math.max(0, startSeconds || 0));
+      setTimeout(() => enforceQualityCap(playerRef.current, loadQualityPref()), 1200);
     };
 
     if (doFade) {
@@ -1599,7 +1281,7 @@ export function useYouTubePlayer(containerId: string) {
       applyLoad();
       applyVolumeToPlayer(originalVol);
     }
-  }, [applyVolumeToPlayer, applyCaptionsState, clearUserPausedFlag, startClipSyncWatch]);
+  }, [applyVolumeToPlayer, clearUserPausedFlag]);
 
   /**
    * Pré-carrega o clipe oficial em um iframe oculto para aquecer o cache do
@@ -1608,12 +1290,12 @@ export function useYouTubePlayer(containerId: string) {
    */
   const preloadClip = useCallback((videoId: string) => {
     if (!videoId || typeof document === "undefined") return;
-    const id = `xerife-preload-${videoId}`;
+    const id = `alse-preload-${videoId}`;
     if (document.getElementById(id)) return;
     try {
       const f = document.createElement("iframe");
       f.id = id;
-      f.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=0&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3`;
+      f.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=0&mute=1&controls=0&modestbranding=1`;
       f.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;border:0;";
       f.setAttribute("aria-hidden", "true");
       f.setAttribute("tabindex", "-1");
@@ -1625,6 +1307,34 @@ export function useYouTubePlayer(containerId: string) {
 
 
   const play = useCallback(() => {
+    if (localActiveRef.current && localAudio) {
+      clearUserPausedFlag();
+      userPausedRef.current = false;
+      shouldBePlayingRef.current = true; setShouldBePlayingGlobal(true);
+      pauseTimestampRef.current = 0;
+      resumeAudioContext();
+      // A sessão de áudio do iOS/Android pode ter sido suspensa enquanto o
+      // usuário navegava por outra área do app; reacordamos o silêncio e o
+      // proxy (mesmo cuidado do caminho YouTube) para o som voltar de verdade.
+      ensureSilentAudio().play().catch(() => {});
+      ensureProxyAudio().play().catch(() => {});
+      const el = localAudio;
+      void el.play().catch(() => {});
+      // Se em ~350 ms o elemento continuar parado, tenta de novo uma vez e,
+      // no limite, alinha o estado p/ o ícone não mentir (bug relatado: o
+      // toque no mini player parecia não fazer nada).
+      window.setTimeout(() => {
+        if (!el.paused || !shouldBePlayingRef.current || userPausedRef.current) return;
+        try { ensureSilentAudio().play().catch(() => {}); resumeAudioContext(); } catch {}
+        void el.play().catch(() => {});
+        window.setTimeout(() => {
+          if (el.paused && shouldBePlayingRef.current && !userPausedRef.current) {
+            setState((s) => ({ ...s, isPlaying: false }));
+          }
+        }, 700);
+      }, 350);
+      return;
+    }
     trackMetric('play', 'player', { hidden: document.visibilityState === 'hidden' });
     console.info('[Player] play() called - clearing user pause flag');
     clearUserPausedFlag(); // Clear persistent flag
@@ -1632,20 +1342,13 @@ export function useYouTubePlayer(containerId: string) {
     shouldBePlayingRef.current = true; setShouldBePlayingGlobal(true);
     pauseTimestampRef.current = 0; // Reset pause timestamp
     try { localStorage.removeItem('__was_playing'); } catch {}
-    // Resume pinta o indicador central do embed — abre a janela de cobertura.
-    setState((s) => ({ ...s, isPlaying: true, isEnded: false, glyphPaintAt: Date.now(), actionGlyphPaintAt: Date.now() }));
+    setState((s) => ({ ...s, isPlaying: true, isEnded: false }));
     ensureSilentAudio().play().catch((e) => trackMetric('error', 'silent-audio-play', { msg: String(e) }));
     ensureProxyAudio().play().catch((e) => trackMetric('error', 'proxy-audio-play', { msg: String(e) }));
     resumeAudioContext();
     requestWakeLock();
     playerRef.current?.playVideo?.();
     applyVolumeToPlayer(targetVolumeRef.current);
-
-    // (REMOVIDO 2026-09-20) Nudges pós-resume: os micro-seeks faziam o YT
-    // oscilar BUFFERING↔PLAYING logo após o play — cada oscilação re-armava
-    // o timer dos controles do player ("pause sempre ativo" no Netlify).
-    // Nunca apagaram o bezel no device do usuário de qualquer forma; a
-    // solução real é o poster do estado pausado (PausedVideoPoster).
 
     // Em segundo plano / tela bloqueada o iframe pode ignorar o primeiro
     // playVideo() (sessão de áudio ainda reativando). Tentamos novamente.
@@ -1670,14 +1373,14 @@ export function useYouTubePlayer(containerId: string) {
   }, [applyVolumeToPlayer, clearUserPausedFlag]);
 
 
-  // ── PAUSE (modelo Alse Switch, 2026-09-21) ─────────────────────────────────
-  // Pausa LIMPA: apenas pauseVideo() + flags internas. Todo o maquinário
-  // anti-bezel desta função (4 micro-seeks + 3 hard-resets display:none) foi
-  // REMOVIDO — cada seekTo pausado pintava um novo bezel central do YouTube
-  // (feedback de UI do embed) e cada display:none re-bootava a UI do iframe,
-  // deixando o ⏸ congelado que reaparecia ao retomar. O estado pausado já é
-  // coberto pelo PausedVideoPoster no Index/FullscreenOverlay.
   const pause = useCallback(() => {
+    if (localActiveRef.current && localAudio) {
+      setUserPausedFlag();
+      markUserPausedIntent();
+      shouldBePlayingRef.current = false; setShouldBePlayingGlobal(false);
+      try { localAudio.pause(); } catch {}
+      return;
+    }
     trackMetric('pause', 'player', { hidden: document.visibilityState === 'hidden' });
     console.info('[Player] pause() called - marking user pause intent');
     setUserPausedFlag(); // Set persistent flag
@@ -1686,17 +1389,35 @@ export function useYouTubePlayer(containerId: string) {
     playerRef.current?.pauseVideo?.();
   }, [markUserPausedIntent, setUserPausedFlag]);
 
+  /**
+   * Alterna play/pausa usando a FONTE REAL de cada caminho.
+   *
+   * Parte 56: em faixa local (upload) quem manda é o elemento `<audio>` — o
+   * estado do React pode ficar um ciclo atrás (e o mini player, em outra área
+   * do app, parecia não responder ao toque). Para o YouTube seguimos usando o
+   * estado público, que reflete o iframe.
+   */
+  const togglePlay = useCallback(() => {
+    if (localActiveRef.current && localAudio) {
+      const el = localAudio;
+      if (!el.paused) { pause(); return; }
+      if (el.ended) { try { el.currentTime = 0; } catch {} }
+      play();
+      return;
+    }
+    if (stateRef.current.isPlaying) pause();
+    else play();
+  }, [pause, play]);
+
   const seekTo = useCallback((seconds: number) => {
+    if (localActiveRef.current && localAudio) {
+      const safe = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+      try { localAudio.currentTime = safe; } catch {}
+      setState((s) => ({ ...s, currentTime: safe, isEnded: false }));
+      return;
+    }
     const player = playerRef.current;
     if (!player?.seekTo) return;
-
-    // Intencao manual do usuario: derruba qualquer correcao pendente do guard
-    // (o seek do guard chama player.seekTo direto, nunca este wrapper).
-    if (clipSyncRef.current?.targetSec != null) {
-      clipSyncRef.current.userSeekedSince = true;
-      stopClipSyncWatch();
-      clipSyncRef.current.targetSec = null;
-    }
 
     const duration = player.getDuration?.() || 0;
     const safeSeconds = Number.isFinite(seconds)
@@ -1708,9 +1429,6 @@ export function useYouTubePlayer(containerId: string) {
       currentTime: safeSeconds,
       duration: duration || s.duration,
       isEnded: false,
-      // Seek PINTA o feedback central do embed (medido em lab) — janela de cobertura.
-      glyphPaintAt: Date.now(),
-      actionGlyphPaintAt: Date.now(),
     }));
 
     player.seekTo(safeSeconds, true);
@@ -1723,29 +1441,19 @@ export function useYouTubePlayer(containerId: string) {
     }
 
     setTimeout(() => {
-      try {
-        // Confirmação do pouso do seek: durante BUFFERING o getCurrentTime
-        // ainda reporta a posição ANTIGA — re-seek agora causaria um SEGUNDO
-        // corte de áudio (o glitch duplo no seekbar). Espera o buffering
-        // resolver; se o alvo estiver errado de verdade, o próximo seek do
-        // usuário corrige.
-        const st = playerRef.current?.getPlayerState?.();
-        if (st === window.YT?.PlayerState?.BUFFERING) return;
-        const confirmedTime = playerRef.current?.getCurrentTime?.() || 0;
-        if (Math.abs(confirmedTime - safeSeconds) > 1.5) {
-          playerRef.current?.seekTo?.(safeSeconds, true);
-          // Re-seek de confirmação também pinta o glifo — renova disco + lease.
-          setState((s) => ({ ...s, glyphPaintAt: Date.now(), actionGlyphPaintAt: Date.now() }));
-          if (shouldBePlayingRef.current && !userPausedRef.current) {
-            playerRef.current?.playVideo?.();
-          }
+      const confirmedTime = playerRef.current?.getCurrentTime?.() || 0;
+      if (Math.abs(confirmedTime - safeSeconds) > 1.5) {
+        playerRef.current?.seekTo?.(safeSeconds, true);
+        if (shouldBePlayingRef.current && !userPausedRef.current) {
+          playerRef.current?.playVideo?.();
         }
-      } catch {}
+      }
     }, 250);
   }, [applyVolumeToPlayer]);
 
   const setVolume = useCallback((vol: number) => {
     applyVolumeToPlayer(vol);
+    if (localAudio) { try { localAudio.volume = normalizeVolume(vol) / 100; } catch {} }
   }, [applyVolumeToPlayer]);
 
   const pipBusyRef = useRef(false);
@@ -1801,11 +1509,8 @@ export function useYouTubePlayer(containerId: string) {
           const pipIframe = pipWindow.document.createElement('iframe');
           const videoId = state.videoId;
           if (videoId) {
-            // controls=0: a janela PiP é preview — nenhum controle do YouTube.
-            // loop+playlist reinicia o preview ao terminar, evitando a tela de
-            // "Mais vídeos"/endscreen do embed dentro da janela flutuante.
-            pipIframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&loop=1&playlist=${videoId}`;
-            pipIframe.style.cssText = 'width:100%;height:100%;border:none;pointer-events:none;';
+            pipIframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&controls=1`;
+            pipIframe.style.cssText = 'width:100%;height:100%;border:none;';
             pipIframe.allow = 'autoplay; encrypted-media; picture-in-picture';
             pipWindow.document.body.style.margin = '0';
             pipWindow.document.body.style.overflow = 'hidden';
@@ -1832,19 +1537,10 @@ export function useYouTubePlayer(containerId: string) {
 
   const requestFullscreen = useCallback(async (preferredTarget?: HTMLElement | null) => {
     const videoContainer = document.getElementById('yt-fullscreen-container') as HTMLElement | null;
-    const offlinePlayer = document.getElementById('offline-player') as HTMLVideoElement | null;
-
-    const isOfflinePlayerVisible =
-      !!offlinePlayer &&
-      !offlinePlayer.classList.contains('hidden') &&
-      offlinePlayer.getBoundingClientRect().width > 0 &&
-      offlinePlayer.getBoundingClientRect().height > 0;
-
     // Always prefer the yt-fullscreen-container (it holds the YouTube iframe + FullscreenOverlay),
     // even if it's currently off-screen — it will be repositioned via the isFullscreen class.
     const target =
       preferredTarget ||
-      (isOfflinePlayerVisible ? offlinePlayer : null) ||
       videoContainer ||
       playerRef.current?.getIframe?.()?.parentElement;
 
@@ -1884,9 +1580,13 @@ export function useYouTubePlayer(containerId: string) {
         }
       }
 
-      // Sem screen.orientation.lock(): a orientação segue a configuração
-      // (bloqueio de rotação) do próprio dispositivo.
-
+      try {
+        if (screen.orientation && (screen.orientation as any).lock) {
+          await (screen.orientation as any).lock("landscape");
+        }
+      } catch {
+        // orientation lock not supported
+      }
     } catch (err) {
       console.warn("Fullscreen request failed:", err);
       enterPseudoFullscreen();
@@ -1919,8 +1619,13 @@ export function useYouTubePlayer(containerId: string) {
 
     clearPseudo();
     setState((s) => ({ ...s, isFullscreen: false }));
-  }, []);
 
+    try {
+      if (screen.orientation && (screen.orientation as any).unlock) {
+        (screen.orientation as any).unlock();
+      }
+    } catch {}
+  }, []);
 
   // Track fullscreen state
   useEffect(() => {
@@ -1969,7 +1674,7 @@ export function useYouTubePlayer(containerId: string) {
           if (vid) {
             const casted = await castYouTubeVideo({
               videoId: vid,
-              title: (document.title || "Xerife Videos"),
+              title: (document.title || "Alse Videos"),
               thumbnail: `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`,
             });
             if (casted) return;
@@ -2005,6 +1710,7 @@ export function useYouTubePlayer(containerId: string) {
   }, [state.videoId]);
 
   const setPlaybackRate = useCallback((rate: number) => {
+    if (localAudio) { try { localAudio.playbackRate = rate; } catch {} }
     try {
       playerRef.current?.setPlaybackRate?.(rate);
     } catch (e) {
@@ -2195,11 +1901,6 @@ export function useYouTubePlayer(containerId: string) {
         } else {
           p.loadVideoById?.({ videoId, startSeconds, suggestedQuality: quality });
         }
-        // Reload de qualidade pinta o glifo central do embed (feedback de UI) —
-        // sem esta janela, o disco do CenterGlyphCover não cobria e o "botão de
-        // pause" fantasma ficava sobre o vídeo com os controles já ocultos.
-        // Geralmente disparado pelo usuário → renova disco E lease.
-        setState((s) => ({ ...s, glyphPaintAt: Date.now(), actionGlyphPaintAt: Date.now() }));
 
         setTimeout(() => {
           try {
@@ -2286,6 +1987,25 @@ export function useYouTubePlayer(containerId: string) {
   }, []);
 
 
+  const applyCaptionsState = useCallback((enabled: boolean) => {
+    try {
+      const p: any = playerRef.current;
+      if (!p) return;
+      if (enabled) {
+        p.loadModule?.('captions');
+        p.loadModule?.('cc');
+        try { p.setOption?.('captions', 'reload', true); } catch {}
+      } else {
+        p.unloadModule?.('captions');
+        p.unloadModule?.('cc');
+        try { p.setOption?.('captions', 'track', {}); } catch {}
+        try { p.setOption?.('cc', 'track', {}); } catch {}
+      }
+    } catch (e) {
+      console.warn('applyCaptionsState error:', e);
+    }
+  }, []);
+
   const toggleCaptions = useCallback(() => {
     setState((s) => {
       const next = !s.captionsEnabled;
@@ -2309,7 +2029,10 @@ export function useYouTubePlayer(containerId: string) {
 
   // Live current time direto do IFrame (evita drift do state React em iOS/Windows).
   const getCurrentTime = useCallback(() => {
+    if (localActiveRef.current && localAudio) {
+      try { return Number(localAudio.currentTime || 0); } catch { return 0; }
+    }
     try { return Number(playerRef.current?.getCurrentTime?.() || 0); } catch { return 0; }
   }, []);
-  return { state, loadVideo, loadVideoAt, preloadClip, play, pause, seekTo, setVolume, togglePiP, requestAirPlay, requestFullscreen, exitFullscreen, setPlaybackRate, toggleCaptions, proxyAudioElement, getCurrentTime };
+  return { state, loadVideo, loadVideoAt, preloadClip, play, pause, togglePlay, seekTo, setVolume, togglePiP, requestAirPlay, requestFullscreen, exitFullscreen, setPlaybackRate, toggleCaptions, proxyAudioElement, getCurrentTime };
 }
