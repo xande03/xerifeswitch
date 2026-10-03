@@ -118,7 +118,7 @@ if (import.meta.env.PROD && !isNativePlatform() && !isPreviewEnvironment()) {
         }
       } catch { /* offline: mantém a versão atual */ } finally { checking = false; }
     };
-    // SEM ping por visibilitychange (revisão24ª: nenhum disparo por foco).
+    // SEM ping quando a aba volta ao foco (revisão24ª: nenhum disparo por foco).
     // Boot1x (PWA em build antigo) + verificação de fundo a cada24h.
     setTimeout(checkForNewBuild, 3000);
     setInterval(checkForNewBuild, 24 * 60 * 60 * 1000);

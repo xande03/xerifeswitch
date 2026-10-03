@@ -6,7 +6,7 @@ import { isFavoriteChannel, toggleFavoriteChannel, FAV_CHANNELS_EVENT } from "@/
 
 // Persist pagination state per channel so reload retomes onde parou.
 const CHANNEL_PAG_KEY = (name: string, channelId?: string) => `channel_pag:${(channelId || name).toLowerCase().trim()}`;
-const CHANNEL_PAG_TTL = 6 * 60 * 60 * 1000; // 6h
+const CHANNEL_PAG_TTL = 24 * 60 * 60 * 1000; // 24h (revisão25ª)
 interface StoredPagination {
   continuation: string | null;
   extraVideos: VideoResult[];
@@ -28,7 +28,7 @@ function saveStoredPagination(name: string, channelId: string | undefined, data:
 // Cache in-memory por canal: mantém o último snapshot de vídeos para reexibir
 // instantaneamente ao renavegar entre canais sem esperar o auto-refresh.
 const channelVideosCache = new Map<string, { data: any; ts: number }>();
-const CHANNEL_CACHE_TTL = 5 * 60 * 1000;
+const CHANNEL_CACHE_TTL = 24 * 60 * 60 * 1000; // 24h (revisão25ª)
 const channelCacheKey = (name: string, id?: string) => `${(id || name).toLowerCase().trim()}`;
 
 // Scroll por aba, por canal — persistido em sessionStorage para restaurar
@@ -161,9 +161,8 @@ const ChannelProfile = ({ channelName, channelId, channelUrl, channelThumbnail, 
     {
       enabled: true,
       // Sincronização a cada 30 minutos — mais frequente para garantir que
-      // publicações recentes apareçam rapidamente. Novo conteúdo também é
-      // verificado imediatamente ao voltar à aba/app (visibilitychange + focus).
-      interval: 30 * 60 * 1000,
+      // publicações recentes apareçam rapidamente. SEM polling nem refresh por
+      // visibilitychange/focus (revisões22ª/25ª: zero pulso de rede).
       onNewContent: (count) => {
         toast({
           title: "Novo conteúdo disponível!",

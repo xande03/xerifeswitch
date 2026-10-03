@@ -1,8 +1,39 @@
 # Status do Xerife Music
 
-Atualizado em 2026-10-03 (24ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-10-03 (25ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-10-03 (25ª) — GARANTIA de egress: guard estático + tetos codificados
+
+Pedido: "me certifique e garanta que o egress nunca seja alterado ou aumentado
+exponencialmente."
+
+- **`scripts/check-egress-guard.mjs` acoplado ao `npm run check`** (roda ANTES de
+  typecheck/test/build — regressão de egress = build reprovado). Regras:
+  - **R1** tokens de pulso/heartbeat proibidos (`app_heartbeat`, pulso de
+    localStorage, mensagens de HEARTBEAT ao SW);
+  - **R2** todo `setInterval` com chamada de rede precisa declarar piso de **24h**;
+  - **R3** nenhum handler de `visibilitychange`/foco pode disparar rede;
+  - **R4** TTLs de fundo obrigatoriamente **≥24h** (tabela de8 constantes);
+  - **R5** edge `youtube-trending`: cache server24h + cap de avatares ≤30;
+    **nenhuma edge function pode ter `setInterval`**;
+  - **R6** tetos numéricos de fanout por ação (7 padrões): descoberta ≤8 seeds,
+    avatares de artista ≤12, favoritos ≤8, subs de podcast ≤6, rádio ≤6, etc.
+- **Guard já pegou1 violação real na1ª rodada**: `PodcastScreen` revalidava por
+  `visibilitychange`+`focus` (fetch a cada foco) → convertido para **intervalo de
+  24h**. Hoje: **PASS em6/6 regras**.
+- **TTLs <24h restantes eliminados**: `CHANNEL_PAG_TTL`6h→24h,
+  `CHANNEL_CACHE_TTL`5min→24h, `POPULAR_THUMBS_TTL`6h→24h, `useArtistAvatars`
+  6h→24h (+ teto de fanout12); opção `interval` morta removida de
+  `useAutoRefreshChannel` (interface +3 callers: Explore/Channel/Podcast).
+- **Certificação de fanouts (nunca exponenciais)**: todos os paralelismos têm
+  teto FIXO em código — descoberta `pickSeeds(8)` (pool estático de24),
+  destaques ≤11 (slices4+2+5), favoritos ≤5+3, rádio ≤5, podcast ≤4+3,
+  avatares ≤12, edge de avatares ≤24 — nenhum loop cresce com dados/usuário;
+  e tudo roda ou por **gesto** ou com **cache ≥24h**.
+- `npm run check` **EXIT=0** (guard PASS, typecheck0, vitest74/74, build, e2e,
+  SMOKE).
 
 ## Sessão 2026-10-03 (24ª) — atualizações de fundo → 24h; pulse/ping/extirpação total (app_heartbeat)
 

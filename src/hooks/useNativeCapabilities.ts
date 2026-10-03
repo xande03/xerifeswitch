@@ -10,8 +10,8 @@ import { useEffect, useRef } from "react";
 export function useNativeCapabilities(isPlaying: boolean) {
   // NOTE: Wake Lock is owned exclusively by useYouTubePlayer to avoid duplicate
   // sentinels competing for navigator.wakeLock. Pull-to-refresh + orientation aqui.
-  // (revisão24ª: o pulso `__bg_heartbeat` de localStorage foi REMOVIDO por completo
-  // — era escrita a cada3s sem nenhum leitor; zero ping.)
+  // (revisão24ª: o pulso de localStorage de3s foi REMOVIDO por completo
+  // — escrita sem nenhum leitor; zero ping.)
 
 
   // Prevent pull-to-refresh on Android Chrome / Brave

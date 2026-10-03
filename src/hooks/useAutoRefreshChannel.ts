@@ -8,7 +8,8 @@ import { useEffect, useRef, useState } from 'react';
 interface AutoRefreshOptions {
   channelId?: string;
   enabled?: boolean;
-  interval?: number;  // Intervalo em ms (padrão: 2 minutos)
+  // (revisão25ª: opção `interval` REMOVIDA — não há mais polling; o hook só
+  // carrega no mount/atualiza por gesto.)
   onNewContent?: (count: number) => void;
 }
 
@@ -19,7 +20,6 @@ export function useAutoRefreshChannel(
   const {
     channelId,
     enabled = true,
-    interval = 2 * 60 * 1000, // 2 minutos (alinhado com cache da Edge Function)
     onNewContent
   } = options;
 

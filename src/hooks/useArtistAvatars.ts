@@ -3,7 +3,7 @@ import { searchYouTubeMusic } from "@/lib/youtubeSearch";
 import { searchYouTubeGeneral } from "@/lib/youtubeGeneralSearch";
 
 const CACHE_KEY = "xerife_artist_avatars_v2";
-const TTL_MS = 6 * 60 * 60 * 1000; // 6h – mantém avatares atualizados
+const TTL_MS = 24 * 60 * 60 * 1000; // 24h (revisão25ª)
 
 interface Entry { url: string; ts: number }
 type Store = Record<string, Entry>;
@@ -65,7 +65,8 @@ export function useArtistAvatars(names: string[]): Record<string, string> {
 
     (async () => {
       const updates: Record<string, string> = { ...initial };
-      await Promise.all(missing.map(async (n) => {
+      // Teto de fanout (revisão25ª): no máximo12 avatares por rodada.
+      await Promise.all(missing.slice(0, 12).map(async (n) => {
         const url = await fetchOne(n);
         if (url) {
           updates[n] = url;

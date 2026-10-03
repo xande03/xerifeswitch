@@ -147,7 +147,7 @@ const POPULAR_PODCASTS = [
 const POPULAR_LIST_VERSION = "v2-thenews";
 
 const POPULAR_THUMBS_KEY = "xerife_popular_podcast_thumbs";
-const POPULAR_THUMBS_TTL = 6 * 60 * 60 * 1000; // 6h — mantém avatares atualizados
+const POPULAR_THUMBS_TTL = 24 * 60 * 60 * 1000; // 24h (revisão25ª)
 const DAILY_STAMP_KEY = "xerife_podcast_daily_stamp";
 
 const PODCAST_CATEGORIES = [
@@ -348,7 +348,6 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
     (name, options) => searchYouTubeGeneral(`${name} podcast episódio`, options),
     {
       enabled: !!channelEpisodes,
-      interval: 2 * 60 * 1000, // 2 minutos
       onNewContent: (count) => {
         toast({
           title: "Novos episódios!",
@@ -627,22 +626,17 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
     init();
   }, [fetchCategory, checkDailyRefresh]);
 
-  // Revalida diariamente quando o app volta ao foco (usuários que deixam aberto por dias)
+  // Revalida a cada 24h (revisão25ª): ANTES era por visibilitychange+focus
+  // (ping a cada foco) — agora só um intervalo diário, piso de24h.
   useEffect(() => {
-    const onFocus = async () => {
-      if (document.visibilityState !== "visible") return;
+    const id = setInterval(async () => {
       const refreshed = checkDailyRefresh();
       if (refreshed) {
         const cat = PODCAST_CATEGORIES.find(c => c.label === activeCategory) || PODCAST_CATEGORIES[0];
         await fetchCategory(cat);
       }
-    };
-    document.addEventListener("visibilitychange", onFocus);
-    window.addEventListener("focus", onFocus);
-    return () => {
-      document.removeEventListener("visibilitychange", onFocus);
-      window.removeEventListener("focus", onFocus);
-    };
+    }, 24 * 60 * 60 * 1000);
+    return () => clearInterval(id);
   }, [activeCategory, fetchCategory, checkDailyRefresh]);
 
   useEffect(() => {

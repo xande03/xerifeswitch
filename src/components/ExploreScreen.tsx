@@ -131,7 +131,6 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
     },
     {
       enabled: query.length >= 2 && results.length > 0,
-      interval: 2 * 60 * 1000, // 2 minutos
       onNewContent: (count) => {
         toast({
           title: "Novos resultados disponíveis!",
