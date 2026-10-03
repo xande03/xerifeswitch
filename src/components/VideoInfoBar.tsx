@@ -377,7 +377,7 @@ const VideoInfoBar = ({
             onClick={() => {
               const now = toggleFavoriteChannel({
                 name: song.artist,
-                thumbnail: song.cover || undefined,
+                thumbnail: song.channelThumbnail || song.cover || undefined,
               });
               setIsFav(now);
               toast.success(now ? "Canal favoritado" : "Canal removido dos favoritos");

@@ -20,7 +20,12 @@ serve(async (req) => {
     if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs, corsHeaders);
 
     // Server-side cache: trending is the same for ALL users, cache 30 min
-    const results = await cachedFetch("trending_BR", () => fetchTrendingFromYouTubeMusic(), { ttlMs: 30 * 60 * 1000 });
+    // (enriquecido com channelThumbnail = logo REAL do canal/artista)
+    const results = await cachedFetch("trending_BR", async () => {
+      const songs = await fetchTrendingFromYouTubeMusic();
+      await attachChannelAvatars(songs);
+      return songs;
+    }, { ttlMs: 30 * 60 * 1000 });
 
     return new Response(JSON.stringify({ results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -33,6 +38,56 @@ serve(async (req) => {
     );
   }
 });
+
+/**
+ * Anexa channelThumbnail (logo real do canal) resolvendo os browseId UC
+ * extraídos do charts via innertube WEB (metadata.channelMetadataRenderer.avatar).
+ * Best-effort: falhas deixam "" e a UI usa o fallback de inicial.
+ */
+async function attachChannelAvatars(songs: any[]): Promise<void> {
+  try {
+    const ids: string[] = [];
+    for (const s of songs) {
+      if (s?.channelId && !s.channelThumbnail && !ids.includes(s.channelId)) ids.push(s.channelId);
+    }
+    const targets = ids.slice(0, 24);
+    if (targets.length === 0) return;
+    const pairs = await Promise.all(
+      targets.map(async (id): Promise<[string, string]> => [id, await fetchChannelAvatar(id)])
+    );
+    const byId: Record<string, string> = {};
+    for (const [id, url] of pairs) if (url) byId[id] = url;
+    for (const s of songs) {
+      if (s?.channelId && !s.channelThumbnail && byId[s.channelId]) {
+        s.channelThumbnail = byId[s.channelId];
+      }
+    }
+  } catch { /* best-effort */ }
+}
+
+async function fetchChannelAvatar(channelId: string): Promise<string> {
+  try {
+    const res = await fetch(
+      "https://www.youtube.com/youtubei/v1/browse?alt=json&key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0" },
+        body: JSON.stringify({
+          context: { client: { clientName: "WEB", clientVersion: "2.20240101.00.00", hl: "pt", gl: "BR" } },
+          browseId: channelId,
+        }),
+        signal: AbortSignal.timeout(5000),
+      }
+    );
+    if (!res.ok) return "";
+    const data = await res.json();
+    const thumbs = data?.metadata?.channelMetadataRenderer?.avatar?.thumbnails || [];
+    const pick = thumbs[thumbs.length - 1]?.url || thumbs[0]?.url || "";
+    return String(pick).replace(/^\/\//, "https://");
+  } catch {
+    return "";
+  }
+}
 
 async function fetchTrendingFromYouTubeMusic() {
   // Use YouTube Music internal API to get trending/charts
@@ -126,6 +181,7 @@ function parseMusicItem(item: any): any | null {
     let videoId = "";
     let cover = "";
     let duration = 0;
+    let channelId = "";
 
     if (renderer.flexColumns) {
       // musicResponsiveListItemRenderer
@@ -140,6 +196,17 @@ function parseMusicItem(item: any): any | null {
 
       const typeIndicators = ["Música", "Vídeo", "Song", "Video"];
       artist = parts.filter((p: string) => !typeIndicators.includes(p))[0] || "";
+
+      // Canal (artista): browseId UC no run do artista / navegação do item
+      for (const run of secondRuns) {
+        const bid = run?.navigationEndpoint?.browseEndpoint?.browseId;
+        if (typeof bid === "string" && bid.startsWith("UC")) { channelId = bid; break; }
+      }
+      if (!channelId) {
+        const bid = item?.navigationEndpoint?.browseEndpoint?.browseId ||
+                    renderer.navigationEndpoint?.browseEndpoint?.browseId;
+        if (typeof bid === "string" && bid.startsWith("UC")) channelId = bid;
+      }
 
       // Duration
       for (const run of secondRuns) {
@@ -168,6 +235,10 @@ function parseMusicItem(item: any): any | null {
       title = renderer.title?.runs?.[0]?.text || "";
       artist = renderer.subtitle?.runs?.map((r: any) => r.text).join("").replace(/\s*•\s*/g, " ") || "";
       videoId = renderer.navigationEndpoint?.watchEndpoint?.videoId || "";
+      for (const run of renderer.subtitle?.runs || []) {
+        const bid = run?.navigationEndpoint?.browseEndpoint?.browseId;
+        if (typeof bid === "string" && bid.startsWith("UC")) { channelId = bid; break; }
+      }
 
       const thumbnails = renderer.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
       if (thumbnails.length > 0) {
@@ -187,6 +258,7 @@ function parseMusicItem(item: any): any | null {
       cover: cover.startsWith("//") ? `https:${cover}` : (cover || "/placeholder.svg"),
       duration,
       votes: 0,
+      channelId,
     };
   } catch {
     return null;

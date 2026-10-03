@@ -1,8 +1,29 @@
 # Status do Xerife Music
 
-Atualizado em 2026-10-02 (22ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-10-03 (23ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-10-03 (23ª) — logos DOS CANAIS reais e aparentes no Xerife Vídeos + OBS de pausa
+
+OBS vinculante reafirmada: o projeto Supabase **pode ficar pausado livremente (a cada7
+dias); só o usuário retira a pausa, manualmente** — nenhum mecanismo automático existe
+ou será criado (já verificado: zero pulsos/heartbeats).
+
+- **Problema**: cards do Xerife Vídeos mostravam a inicial do canal no lugar do logo.
+  Causa: `youtube-trending` (fonte da seção "Em alta") retornava **0/30** com
+  `channelThumbnail`; `general-search` (favoritos/busca) já retornava **10/10** ✓;
+  a UI (VideoCard grid/lista/large) já sabia renderizar a imagem — faltava o dado.
+- **Fix na edge `youtube-trending`**: extração de `channelId` (browseId UC do artista,
+  nos runs do charts/fallback,30/30) + enriquecimento **paralelo (≤24, timeout5s)**
+  via innertube WEB `browse` → `metadata.channelMetadataRenderer.avatar` (mesma
+  técnica da general-search). Best-effort: falha = "" → UI usa inicial.
+  **Resultado:27/30 com logo real, resposta1,4s (cache30min)**.
+- **Client**: `VideoHomeScreen` passa `channelId` no mapeamento do trending;
+  `Song` ganhou `channelThumbnail?` e o favoritar do `VideoInfoBar` prefere
+  `song.channelThumbnail || song.cover` (logo real quando existe);
+  favoritos via `ChannelProfile` já salvavam o avatar real.
+- `check EXIT=0` (typecheck0, vitest74/74, build, e2e, SMOKE).
 
 ## Sessão 2026-10-02/03 (22ª) — NOVO PROJETO SUPABASE + fim de TODO pulso de egress
 

@@ -125,6 +125,7 @@ async function fetchTrendingVideos(): Promise<VideoResult[]> {
       title: t.title || "",
       channel: t.artist || t.channel || "",
       channelThumbnail: t.channelThumbnail || "",
+      channelId: t.channelId || "",
       thumbnail: t.cover || t.thumbnail || "",
       duration: t.durationText || (t.duration > 0 ? `${Math.floor(t.duration / 60)}:${String(t.duration % 60).padStart(2, "0")}` : ""),
       views: t.views || "",

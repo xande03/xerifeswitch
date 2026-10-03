@@ -11,6 +11,7 @@ export interface Song {
   album: string;
   cover: string;
   duration: number; // seconds
+  channelThumbnail?: string; // logo real do canal (quando disponível)
   votes: number;
   isDownloaded: boolean;
   type?: 'music' | 'video' | 'podcast';
