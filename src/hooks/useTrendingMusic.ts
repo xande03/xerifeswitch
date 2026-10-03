@@ -137,20 +137,10 @@ export function useTrendingMusic() {
 
     load();
 
-    // Só recarrega quando o ciclo de 5 dias virou.
-    const onFocus = () => { if (!getCachedTrending()) refresh(false); };
-    const onVisibility = () => { if (document.visibilityState === "visible") onFocus(); };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
-
-    // Periodic revalidation while tab remains open
-    const intervalId = setInterval(() => { if (!getCachedTrending()) refresh(false); }, 60 * 60 * 1000);
-
+    // Polling horário + refresh por focus/visibility REMOVIDOS (revisão22ª:
+    // zero egress automático; o Top10 nasce do cache/ciclo no carregamento).
     return () => {
       cancelled = true;
-      clearInterval(intervalId);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 

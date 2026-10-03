@@ -402,65 +402,10 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
   const channelGroups = groupByChannel(displayVideos);
   const playlists = groupPlaylists(displayVideos);
 
-  // Auto-refresh do painel de Canais: consulta periódica por data para cada
-  // canal atualmente visível, mesclando uploads novos no topo. Só roda quando
-  // a aba "Canais" está ativa e a página está visível.
+  // Auto-refresh do painel de Canais (tick a cada90s com ~12 buscas + sonde de
+  // visibility) REMOVIDO — revisão22ª: badge de "novo conteúdo" fica inerte;
+  // atualização acontece por navegação/pull-to-refresh do usuário.
   const [channelsFreshCount, setChannelsFreshCount] = useState(0);
-  useEffect(() => {
-    if (activeSection !== "channels") return;
-    if (channelGroups.length === 0) return;
-
-    let cancelled = false;
-    const REFRESH_MS = 90 * 1000; // 1min30s
-
-    const tick = async () => {
-      if (cancelled || document.visibilityState !== "visible") return;
-      const seen = new Set(displayVideos.map((v) => v.videoId));
-      const targets = channelGroups.slice(0, 12); // limita para não sobrecarregar
-      const newOnes: VideoResult[] = [];
-
-      await Promise.all(targets.map(async (g) => {
-        try {
-          const fresh = await searchYouTubeGeneral(g.channel, {
-            channelId: g.channelId,
-            channelName: g.channel,
-            sortByDate: true,
-            fresh: true,
-            limit: 10,
-          });
-          for (const v of fresh) {
-            if (!seen.has(v.videoId)) {
-              seen.add(v.videoId);
-              // Só considera "novo" o que tem menos de 24h — evita empurrar
-              // vídeos antigos que só apareceram por variação da busca.
-              if (ageMinutes(v.publishedTime) < 24 * 60) newOnes.push(v);
-            }
-          }
-        } catch { /* ignore per-channel errors */ }
-      }));
-
-      if (cancelled || newOnes.length === 0) return;
-      setExtraVideos((prev) => [...newOnes, ...prev]);
-      setChannelsFreshCount((n) => n + newOnes.length);
-      toast({
-        title: `${newOnes.length} novo(s) upload(s) dos canais`,
-        description: "Trazidos para o topo da lista",
-      });
-    };
-
-    const id = setInterval(tick, REFRESH_MS);
-    const onVis = () => { if (document.visibilityState === "visible") tick(); };
-    document.addEventListener("visibilitychange", onVis);
-    // Primeira sondagem imediata ao entrar na aba
-    tick();
-
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-      document.removeEventListener("visibilitychange", onVis);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSection, channelGroups.length]);
 
 
   const SECTIONS: { id: SectionTab; icon: React.ElementType; label: string; count?: number }[] = [

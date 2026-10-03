@@ -2,11 +2,10 @@ import { useState, useEffect } from "react";
 import { searchYouTubeGeneral, type VideoResult } from "@/lib/youtubeGeneralSearch";
 
 const CACHE_KEY = "demus_trending_videos_cache";
-// Stale-while-revalidate: serve cache instantly, always revalidate on app open
-// e a cada poucos minutos enquanto a aba está aberta, para que uploads recentes
-// dos canais apareçam sozinhos — sem exigir pull-to-refresh do usuário.
+// Stale-while-revalidate: serve cache instantâneo e revalida UMA vez ao abrir
+// o app (gesto do usuário). Sem polling nem refresh por focus/visibility —
+// zero egress automático ao Supabase (o projeto pode ficar pausado).
 const FRESH_MS = 30 * 60 * 1000;          // 30min considerado fresco (cache)
-const POLL_MS = 3 * 60 * 1000;            // revalida a cada 3min em background
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;   // 24h absoluto
 
 interface CachedVideos {
@@ -114,21 +113,10 @@ export function useTrendingVideos() {
 
     load();
 
-    const onFocus = () => refresh(false);
-    const onVisibility = () => { if (document.visibilityState === "visible") onFocus(); };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
-
-    // Revalidação periódica automática enquanto a aba está aberta — garante
-    // que novos vídeos publicados pelos criadores/canais entrem no feed sem
-    // exigir gesto de puxar-para-atualizar.
-    const intervalId = setInterval(() => refresh(false), POLL_MS);
-
+    // Polling de3min + refresh por focus/visibility REMOVIDOS (revisão22ª:
+    // nenhum pulso automático ao Supabase; revalidação = só na abertura).
     return () => {
       cancelled = true;
-      clearInterval(intervalId);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 

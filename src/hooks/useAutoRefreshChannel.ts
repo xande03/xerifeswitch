@@ -28,7 +28,6 @@ export function useAutoRefreshChannel(
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [newContentCount, setNewContentCount] = useState(0);
   
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const previousDataRef = useRef<any>(null);
   const isActiveRef = useRef(true);
   // IDs já contabilizados — evita loop de notificação para os mesmos vídeos
@@ -89,61 +88,22 @@ export function useAutoRefreshChannel(
     }
   };
 
-  // Configurar polling automático
+  // (polling automático REMOVIDO — revisão22ª: sem pulso de rede ao Supabase)
   useEffect(() => {
-    if (!enabled) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      return;
-    }
+    if (!enabled) return;
     // Reset por canal — evita notificação de vídeos "novos" ao trocar de contexto
     initializedRef.current = false;
     notifiedIdsRef.current = new Set();
 
-    // Busca inicial
+    // Busca inicial (carga de conteúdo no mount). O intervalo de atualização
+    // (2min) e os refreshs por focus/visibility foram REMOVIDOS — revisão22ª:
+    // nenhum pulso automático ao Supabase; atualização = gesto do usuário.
     fetchAndUpdate(false);
 
-    // Configurar intervalo de atualização
-    intervalRef.current = setInterval(() => {
-      console.log(`[AutoRefresh] ⏰ Verificando novos vídeos em ${channelId || 'canal'}...`);
-      fetchAndUpdate(true); // Silent = true para não mostrar loading
-    }, interval);
+    return () => {};
+  }, [enabled, channelId]);
 
-    // Cleanup
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [enabled, channelId, interval]);
-
-  // Detectar quando usuário volta para a aba/app
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && enabled) {
-        console.log('[AutoRefresh] 👁️ Usuário voltou - verificando atualizações...');
-        fetchAndUpdate(true);
-      }
-    };
-
-    const handleFocus = () => {
-      if (enabled) {
-        console.log('[AutoRefresh] 🎯 App focado - verificando atualizações...');
-        fetchAndUpdate(true);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [enabled]);
+  // (refresh por focus/visibility REMOVIDO — revisão22ª, sem pulso de rede)
 
   // Cleanup ao desmontar
   useEffect(() => {
@@ -151,9 +111,6 @@ export function useAutoRefreshChannel(
     
     return () => {
       isActiveRef.current = false;
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
     };
   }, []);
 
