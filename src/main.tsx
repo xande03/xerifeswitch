@@ -118,13 +118,10 @@ if (import.meta.env.PROD && !isNativePlatform() && !isPreviewEnvironment()) {
         }
       } catch { /* offline: mantém a versão atual */ } finally { checking = false; }
     };
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") setTimeout(checkForNewBuild, 800);
-    });
-    // Também no boot: PWA que abriu direto num build antigo (SW ainda
-    // atualizando) recarrega sozinho para o novo em vez de esperar o foco.
+    // SEM ping por visibilitychange (revisão24ª: nenhum disparo por foco).
+    // Boot1x (PWA em build antigo) + verificação de fundo a cada24h.
     setTimeout(checkForNewBuild, 3000);
-    setInterval(checkForNewBuild, 15 * 60 * 1000);
+    setInterval(checkForNewBuild, 24 * 60 * 60 * 1000);
   }
 }
 
@@ -160,8 +157,8 @@ if ("serviceWorker" in navigator) {
             });
           });
 
-          // Check for updates periodically (every 30 min)
-          setInterval(() => { reg.update().catch(() => {}); }, 30 * 60 * 1000);
+          // Check for updates once a day (24h — revisão24ª, sem pulso)
+          setInterval(() => { reg.update().catch(() => {}); }, 24 * 60 * 60 * 1000);
         })
         .catch((err) => console.log("SW registration failed:", err));
     });

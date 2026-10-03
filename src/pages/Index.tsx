@@ -1616,7 +1616,7 @@ const Index = () => {
               if (currentOffline?.paused && offlineShouldBePlayingRef.current && !offlineUserPausedRef.current) {
                 currentOffline.play().catch(() => {});
               }
-              try { localStorage.setItem("__offline_bg_ts", Date.now().toString()); } catch {}
+              // (revisão24ª: escrita __offline_bg_ts removida — ping sem leitor.)
             }, 3000);
           }
         }

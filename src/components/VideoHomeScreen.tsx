@@ -62,7 +62,7 @@ export function isInWatchLater(videoId: string): boolean {
 }
 // ── Recommendation cache ──
 const RECOMMENDATION_CACHE_KEY = "demus_video_recommendations";
-const RECOMMENDATION_TTL = 10 * 60 * 1000; // 10 minutes
+const RECOMMENDATION_TTL = 24 * 60 * 60 * 1000; // 24 horas (revisão24ª)
 
 interface CachedRecommendations {
   videos: VideoResult[];
@@ -342,7 +342,6 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
     },
     {
       enabled: recQueries.length > 0,
-      interval: 3 * 60 * 1000, // 3 minutes
       onNewContent: (count) => {
         toast({
           title: "Novas recomendações!",
@@ -360,7 +359,6 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
     () => fetchTrendingVideos(),
     {
       enabled: true,
-      interval: 4 * 60 * 1000, // 4 minutes
       onNewContent: (count) => {
         toast({
           title: "Novos vídeos em alta!",

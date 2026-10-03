@@ -976,10 +976,8 @@ export function useYouTubePlayer(containerId: string) {
                 playerRef.current?.playVideo?.();
               }
             } catch {}
-            try {
-              navigator.serviceWorker?.controller?.postMessage({ type: 'HEARTBEAT' });
-              localStorage.setItem('__bg_ts', Date.now().toString());
-            } catch {}
+            // (revisão24ª: postMessage HEARTBEAT + __bg_ts REMOVIDOS — eram pings
+            // sem consumidor; o resume de áudio acima continua intacto.)
           }, heartbeatInterval);
         }
       } else if (document.visibilityState === 'visible') {

@@ -19,13 +19,13 @@ serve(async (req) => {
     const rl = checkRateLimit(ip, { maxRequests: 5, windowMs: 60_000 });
     if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs, corsHeaders);
 
-    // Server-side cache: trending is the same for ALL users, cache 30 min
+    // Server-side cache:24h (revisão24ª — chamadas de fundo diárias).
     // (enriquecido com channelThumbnail = logo REAL do canal/artista)
     const results = await cachedFetch("trending_BR", async () => {
       const songs = await fetchTrendingFromYouTubeMusic();
       await attachChannelAvatars(songs);
       return songs;
-    }, { ttlMs: 30 * 60 * 1000 });
+    }, { ttlMs: 24 * 60 * 60 * 1000 });
 
     return new Response(JSON.stringify({ results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -9,39 +9,9 @@ import { useEffect, useRef } from "react";
  */
 export function useNativeCapabilities(isPlaying: boolean) {
   // NOTE: Wake Lock is owned exclusively by useYouTubePlayer to avoid duplicate
-  // sentinels competing for navigator.wakeLock. We only handle background
-  // heartbeat (localStorage ping) + pull-to-refresh + orientation here.
-  const bgIntervalRef = useRef<ReturnType<typeof setInterval>>();
-
-
-  // Background heartbeat: keeps service worker / page lightly active when hidden
-  useEffect(() => {
-    const stop = () => {
-      if (bgIntervalRef.current) {
-        clearInterval(bgIntervalRef.current);
-        bgIntervalRef.current = undefined;
-      }
-    };
-    const start = () => {
-      if (!isPlaying || bgIntervalRef.current) return;
-      bgIntervalRef.current = setInterval(() => {
-        try { localStorage.setItem('__bg_heartbeat', Date.now().toString()); } catch { }
-      }, 3000);
-    };
-    const onVis = () => {
-      if (document.visibilityState === 'hidden') start();
-      else stop();
-    };
-    document.addEventListener('visibilitychange', onVis);
-    window.addEventListener('pagehide', start);
-    window.addEventListener('pageshow', stop);
-    return () => {
-      document.removeEventListener('visibilitychange', onVis);
-      window.removeEventListener('pagehide', start);
-      window.removeEventListener('pageshow', stop);
-      stop();
-    };
-  }, [isPlaying]);
+  // sentinels competing for navigator.wakeLock. Pull-to-refresh + orientation aqui.
+  // (revisão24ª: o pulso `__bg_heartbeat` de localStorage foi REMOVIDO por completo
+  // — era escrita a cada3s sem nenhum leitor; zero ping.)
 
 
   // Prevent pull-to-refresh on Android Chrome / Brave

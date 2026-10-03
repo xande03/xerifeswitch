@@ -1,8 +1,44 @@
 # Status do Xerife Music
 
-Atualizado em 2026-10-03 (23ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-10-03 (24ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-10-03 (24ª) — atualizações de fundo → 24h; pulse/ping/extirpação total (app_heartbeat)
+
+Pedido: "reduza atualizações e chamadas em segundo plano de segundos e minutos para
+24 horas (músicas em alta, vídeos em alta, atualizações e outros). Retire por completo
+o pulso, ping e a edge function app_heartbeat e suas dependências."
+
+- **Banco auditado VIA Management API (SQL real)**: `cron.job` **não existe** (sem
+  pg_cron), extensões = só pg_stat/uuid/pgcrypto/plpgsql/vault (**sem pg_cron, sem
+  net/http**), funções SQL com nome de pulso/heartbeat/ping = **0** (único match =
+  `pg_ident_file_mappings` do catálogo), tabelas `public` = `shared_playlists` +
+  `app_config` (adições IPTV do usuário — sem heartbeat). Edge functions do projeto
+  =19 (11 nossas +8 IPTV/XTREAM do usuário: app-config, epg-sync, live/movie/series/
+  vod/xtream-proxy, playlist-manager) — **nenhuma `app_heartbeat`** (nunca existiu).
+- **Tudo que era fundo <24h → 24h**:
+  - `main.tsx`: check de nova build **15min →24h**; `reg.update()` do SW **30min →
+    24h**; **removido** o check por `visibilitychange` (ping a cada foco);
+  - `VideoHomeScreen`: `RECOMMENDATION_TTL` **10min →24h** (trending já era24h);
+  - `useDiscoverRecommendations`: cache **6h →24h**;
+  - `useTrendingVideos`: abertura **não revalida mais** — serve cache <24h sem
+    chamada (revalida só quando expira ≥24h); `FRESH_MS` de30min removido;
+  - edge `youtube-trending`: cache server-side **30min →24h** (deploy); resposta
+    mantém30 results/27 avatares em1,7s;
+  - `useTrendingMusic` já era ciclo de5 dias ✓; chamadas por GESTO do usuário
+    (abrir tela/buscar/cifra/letra/comentário) permanecem.
+- **Pulse/ping extirpados por completo** (todos eram escrita sem leitor):
+  `__bg_heartbeat` de localStorage (3s, `useNativeCapabilities` — efeito inteiro
+  removido); cadeia `postMessage HEARTBEAT` + `__bg_ts` no player (mantido só o
+  resume de áudio, funcional); escrita `__offline_bg_ts` (mantido o resume do
+  offline); handler `HEARTBEAT` do `sw.js`; hook morto `useMultiChannelAutoRefresh`
+  (interval de rede); props `interval:3min/4min` mortas no `VideoHomeScreen`.
+  Varredura final: **NENHUM setInterval com rede <24h; NENHUM pulse/heartbeat**.
+- Manter locais (sem egress, features): relógio250ms do slider, cleanup do apiCache
+  (60s), sync de reduced-motion (1s), save de progresso de podcast (10s, local),
+  keep-alive de áudio do player (resume — funcional).
+- `check EXIT=0` (typecheck0, vitest74/74, build, e2e, SMOKE).
 
 ## Sessão 2026-10-03 (23ª) — logos DOS CANAIS reais e aparentes no Xerife Vídeos + OBS de pausa
 

@@ -5,8 +5,7 @@ const CACHE_KEY = "demus_trending_videos_cache";
 // Stale-while-revalidate: serve cache instantâneo e revalida UMA vez ao abrir
 // o app (gesto do usuário). Sem polling nem refresh por focus/visibility —
 // zero egress automático ao Supabase (o projeto pode ficar pausado).
-const FRESH_MS = 30 * 60 * 1000;          // 30min considerado fresco (cache)
-const MAX_AGE_MS = 24 * 60 * 60 * 1000;   // 24h absoluto
+const MAX_AGE_MS = 24 * 60 * 60 * 1000;   //24h: cache mais novo que isso = fresco (revisão24ª)
 
 interface CachedVideos {
   videos: VideoResult[];
@@ -102,10 +101,10 @@ export function useTrendingVideos() {
     const load = async () => {
       const cached = readCache();
       if (cached) {
+        // Cache <24h servido SEM revalidação (revisão24ª: atualizações em
+        // segundo plano limitadas a24h — sem chamada na abertura).
         setTrendingVideos(sortByRecency(cached.videos));
         setIsLoading(false);
-        // Always revalidate on app open so newly-uploaded videos surface
-        refresh(false);
       } else {
         await refresh(true);
       }

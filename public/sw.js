@@ -107,11 +107,7 @@ self.addEventListener('message', (event) => {
       }
     }
   }
-  // Heartbeat from background tab — keep the SW alive
-  if (event.data?.type === 'HEARTBEAT') {
-    // Simply acknowledging keeps the SW active
-    event.source?.postMessage?.({ type: 'HEARTBEAT_ACK' });
-  }
+  // (revisão24ª: handler HEARTBEAT removido — dependência do pulso, sem uso.)
 });
 
 // Fetch: smart strategy per request type

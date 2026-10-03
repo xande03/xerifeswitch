@@ -3,7 +3,7 @@ import type { Song } from "@/data/mockSongs";
 import { searchYouTubeMusic } from "@/lib/youtubeSearch";
 
 const CACHE_KEY = "demus_discover_recos_v1";
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas (revisão24ª)
 
 interface Cached {
   songs: Song[];
