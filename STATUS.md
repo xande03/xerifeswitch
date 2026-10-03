@@ -1,8 +1,38 @@
 # Status do Xerife Music
 
-Atualizado em 2026-10-02 (21ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-10-02 (22ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-10-02/03 (22ª) — NOVO PROJETO SUPABASE + fim de TODO pulso de egress
+
+Pedido: "faça a importação e deixe sem pulso (egress)… NÃO QUERO que haja pulso de
+envio; permitindo que o usuário retire a pausa do projeto do supabase manualmente."
+
+- **Estado constatado**: o projeto antigo `fiohpfxftzcadkwkvzuz` está **FORA DO AR**
+  (HTTP000; API dá404 — pausado/removido pelo usuário) → produção sem backend.
+  Projeto novo: `weamuevzsndznanrjndb` (URL/key novas). PAT antigo ``~/.supabase-pat` (token fora do repo)…` perdeu
+  acesso (lista `[]`; deploy =403 `edge_functions_read`) → usuário forneceu PAT novo
+  (``~/.supabase-pat` (token fora do repo)`, gravado em `~/.supabase-pat` **600**).
+- **Remoção total de pulsos (commit `cbd6c1d`)**: eliminados — poll de3min + focus/
+  visibility do `useTrendingVideos`; poll horário do `useTrendingMusic`; poll de2min +
+  focus/visibility do `useAutoRefreshChannel` (mantida só a carga no mount); auto-
+  refresh do painel Canais do `ExploreScreen` (tick a cada90s com até12 buscas).
+  Varredura final: **NENHUM `setInterval` com rede restante**; heartbeats = apenas
+  localStorage (NÃO contam egress); `checkForNewBuild`/SW do `main.tsx` batem no
+  **Netlify** (não Supabase) e permanecem. **Nunca existiu função `app_heartbeat`**
+  (repo semelhante; lista de funções = só as11 feature).
+- **Migração (11/11 funções)**: `fetch-lyrics`, `fetch-chords`, `youtube-video-info`,
+  `youtube-search`, `youtube-general-search`, `youtube-album-tracks`,
+  `youtube-artist-info`, `youtube-download`, `youtube-playlist`, `youtube-trending`,
+  `podcast-search` → deploy todas para `weamuevzsndznanrjndb` (CLI `--project-ref`).
+- **Config trocada**: `.env` (3 vars), `lib/backendConfig.ts` (fallbacks),
+  `integrations/supabase/client.ts`, `supabase/config.toml`; zero `fiohpfx` em código
+  (só história do STATUS). `check EXIT=0`.
+- **Validação no projeto novo**: trending/search/general-search/podcast com resultados;
+  chords `POST` = `source:ug` ✓; lyrics sincronizadas ✓; **video-info9,4s com
+  related=15, comments=40 traduzidos para pt-BR** (campo `lang` = idioma ORIGINAL,
+  conteúdo traduzido). Colab/tableaus e `myhealth`: vazios/infra do usuário, não Cloud.
 
 ## Sessão 2026-10-02 (21ª) — auditoria "sem furos": video-info era ineficaz (29s × aborto de15s) e comentários nunca chegavam
 
