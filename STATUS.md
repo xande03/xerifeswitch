@@ -23,6 +23,15 @@ ou será criado (já verificado: zero pulsos/heartbeats).
   `Song` ganhou `channelThumbnail?` e o favoritar do `VideoInfoBar` prefere
   `song.channelThumbnail || song.cover` (logo real quando existe);
   favoritos via `ChannelProfile` já salvavam o avatar real.
+- **Validação em produção (DOM)**: novo `scripts/check-videos-avatars.mjs`
+  (mobile390×844, entra em "Xerife Videos", dispensa sheet PWA, conta
+  `img.rounded-full[src*=yt3]`) → **PASS:9 logos reais,0 iniciais**;
+  screenshot `/tmp/videos-avatars.png` = avatar real do canal visível.
+  Anotados2 erros de página PRÉ-EXISTENTES (não do escopo): (1) fanout de
+  `useDiscoverRecommendations` aborta no1º wave e recomitente no2º
+  (`net::ERR_ABORTED` + console "Failed to fetch" — UI se recupera);
+  (2) `SyntaxError '<'` = iframe `youtube.com/embed/` montado com id VAZIO
+  (FloatingPiPPlayer/useYouTubePlayer com videoId "" no boot).
 - `check EXIT=0` (typecheck0, vitest74/74, build, e2e, SMOKE).
 
 ## Sessão 2026-10-02/03 (22ª) — NOVO PROJETO SUPABASE + fim de TODO pulso de egress
