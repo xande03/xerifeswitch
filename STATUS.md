@@ -1,8 +1,28 @@
 # Status do Xerife Music
 
-Atualizado em 2026-10-03 (25ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-10-03 (26ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-10-03 (26ª) — migração para o3º projeto `dtzuhqeprqhbxbcbobcn`
+
+Pedido: "faça a migração e garanta sucesso" + OBS repetida (sem `app_heartbeat`,
+pausa manual do Supabase pelo usuário, zero interferência em egress).
+
+- **Projeto novo**: `dtzuhqeprqhbxbcbobcn` (URL/key novas em `.env`,
+  `backendConfig.ts`, `client.ts`, `config.toml`; zero resíduo do anterior no
+  código). PAT novo gravado em `~/.supabase-pat` **600** (nunca no repo).
+- **11/11 Edge Functions implantadas** (lyrics, chords, video-info, search,
+  general-search, album, artist, download, playlist, trending, podcast) —
+  projeto nasceu com **0 funções**; **nenhum `app_heartbeat`**.
+- **Banco auditado (SQL via Management API)**: `cron.job` inexistente (sem
+  pg_cron), **0 funções de pulso**, **0 tabelas em `public`**, extensões =
+  pg_stat/pgcrypto/plpgsql/vault/uuid — nada que gere chamada automática.
+- **Health no novo projeto**: trending30/27 avatares/1,8s (cache24h) ·
+  general-search16/16 avatares · search/podcast/chords/lyrics ✓ ·
+  **video-info9,9s com related=15 e comments=40**.
+- `npm run check` **EXIT=0** (EGRESS GUARD PASS, typecheck0, vitest74/74,
+  build, e2e, SMOKE).
 
 ## Sessão 2026-10-03 (25ª) — GARANTIA de egress: guard estático + tetos codificados
 
