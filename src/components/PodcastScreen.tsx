@@ -403,6 +403,15 @@ const PodcastScreen = ({ onPlayPodcast, currentPodcastId, isPlaying, onAddToPlay
     // Prefetch em background: episódios recentes dos podcasts DIÁRIOS (The News, etc.)
     // Assim quando o usuário clicar em "The News", os eps já estarão em memória.
     const prefetchDaily = async () => {
+      // Teto de egress (revisão27ª): NO MÁXIMO1× por dia — antes rodava a
+      // cada montagem da tela (5 podcasts ×2 buscas com noCache =10 chamadas
+      // por visita à aba). Gate por bucket diário em localStorage.
+      try {
+        const bucket = new Date().toISOString().slice(0, 10);
+        const KEY = "xerife:daily-prefetch";
+        if (localStorage.getItem(KEY) === bucket) return;
+        localStorage.setItem(KEY, bucket);
+      } catch { /* sem storage: roda esta vez */ }
       const daily = POPULAR_PODCASTS.filter((p: any) => p.daily);
       const today = new Date();
       const dateStr = today.toLocaleDateString("pt-BR", { day: "2-digit", month: "long" });

@@ -36,6 +36,10 @@ const TRENDING_QUERIES = [
 type SectionTab = "videos" | "channels" | "playlists" | "comments";
 
 // Parse pt-BR/en "há X unidades" / "X units ago" into approximate minutes.
+// Teto de egress do feed infinito (revisão27ª): no máximo10 páginas
+// automáticas por sessão — impede cascata de buscas em repouso.
+const MAX_EXTRA_PAGES = 10;
+
 function ageMinutes(pt: string): number {
   if (!pt) return Number.MAX_SAFE_INTEGER;
   if (/agora|transmitindo|streaming|now/i.test(pt)) return 0;
@@ -381,6 +385,8 @@ const ExploreScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAddTo
 
     const io = new IntersectionObserver(async (entries) => {
       if (!entries[0]?.isIntersecting || loadingMoreExtras) return;
+      // Teto de egress (revisão27ª): sem página automática além do teto.
+      if (extraPageRef.current >= MAX_EXTRA_PAGES) return;
       setLoadingMoreExtras(true);
       try {
         const seen = new Set(displayVideos.map((v) => v.videoId));

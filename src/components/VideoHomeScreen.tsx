@@ -29,6 +29,9 @@ interface VideoHomeScreenProps {
 // ── Watch Later storage ──
 const WATCH_LATER_KEY = "demus_watch_later";
 
+
+// Teto de egress das recomendações (revisão27ª): máximo12 páginas por sessão.
+const MAX_REC_PAGES = 12;
 export function getWatchLater(): VideoResult[] {
   try {
     return JSON.parse(localStorage.getItem(WATCH_LATER_KEY) || "[]");
@@ -166,6 +169,7 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
   const [visibleRecs, setVisibleRecs] = useState(12);
   const [loadingMoreRecs, setLoadingMoreRecs] = useState(false);
   const [recContinuation, setRecContinuation] = useState<string>();
+  const recPagesRef = useRef(0); // teto de egress (revisão27ª)
   const recsSentinelRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -371,10 +375,13 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
   // Load more recommendations
   const loadMoreRecommendations = useCallback(async () => {
     if (!recContinuation || loadingMoreRecs || recQueries.length === 0) return;
+    // Teto de egress (revisão27ª): no máximo12 páginas por sessão.
+    if (recPagesRef.current >= MAX_REC_PAGES) return;
     setLoadingMoreRecs(true);
     
     try {
       const result = await loadMoreYouTubeGeneral(recContinuation, 20);
+      recPagesRef.current += 1; // consome1 do teto de egress (revisão27ª)
       
       const existingIds = new Set(recommendations.map(v => v.videoId));
       const channelCount = new Map<string, number>();
@@ -539,7 +546,7 @@ const VideoHomeScreen = ({ onPlayVideo, onFullscreenVideo, onChannelClick, onAdd
       if (!entries[0]?.isIntersecting) return;
       if (visibleRecs < recommendations.length) {
         setVisibleRecs((n) => Math.min(n + 6, recommendations.length));
-      } else if (recContinuation && !loadingMoreRecs) {
+      } else if (recContinuation && !loadingMoreRecs && recPagesRef.current < MAX_REC_PAGES) {
         loadMoreRecommendations();
       }
     }, { rootMargin: "400px" });

@@ -174,6 +174,34 @@ const CAP_TABLE = [
   if (!failures.some((f) => f.startsWith("[R6]"))) ok("R6", `${checked}/${CAP_TABLE.length} tetos de fanout respeitados`);
 }
 
+// ── R7: tetos anti-cascata (páginas automáticas, gate diário, noCache) ──
+{
+  const caps = [
+    ["src/components/ExploreScreen.tsx", /MAX_EXTRA_PAGES\s*=\s*(\d+)/, 15, "teto de páginas do Explore"],
+    ["src/components/VideoHomeScreen.tsx", /MAX_REC_PAGES\s*=\s*(\d+)/, 15, "teto de páginas de recomendações"],
+  ];
+  for (const [file, re, max, label] of caps) {
+    const p = join(ROOT, file);
+    let st;
+    try { st = read(p); } catch { fail("R7", `arquivo ausente: ${file}`); continue; }
+    const m = st.match(re);
+    if (!m) { fail("R7", `${label} não encontrado em ${file}`); continue; }
+    if (parseInt(m[1], 10) > max) fail("R7", `${label} = ${m[1]} > máximo ${max}`);
+  }
+  // gate diário do prefetch de podcasts
+  try {
+    if (!read(join(ROOT, "src/components/PodcastScreen.tsx")).includes("xerife:daily-prefetch"))
+      fail("R7", "PodcastScreen: gate diário do prefetch ausente (volta a rodar a cada visita)");
+  } catch { fail("R7", "PodcastScreen.tsx ausente"); }
+  // teto de bypass de cache (noCache: true) em todo o src
+  let bypass = 0;
+  for (const f of files.filter((f) => f.includes("/src/"))) {
+    bypass += (read(f).match(/noCache:\s*true/g) || []).length;
+  }
+  if (bypass > 12) fail("R7", `noCache: true = ${bypass} ocorrências > teto12 (bypass de cache proliferando)`);
+  if (!failures.some((f) => f.startsWith("[R7]"))) ok("R7", `tetos de cascata ok (páginas, gate diário, noCache=${bypass}≤12)`);
+}
+
 // ── veredito ──
 console.log("== EGRESS GUARD ==");
 for (const p of passes) console.log("  PASS", p);

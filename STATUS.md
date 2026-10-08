@@ -1,8 +1,44 @@
 # Status do Xerife Music
 
-Atualizado em 2026-10-03 (26ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-10-03 (27ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-10-03 (27ª) — auditoria: o que PODE causar aumento exponencial do egress
+
+Pedido: "verifique o que pode causar o aumento exponencial do egress do Supabase."
+
+**Vetores encontrados e CORRIGIDOS (2 reais +1 de cadência):**
+1. **Sentinel do Explore sem teto** — paginação automática via IntersectionObserver
+   com `extraPageRef` ilimitado (rotador de queries cicla para sempre; a geometria
+   limita "mais ou menos", mas não havia teto duro) → **`MAX_EXTRA_PAGES = 10`**
+   por sessão + guard no callback.
+2. **Recomendações do Xerife Videos sem teto** — sentinel com continuação eterna
+   (`loadMoreRecommendations` a cada interseção enquanto houver continuation) →
+   **`MAX_REC_PAGES = 12`** por sessão (contador em `recPagesRef`, reset lógico de
+   egress por sessão).
+3. **`prefetchDaily` dos podcasts rodava A CADA MONTAGM da tela** com
+   `fresh+noCache` = **10 chamadas por visita** (5 podcasts ×2) → gate de **1×/dia**
+   (`localStorage xerife:daily-prefetch`).
+
+**Vetores analisados e CONFIRMADOS LIMITADOS (sem ação):**
+- `probeVideoClip` (sonda de clipe):1-2 buscas por faixa NOVA (só se desconhecida),
+  dedup por `inflight`, backoff exponencial **limitado a5 tentativas** (4s→5min),
+  caches local30d (ok) /7d (unavailable) — chamada por gesto (troca de faixa);
+- fallback Invidious do `youtubeSearch`: laço **sequencial com teto = nº de
+  instâncias (9)**, só quando a edge falha;
+- SW: Supabase = pass-through **sempre rede,1:1** (sem cache, sem prefetch —
+  precache é só de assets estáticos);
+- fanouts com teto fixo (guard R6): descoberta8, destaques≤11, favoritos≤5,
+  rádio≤5, podcast≤4+3, avatares≤12, edge avatares≤24/24h;
+- N+1 de thumbnails/imagens = **ytimg/yt3 (não é egress Supabase)**;
+- multi-aba: eventos `storage`/`xerife:` são locais, sem disparo de rede;
+- cache-stampede inicial: mitigado por cache server24h + localStorage.
+
+**Guard ampliado (agora7 regras)**: nova **R7** = tetos de página
+(`MAX_EXTRA_PAGES≤15`, `MAX_REC_PAGES≤15`), gate diário do prefetch obrigatório e
+**`noCache: true` com teto global de12** (hoje=5) — proliferar bypass de cache
+reprova o build. **PASS 7/7**; `npm run check` EXIT=0.
 
 ## Sessão 2026-10-03 (26ª) — migração para o3º projeto `dtzuhqeprqhbxbcbobcn`
 
