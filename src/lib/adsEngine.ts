@@ -92,17 +92,11 @@ function buildLocalPool(): AdItem[] {
 let _remoteCache: LeadCampaignLink[] | null = null;
 let _remoteFetchedAt = 0;
 
-export async function getRemoteAdLinks(force = false): Promise<LeadCampaignLink[]> {
-  if (!force && _remoteCache && Date.now() - _remoteFetchedAt < 30_000) return _remoteCache;
-  try {
-    const { data, error } = await supabase.functions.invoke("ad-links", { method: "GET" });
-    if (error || !data?.ok || !Array.isArray(data.items)) return _remoteCache ?? [];
-    _remoteCache = data.items as LeadCampaignLink[];
-    _remoteFetchedAt = Date.now();
-    return _remoteCache;
-  } catch {
-    return _remoteCache ?? [];
-  }
+export async function getRemoteAdLinks(_force = false): Promise<LeadCampaignLink[]> {
+  // (revisão28ª) Edge `ad-links` NUNCA existiu em nenhum projeto — o invoke era
+  // sempre404 (egress desperdiçado). Removido por completo: retorna só o cache
+  // local (vazio). Se um catálogo remoto voltar no futuro, recriar a função ANTES.
+  return _remoteCache ?? [];
 }
 
 // ── Sorteio anti-repetição + memo per-visit ────────────────────────────────
@@ -157,11 +151,10 @@ export function refreshAds(): void {
 /** Métricas — impression é disparado pelo componente ao entrar na viewport. */
 export function trackAdEvent(linkId: string | undefined, kind: "impression" | "click"): void {
   if (!linkId) return;
-  try {
-    supabase.functions
-      .invoke("ad-links", { body: { link_id: linkId, kind } })
-      .catch(() => {});
-  } catch { /* best-effort */ }
+  // (revisão28ª) Telemetria remota de anúncios REMOVIDA: a edge `ad-links` não
+  // existe (404 a cada impressão/clique = egress puro perdido). No-op proposital
+  // para manter a assinatura dos call sites (AdSlot).
+  void kind;
 }
 
 export { AD_GENDER_POOL_SIZE };

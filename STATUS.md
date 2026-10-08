@@ -1,8 +1,35 @@
 # Status do Xerife Music
 
-Atualizado em 2026-10-03 (27ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
+Atualizado em 2026-10-08 (28ª revisão). **Todos os itens abaixo foram medidos neste checkout**, não
 copiados de relatórios de sessão (o histórico de `*_FINAL.md` / `*_CONCLUIDO.md` da raiz
 ficou em [`docs/history/`](docs/history/) e contém afirmações vencidas).
+
+## Sessão 2026-10-08 (28ª) —4º projeto `ttpxyjsociraplpqmzzm` + auditoria de excesso/duplicatas/funções
+
+Pedido: migrar + "garantir que não haja excesso de dados, dados duplicados, edge
+functions desnecessárias e outras funcionalidades que podem comprometer o aumento
+gradativo do egress."
+
+- **Banco novo auditado (SQL)**: **0 tabelas em `public`** (zero dados, zero
+  duplicatas), **0 usuários auth**, sem pg_cron, sem funções de pulso, extensões =
+  padrão5 → **nada de excesso do lado do banco**.
+- **Funções: NÃO deployamos às11 — só as10 que o app REALMENTE chama** (grep de
+  `createFunctionUrl`/`functions.invoke` com strings literais + zero invocações
+  dinâmicas): lyric, chords, video-info, search, general-search, album, artist,
+  download, playlist, trending. **`podcast-search` foi NEGADA** (nenhum caller no
+  app — podcast vem do general-search) → verificada no ar: **HTTP404** ✓
+  (função desnecessária inexistente = garantido).
+- **`ad-links` = chamada fantasma eliminada**: `trackAdEvent` (impressão/clique de
+  anúncio) e `getRemoteAdLinks` invocavam uma edge **que NUNCA existiu em nenhum
+  projeto** (sempre404) = egress perdido a cada impressão. Ambos **neutrados**
+  (no-op com assinatura preservada; comportamento idêntico — o dado nunca chegou
+  a lugar algum).
+- **Health nas10**: trending30/25 avatares · general-search16/16 · chords/lyrics ✓
+  · video-info related ✓.
+- Credenciais trocadas (.env/backendConfig/client/config.toml), resíduo do
+  projeto anterior =0; PAT novo só em `~/.supabase-pat` (600).
+- `npm run check` **EXIT=0** (EGRESS GUARD PASS7/7, typecheck0, vitest74/74,
+  build, e2e, SMOKE).
 
 ## Sessão 2026-10-03 (27ª) — auditoria: o que PODE causar aumento exponencial do egress
 

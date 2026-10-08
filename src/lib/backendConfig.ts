@@ -2,9 +2,9 @@ import { getClientIp } from "./clientIp";
 
 type QueryValue = string | number | boolean | null | undefined;
 
-const FALLBACK_PROJECT_URL = "https://dtzuhqeprqhbxbcbobcn.supabase.co";
+const FALLBACK_PROJECT_URL = "https://ttpxyjsociraplpqmzzm.supabase.co";
 const FALLBACK_PUBLISHABLE_KEY =
-  "sb_publishable_4uvS_p5xbTOElenBBh2lSw_-9l-JNLg";
+  "sb_publishable_abV9uzI67gdq359BhVoUMw_OzMBDg3T";
 
 function getRawConfig() {
   const projectUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || "";
